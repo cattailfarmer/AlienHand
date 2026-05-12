@@ -6,7 +6,7 @@ void ControlLayer::AddPlayerCommand(std::size_t index, const PlayerCommand& comm
     if (index >= kPlayerCount) {
         return;
     }
-    commands_[index].move += command.move;
+    commands_[index].move += command.move * configs_[index].sensitivity;
     commands_[index].fire = commands_[index].fire || command.fire;
 }
 

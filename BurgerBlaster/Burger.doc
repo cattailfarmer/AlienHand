@@ -1,0 +1,23 @@
+BURGER.COM Burger Blaster game program. 
+
+"Burger Blaster" is a fast-paced arcade-style game with a
+surrealistic twist. Hamburger parts are flying through the air,
+and you must shoot them down in the correct order to make
+complete hamburgers and score points. The program works on any
+IBM PC, PCjr, XT, AT, or compatible with at least 256K of memory,
+DOS 2.0 or higher, and a color/graphics adapter or equivalent
+hardware. It won't run on monochrome systems. Note: If you copy
+BURGER.COM to another disk, the file BURGER.SHP (found elsewhere
+on this disk) must be in the same directory for "Burger Blaster"
+to run. 
+
+BURGER.SHP Burger Blaster data file: This file contains shape
+data for BURGER.COM, the "Burger Blaster" game.  This data file
+must be on the same disk and in the same directory as BURGER.COM
+in order to run "Burger Blaster." 
+
+BURGER.PAS Burger Blaster source code: This file contains the
+source code for BURGER.COM, the "Burger Blaster" game. This file
+is not required to run "Burger Blaster"; it is included for
+programmers who wish to study how the game works. The program was
+written and compiled with Borland International's Turbo Pascal.

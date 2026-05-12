@@ -31,16 +31,6 @@ std::wstring DualMouseInput::GetDeviceName(HANDLE device) {
     return name;
 }
 
-void DualMouseInput::SetCursorHidden(bool hidden) {
-    if (hidden) {
-        while (ShowCursor(FALSE) >= 0) {
-        }
-    } else {
-        while (ShowCursor(TRUE) < 0) {
-        }
-    }
-}
-
 MouseState& DualMouseInput::EnsureMouse(HANDLE device) {
     auto [it, inserted] = state_.mice.try_emplace(device);
     MouseState& mouse = it->second;
@@ -69,38 +59,6 @@ void DualMouseInput::RefreshAssignments() {
     }
 }
 
-void DualMouseInput::UpdateCursorCapture() {
-    if (!window_) {
-        return;
-    }
-
-    RECT rect{};
-    if (GetClientRect(window_, &rect)) {
-        const LONG width = rect.right - rect.left;
-        const LONG height = rect.bottom - rect.top;
-        POINT origin{rect.left, rect.top};
-        ClientToScreen(window_, &origin);
-        rect.left = origin.x;
-        rect.top = origin.y;
-        rect.right = origin.x + width;
-        rect.bottom = origin.y + height;
-        ClipCursor(&rect);
-    }
-
-    if (!cursor_hidden_) {
-        SetCursorHidden(true);
-        cursor_hidden_ = true;
-    }
-}
-
-void DualMouseInput::ReleaseCursorCapture() {
-    ClipCursor(nullptr);
-    if (cursor_hidden_) {
-        SetCursorHidden(false);
-        cursor_hidden_ = false;
-    }
-}
-
 void DualMouseInput::RegisterWindow(HWND window) {
     window_ = window;
 
@@ -110,8 +68,6 @@ void DualMouseInput::RegisterWindow(HWND window) {
     rid.dwFlags = RIDEV_INPUTSINK | RIDEV_DEVNOTIFY;
     rid.hwndTarget = window;
     RegisterRawInputDevices(&rid, 1, sizeof(rid));
-
-    UpdateCursorCapture();
 }
 
 void DualMouseInput::HandleRawInput(HRAWINPUT raw_input) {
@@ -159,11 +115,7 @@ void DualMouseInput::HandleDeviceChange(WPARAM wparam, LPARAM lparam) {
 }
 
 void DualMouseInput::HandleWindowActivation(bool active) {
-    if (active) {
-        UpdateCursorCapture();
-    } else {
-        ReleaseCursorCapture();
-    }
+    (void)active;
 }
 
 void DualMouseInput::AttachControlLayer(ControlLayer* controls) {

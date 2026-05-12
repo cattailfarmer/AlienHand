@@ -1,0 +1,19 @@
+{
+  "created_at": 1778437382.4266367,
+  "events": "events.jsonl",
+  "frames": "frames",
+  "metadata": {
+    "capture_images": true,
+    "capture_window": true,
+    "command": [
+      "C:\\Project\\Codex_Projects\\ReasoningFramework\\AlienHand\\build\\Space Invaders\\Release\\SpaceInvaders.exe"
+    ],
+    "cwd": null,
+    "kind": "process_run",
+    "observe_input": true,
+    "observe_mouse_move": false,
+    "resource_metrics": true,
+    "track_objects": true
+  },
+  "run": "space-test"
+}

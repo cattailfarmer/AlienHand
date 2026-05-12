@@ -5,13 +5,15 @@
 #include <string>
 #include <vector>
 
+#include "AlienHand/AppShell.h"
 #include "AlienHand/ControlLayer.h"
 #include "AlienHand/DualMouse.h"
+#include "AlienHand/VideoSurface.h"
 
 namespace {
 
-constexpr int kClientWidth = 960;
-constexpr int kClientHeight = 600;
+constexpr int kClientWidth = 1280;
+constexpr int kClientHeight = 720;
 constexpr UINT_PTR kFrameTimerId = 1;
 constexpr UINT kFrameMs = 16;
 
@@ -50,39 +52,8 @@ struct Enemy {
     bool alive = true;
 };
 
-struct BackBuffer {
-    HDC dc = nullptr;
-    HBITMAP bitmap = nullptr;
-    HBITMAP previous_bitmap = nullptr;
-    int width = 0;
-    int height = 0;
-};
-
-void LogMessage(const wchar_t* message) {
-    wchar_t path[MAX_PATH];
-    DWORD length = GetTempPathW(MAX_PATH, path);
-    if (length == 0 || length >= MAX_PATH) {
-        return;
-    }
-
-    wcscat_s(path, L"AlienHand.log");
-    HANDLE file = CreateFileW(path, FILE_APPEND_DATA, FILE_SHARE_READ, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (file == INVALID_HANDLE_VALUE) {
-        return;
-    }
-
-    const int bytes_needed = WideCharToMultiByte(CP_UTF8, 0, message, -1, nullptr, 0, nullptr, nullptr);
-    if (bytes_needed > 1) {
-        std::string line(static_cast<std::size_t>(bytes_needed - 1), '\0');
-        WideCharToMultiByte(CP_UTF8, 0, message, -1, line.data(), bytes_needed, nullptr, nullptr);
-        line += "\r\n";
-        DWORD written = 0;
-        WriteFile(file, line.data(), static_cast<DWORD>(line.size()), &written, nullptr);
-    }
-    CloseHandle(file);
-}
-
 struct GameState {
+    alienhand::AppShell shell;
     alienhand::ControlLayer controls;
     alienhand::DualMouseInput input;
     GameMode mode = GameMode::Title;
@@ -95,43 +66,12 @@ struct GameState {
     float enemy_step_timer = 0.0f;
     bool fire_latched[alienhand::kPlayerCount] = {};
     int total_score = 0;
-    BackBuffer buffer;
+    alienhand::VideoSurface video;
     bool window_active = true;
 };
 
 GameState* GetState(HWND window) {
     return reinterpret_cast<GameState*>(GetWindowLongPtrW(window, GWLP_USERDATA));
-}
-
-void ResetBackBuffer(BackBuffer& buffer) {
-    if (buffer.dc && buffer.previous_bitmap) {
-        SelectObject(buffer.dc, buffer.previous_bitmap);
-        buffer.previous_bitmap = nullptr;
-    }
-    if (buffer.bitmap) {
-        DeleteObject(buffer.bitmap);
-        buffer.bitmap = nullptr;
-    }
-    if (buffer.dc) {
-        DeleteDC(buffer.dc);
-        buffer.dc = nullptr;
-    }
-    buffer.width = 0;
-    buffer.height = 0;
-}
-
-void EnsureBackBuffer(BackBuffer& buffer, HDC target_dc, int width, int height) {
-    if (buffer.dc && buffer.width == width && buffer.height == height) {
-        return;
-    }
-
-    ResetBackBuffer(buffer);
-
-    buffer.dc = CreateCompatibleDC(target_dc);
-    buffer.bitmap = CreateCompatibleBitmap(target_dc, width, height);
-    buffer.previous_bitmap = static_cast<HBITMAP>(SelectObject(buffer.dc, buffer.bitmap));
-    buffer.width = width;
-    buffer.height = height;
 }
 
 void ResetWave(GameState& game) {
@@ -179,7 +119,8 @@ void EnterGameOver(GameState& game) {
 
 void SyncCursorMode(GameState& game) {
     const bool want_capture = game.window_active && game.mode == GameMode::Playing;
-    game.input.HandleWindowActivation(want_capture);
+    game.shell.SetActive(game.window_active);
+    game.shell.SetPlaying(want_capture);
 }
 
 float ClampPlayerX(float x) {
@@ -211,8 +152,7 @@ void FireBullet(GameState& game, int owner, float x, float y) {
 void UpdatePlayer(GameState& game, std::size_t index, float dt) {
     Player& player = game.players[index];
     const alienhand::PlayerCommand command = game.controls.GetPlayerCommand(index);
-    const alienhand::PlayerControlConfig config = game.controls.GetPlayerConfig(index);
-    player.x = ClampPlayerX(player.x + command.move * config.sensitivity);
+    player.x = ClampPlayerX(player.x + command.move);
     player.fire_cooldown = std::max(0.0f, player.fire_cooldown - dt);
 
     const bool fire_pressed = command.fire;
@@ -316,6 +256,7 @@ void UpdateEnemies(GameState& game, float dt) {
 
 void UpdateGame(GameState& game, float dt) {
     if (game.mode != GameMode::Playing) {
+        game.controls.ClearTransient();
         return;
     }
 
@@ -348,7 +289,7 @@ void DrawTextBlock(HDC dc, const std::wstring& text, RECT rect) {
     DrawTextW(dc, text.c_str(), -1, &rect, DT_LEFT | DT_TOP | DT_WORDBREAK);
 }
 
-void PaintGame(HWND window, const GameState& game, BackBuffer& buffer) {
+void PaintGame(HWND window, GameState& game) {
     PAINTSTRUCT ps{};
     HDC dc = BeginPaint(window, &ps);
 
@@ -357,35 +298,37 @@ void PaintGame(HWND window, const GameState& game, BackBuffer& buffer) {
 
     const int width = client.right - client.left;
     const int height = client.bottom - client.top;
-    EnsureBackBuffer(buffer, dc, width, height);
+    alienhand::VideoSurface& buffer = game.video;
+    buffer.Ensure(dc, width, height);
 
     HBRUSH background = CreateSolidBrush(RGB(9, 11, 18));
-    FillRect(buffer.dc, &client, background);
+    buffer.Fill(background);
     DeleteObject(background);
 
-    SetBkMode(buffer.dc, TRANSPARENT);
-    SetTextColor(buffer.dc, RGB(235, 238, 243));
+    HDC buffer_dc = buffer.DeviceContext();
+    SetBkMode(buffer_dc, TRANSPARENT);
+    SetTextColor(buffer_dc, RGB(235, 238, 243));
 
     HFONT font = CreateFontW(
         20, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
         CLEARTYPE_QUALITY, FF_DONTCARE, L"Segoe UI");
-    HFONT old_font = static_cast<HFONT>(SelectObject(buffer.dc, font));
+    HFONT old_font = static_cast<HFONT>(SelectObject(buffer_dc, font));
 
     RECT title_rect{24, 16, 500, 60};
-    DrawTextW(buffer.dc, L"AlienHand Space Invaders", -1, &title_rect, DT_LEFT | DT_TOP);
+    DrawTextW(buffer_dc, L"AlienHand Space Invaders", -1, &title_rect, DT_LEFT | DT_TOP);
 
     if (game.mode == GameMode::Title) {
-        DrawTextBlock(buffer.dc, L"Press any mouse button to start", RECT{24, 70, client.right - 24, 160});
+        DrawTextBlock(buffer_dc, L"Press any mouse button to start", RECT{24, 70, client.right - 24, 160});
     } else if (game.mode == GameMode::GameOver) {
-        DrawTextBlock(buffer.dc, L"Game Over. Press any mouse button to restart.", RECT{24, 70, client.right - 24, 160});
+        DrawTextBlock(buffer_dc, L"Game Over. Press any mouse button to restart.", RECT{24, 70, client.right - 24, 160});
     } else if (game.mode == GameMode::Menu) {
         std::wstring menu = L"Menu\n\n";
         menu += game.menu_choice == MenuChoice::Resume ? L"> Resume\n" : L"  Resume\n";
         menu += game.menu_choice == MenuChoice::Configure ? L"> Configure\n" : L"  Configure\n";
         menu += game.menu_choice == MenuChoice::Quit ? L"> Quit\n" : L"  Quit\n";
         menu += L"\nEnter selects, Escape returns to the game.";
-        DrawTextBlock(buffer.dc, menu, RECT{24, 70, client.right - 24, 300});
+        DrawTextBlock(buffer_dc, menu, RECT{24, 70, client.right - 24, 300});
     } else if (game.mode == GameMode::Config) {
         const alienhand::PlayerControlConfig p1 = game.controls.GetPlayerConfig(0);
         const alienhand::PlayerControlConfig p2 = game.controls.GetPlayerConfig(1);
@@ -396,24 +339,24 @@ void PaintGame(HWND window, const GameState& game, BackBuffer& buffer) {
         config += game.config_selection == 1 ? L"> P2 sensitivity: " : L"  P2 sensitivity: ";
         config += std::to_wstring(p2.sensitivity);
         config += L"\n\nUp/Down selects, Left/Right adjusts by 0.1, Escape returns.";
-        DrawTextBlock(buffer.dc, config, RECT{24, 70, client.right - 24, 300});
+        DrawTextBlock(buffer_dc, config, RECT{24, 70, client.right - 24, 300});
     }
 
     if (game.mode == GameMode::Playing) {
         for (const auto& enemy : game.enemies) {
             if (enemy.alive) {
-                DrawRect(buffer.dc, enemy.x - 18.0f, enemy.y - 12.0f, enemy.x + 18.0f, enemy.y + 12.0f, RGB(192, 82, 82));
+                DrawRect(buffer_dc, enemy.x - 18.0f, enemy.y - 12.0f, enemy.x + 18.0f, enemy.y + 12.0f, RGB(192, 82, 82));
             }
         }
         for (const auto& bullet : game.bullets) {
             if (bullet.active) {
-                DrawRect(buffer.dc, bullet.x - 2.0f, bullet.y - 8.0f, bullet.x + 2.0f, bullet.y + 8.0f, RGB(252, 236, 126));
+                DrawRect(buffer_dc, bullet.x - 2.0f, bullet.y - 8.0f, bullet.x + 2.0f, bullet.y + 8.0f, RGB(252, 236, 126));
             }
         }
         for (std::size_t i = 0; i < game.players.size(); ++i) {
             const Player& player = game.players[i];
             const COLORREF color = i == 0 ? RGB(100, 186, 255) : RGB(123, 239, 123);
-            DrawRect(buffer.dc, player.x - 24.0f, 515.0f, player.x + 24.0f, 540.0f, color);
+            DrawRect(buffer_dc, player.x - 24.0f, 515.0f, player.x + 24.0f, 540.0f, color);
         }
     }
 
@@ -434,12 +377,12 @@ void PaintGame(HWND window, const GameState& game, BackBuffer& buffer) {
     hud += game.input.BuildOverlay();
 
     RECT hud_rect{24, 320, client.right - 24, client.bottom - 24};
-    DrawTextBlock(buffer.dc, hud, hud_rect);
+    DrawTextBlock(buffer_dc, hud, hud_rect);
 
-    SelectObject(buffer.dc, old_font);
+    SelectObject(buffer_dc, old_font);
     DeleteObject(font);
 
-    BitBlt(dc, 0, 0, width, height, buffer.dc, 0, 0, SRCCOPY);
+    buffer.Present(dc, 0, 0, width, height);
     EndPaint(window, &ps);
 }
 
@@ -488,20 +431,20 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lpa
 
     switch (message) {
     case WM_CREATE: {
-        LogMessage(L"WM_CREATE enter");
         auto* create = reinterpret_cast<CREATESTRUCTW*>(lparam);
         SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create->lpCreateParams));
         game = reinterpret_cast<GameState*>(create->lpCreateParams);
+        game->shell.AttachWindow(window);
+        RECT client{};
+        GetClientRect(window, &client);
+        game->shell.SetClientSize(client.right - client.left, client.bottom - client.top);
         game->input.AttachControlLayer(&game->controls);
-        LogMessage(L"WM_CREATE before RegisterWindow");
         game->input.RegisterWindow(window);
-        LogMessage(L"WM_CREATE after RegisterWindow");
         ApplyDefaultConfigs(*game);
         ResetGame(*game);
         EnterTitle(*game);
         SyncCursorMode(*game);
-        SetTimer(window, kFrameTimerId, kFrameMs, nullptr);
-        LogMessage(L"WM_CREATE exit");
+        game->shell.StartTimer(window, kFrameTimerId, kFrameMs);
         return 0;
     }
     case WM_INPUT:
@@ -524,12 +467,18 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lpa
     case WM_ACTIVATE:
         if (game) {
             game->window_active = LOWORD(wparam) != WA_INACTIVE;
+            if (!game->window_active && game->mode == GameMode::Playing) {
+                EnterMenu(*game);
+            }
             SyncCursorMode(*game);
         }
         return 0;
     case WM_ACTIVATEAPP:
         if (game) {
             game->window_active = (wparam != FALSE);
+            if (!game->window_active && game->mode == GameMode::Playing) {
+                EnterMenu(*game);
+            }
             SyncCursorMode(*game);
         }
         return 0;
@@ -537,6 +486,11 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lpa
         if (game && wparam == kFrameTimerId) {
             UpdateGame(*game, kFrameMs / 1000.0f);
             InvalidateRect(window, nullptr, FALSE);
+        }
+        return 0;
+    case WM_SIZE:
+        if (game) {
+            game->shell.SetClientSize(LOWORD(lparam), HIWORD(lparam));
         }
         return 0;
     case WM_KEYDOWN:
@@ -592,15 +546,17 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lpa
         return 0;
     case WM_PAINT:
         if (game) {
-            PaintGame(window, *game, game->buffer);
+            PaintGame(window, *game);
             return 0;
         }
         break;
+    case WM_ERASEBKGND:
+        return 1;
     case WM_DESTROY:
         if (game) {
-            ResetBackBuffer(game->buffer);
+            game->video.Reset();
+            game->shell.StopTimer(window, kFrameTimerId);
         }
-        KillTimer(window, kFrameTimerId);
         PostQuitMessage(0);
         return 0;
     default:
@@ -625,23 +581,19 @@ bool CenterWindow(HWND window, int width, int height) {
 
 int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command) {
     GameState game{};
-    LogMessage(L"wWinMain start");
-
     WNDCLASSEXW wc{};
     wc.cbSize = sizeof(wc);
     wc.style = CS_HREDRAW | CS_VREDRAW;
     wc.lpfnWndProc = WindowProc;
     wc.hInstance = instance;
     wc.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    wc.hbrBackground = static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH));
     wc.lpszClassName = L"AlienHandSpaceInvadersWindow";
 
     if (!RegisterClassExW(&wc)) {
-        LogMessage(L"RegisterClassExW failed");
         return 1;
     }
-    LogMessage(L"RegisterClassExW succeeded");
 
-    LogMessage(L"CreateWindowExW begin");
     HWND window = CreateWindowExW(
         0,
         wc.lpszClassName,
@@ -656,26 +608,17 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int show_command) {
         instance,
         &game);
     if (!window) {
-        LogMessage(L"CreateWindowExW failed");
         return 1;
     }
 
-    LogMessage(L"CreateWindowExW succeeded");
-
-    CenterWindow(window, kClientWidth, kClientHeight);
-    LogMessage(L"CenterWindow done");
-    ShowWindow(window, SW_SHOWNORMAL);
-    LogMessage(L"ShowWindow done");
+    game.shell.ApplyWindowChrome(window, true);
     UpdateWindow(window);
-    LogMessage(L"UpdateWindow done");
 
     MSG msg{};
     while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
         TranslateMessage(&msg);
         DispatchMessageW(&msg);
     }
-
-    LogMessage(L"message loop exited");
 
     return static_cast<int>(msg.wParam);
 }

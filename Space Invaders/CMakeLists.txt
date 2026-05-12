@@ -2,7 +2,9 @@ cmake_minimum_required(VERSION 3.20)
 
 project(SpaceInvaders LANGUAGES CXX)
 
-add_subdirectory("../AlienHand" AlienHand-build)
+if(NOT TARGET AlienHand)
+    add_subdirectory("../AlienHand" AlienHand-build)
+endif()
 
 add_executable(SpaceInvaders WIN32
     src/main.cpp

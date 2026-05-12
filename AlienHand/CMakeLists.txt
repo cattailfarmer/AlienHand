@@ -1,6 +1,9 @@
 add_library(AlienHand STATIC
+    src/AppShell.cpp
     src/ControlLayer.cpp
     src/DualMouse.cpp
+    src/VideoSurface.cpp
+    src/Ui.cpp
 )
 
 target_include_directories(AlienHand
@@ -17,4 +20,4 @@ target_compile_definitions(AlienHand PRIVATE
     WIN32_LEAN_AND_MEAN
 )
 
-target_link_libraries(AlienHand PRIVATE user32)
+target_link_libraries(AlienHand PRIVATE user32 gdi32)

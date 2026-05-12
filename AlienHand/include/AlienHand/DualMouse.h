@@ -43,16 +43,12 @@ public:
 private:
     DualMouseState state_;
     HWND window_ = nullptr;
-    bool cursor_hidden_ = false;
     ControlLayer* controls_ = nullptr;
 
     MouseState& EnsureMouse(HANDLE device);
     void RefreshAssignments();
-    void UpdateCursorCapture();
-    void ReleaseCursorCapture();
     static std::wstring GetDeviceName(HANDLE device);
     static std::wstring FormatHandle(HANDLE handle);
-    void SetCursorHidden(bool hidden);
     void ApplyCommandForMouse(HANDLE device, const MouseState& mouse);
 };
 

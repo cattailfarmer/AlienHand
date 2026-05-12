@@ -1,0 +1,11 @@
+[project]
+name = "minesweeper-ai"
+version = "0.1.0"
+description = "AlienHand Minesweeper screen-reading and learning experiment"
+requires-python = ">=3.11"
+
+[project.optional-dependencies]
+ml = ["torch"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "../AlienHand/python"]

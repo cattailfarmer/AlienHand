@@ -1,0 +1,14 @@
+[configuration]
+
+entry_symbol = "alienhand_gdextension_init"
+compatibility_minimum = "4.3"
+reloadable = true
+
+[libraries]
+
+windows.debug.x86_64 = "res://addons/alienhand/bin/alienhand_godot.windows.template_debug.x86_64.dll"
+windows.release.x86_64 = "res://addons/alienhand/bin/alienhand_godot.windows.template_release.x86_64.dll"
+linux.debug.x86_64 = "res://addons/alienhand/bin/libalienhand_godot.linux.template_debug.x86_64.so"
+linux.release.x86_64 = "res://addons/alienhand/bin/libalienhand_godot.linux.template_release.x86_64.so"
+macos.debug = "res://addons/alienhand/bin/libalienhand_godot.macos.template_debug.framework"
+macos.release = "res://addons/alienhand/bin/libalienhand_godot.macos.template_release.framework"

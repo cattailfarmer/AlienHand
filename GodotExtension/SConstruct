@@ -1,0 +1,21 @@
+#!/usr/bin/env python
+
+import os
+
+env = SConscript("godot-cpp/SConstruct")
+
+env.Append(CPPPATH=["src"])
+
+sources = Glob("src/*.cpp")
+
+target_path = os.path.join(
+    "project",
+    "addons",
+    "alienhand",
+    "bin",
+    "alienhand_godot{}{}".format(env["suffix"], env["SHLIBSUFFIX"]),
+)
+
+library = env.SharedLibrary(target_path, source=sources)
+
+Default(library)

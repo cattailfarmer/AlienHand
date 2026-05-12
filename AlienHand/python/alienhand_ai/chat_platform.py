@@ -277,6 +277,164 @@ class IRCNetworkPublisher:
         return line.rstrip("\r\n")
 
 
+class AlienHandChatService:
+    def __init__(
+        self,
+        root: str | Path,
+        *,
+        ergo_root: str | Path | None = None,
+        app_id: int = 1,
+        nick: str = "alienhandagent",
+        port: int | None = None,
+        startup_timeout: float = 30.0,
+        build_timeout: float = 120.0,
+    ) -> None:
+        self.root = Path(root)
+        self.ergo_root = Path(ergo_root) if ergo_root else default_ergo_root()
+        self.app_id = app_id
+        self.nick = nick
+        self.port = port
+        self.startup_timeout = startup_timeout
+        self.build_timeout = build_timeout
+        self.runtime_dir = self.root / "ergo-runtime"
+        self.store = PayloadStore(self.root)
+        self.history = ChannelJSONLHistory(self.root)
+        self.resolver = PayloadResolver(self.store)
+        self.publisher: IRCNetworkPublisher | None = None
+        self.process: subprocess.Popen | None = None
+        self.config_path: Path | None = None
+        self.binary_path: Path | None = None
+        self.stdout_path = self.runtime_dir / "ergo.stdout.log"
+        self.stderr_path = self.runtime_dir / "ergo.stderr.log"
+        self._stdout_file = None
+        self._stderr_file = None
+
+    def start(self) -> "AlienHandChatService":
+        if self.process is not None and self.process.poll() is None:
+            return self
+        if self.process is not None:
+            self.stop()
+        resolved_port = self.port or find_free_port()
+        self.port = resolved_port
+        self.runtime_dir.mkdir(parents=True, exist_ok=True)
+        self.config_path = write_local_ergo_config(self.ergo_root, self.runtime_dir, resolved_port)
+        self.binary_path = build_ergo_binary(self.ergo_root, self.runtime_dir, timeout=self.build_timeout)
+        self._stdout_file = self.stdout_path.open("w", encoding="utf-8")
+        self._stderr_file = self.stderr_path.open("w", encoding="utf-8")
+        self.process = subprocess.Popen(
+            [str(self.binary_path), "run", "--conf", str(self.config_path), "--quiet"],
+            cwd=self.ergo_root,
+            stdout=self._stdout_file,
+            stderr=self._stderr_file,
+            text=True,
+        )
+        try:
+            wait_for_tcp("127.0.0.1", resolved_port, timeout=self.startup_timeout)
+            self.publisher = IRCNetworkPublisher("127.0.0.1", resolved_port, self.nick, timeout=5.0)
+            self.publisher.connect()
+        except Exception:
+            self.stop()
+            raise
+        return self
+
+    def publish_text(
+        self,
+        text: str,
+        *,
+        channel_uuid: str | None = None,
+        nick: str | None = None,
+        sender_type: str = "ai_agent",
+        event_type: str = "message",
+        metadata: JsonDict | None = None,
+    ) -> PublishedMessage:
+        if self.publisher is None:
+            raise RuntimeError("AlienHandChatService must be started before publishing")
+        return commit_message(
+            app_id=self.app_id,
+            channel_uuid=channel_uuid or uuid4().hex,
+            nick=nick or self.nick,
+            sender_type=sender_type,
+            payload_kind="text",
+            event_type=event_type,
+            content={"text": text},
+            metadata=metadata,
+            store=self.store,
+            history=self.history,
+            publisher=self.publisher,
+        )
+
+    def replay_channel(self, channel_uuid: str) -> list[JsonDict]:
+        return replay_channel(self.history, self.resolver, channel_uuid)
+
+    def stop(self) -> None:
+        if self.publisher is not None:
+            self.publisher.close()
+            self.publisher = None
+        if self.process is not None:
+            stop_process(self.process, timeout=5.0)
+            self.process = None
+        if self._stdout_file is not None:
+            self._stdout_file.close()
+            self._stdout_file = None
+        if self._stderr_file is not None:
+            self._stderr_file.close()
+            self._stderr_file = None
+
+    def __enter__(self) -> "AlienHandChatService":
+        return self.start()
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        self.stop()
+
+
+def run_app_lifecycle_proof(
+    root: str | Path,
+    *,
+    ergo_root: str | Path | None = None,
+    app_id: int = 1,
+    nick: str = "alienhandagent",
+    text: str = "hello app-owned Ergo",
+    port: int | None = None,
+    timeout: float = 30.0,
+) -> JsonDict:
+    chat_root = Path(root)
+    channel_uuid = uuid4().hex
+    with AlienHandChatService(
+        chat_root,
+        ergo_root=ergo_root,
+        app_id=app_id,
+        nick=nick,
+        port=port,
+        startup_timeout=timeout,
+        build_timeout=timeout,
+    ) as service:
+        published = service.publish_text(text, channel_uuid=channel_uuid, metadata={"proof": "app_lifecycle"})
+        running_port = service.port
+        config_path = service.config_path
+        binary_path = service.binary_path
+        process_started = service.process is not None and service.process.poll() is None
+
+    replayed = replay_channel(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
+    resolved_payloads = [row for row in replayed if row["payload"].get("event_type") != "payload_error"]
+    return {
+        "app_id": app_id,
+        "channel_uuid": channel_uuid,
+        "irc_channel": irc_channel_name(channel_uuid),
+        "message_uuid": published.envelope.message_uuid,
+        "envelope": published.envelope.to_line(),
+        "ergo_root": str((Path(ergo_root) if ergo_root else default_ergo_root()).resolve()),
+        "ergo_port": running_port,
+        "config_path": str(config_path.resolve()) if config_path else None,
+        "binary_path": str(binary_path.resolve()) if binary_path else None,
+        "app_lifecycle_started": process_started,
+        "app_lifecycle_stopped": True,
+        "history_events": len(replayed),
+        "resolved_payloads": len(resolved_payloads),
+        "cold_replay_ok": len(resolved_payloads) == 1,
+        "root": str(chat_root.resolve()),
+    }
+
+
 def run_ergo_lifecycle_proof(
     root: str | Path,
     *,

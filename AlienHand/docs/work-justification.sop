@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup and the first runtime substrate proof
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, and local Ergo lifecycle proof are implemented and verified, but real user-client and app-owned lifecycle integration are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, and AlienHand-owned service lifecycle proof are implemented and verified, but real user-client and thelounge rendering integration are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -65,7 +65,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is git submodule status 8c02b854b79cc2e71330c5eb2f9fa76bc66f1edf AlienHand/Ergo
   + [verification_result] is Ergo exists under AlienHand/Ergo and provides the planned per-app IRC server dependency
   + [status] is justified
-  + [uncertainty] is AlienHand app-owned lifecycle integration and production supervision are not implemented yet
+  + [uncertainty] is production supervision and hardening are not implemented yet
 
 & [JustificationEntry: TheLoungeNestedDependency] is justified
   + [work_type] is dependency
@@ -92,7 +92,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-platform.sop
   + [verification_result] is SOP spec defines envelope, payload store, payload resolver, commit order, replay, protocol review, truth test, and progress graph
   + [status] is justified
-  + [uncertainty] is real user-client proof and AlienHand app-owned lifecycle integration remain unfinished
+  + [uncertainty] is real user-client proof and thelounge rendering integration remain unfinished
 
 & [JustificationEntry: WorkJustificationLayer] is justified
   + [work_type] is documentation
@@ -147,7 +147,19 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is python -m alienhand_ai.cli chat-ergo-proof --output runs --name chat-ergo-proof
   + [verification_result] is real local Ergo started on loopback port 58341, accepted AH1 envelope publication to 33-character IRC channel, and cold replay returned true with 1 resolved payload
   + [status] is justified
-  + [uncertainty] is proof uses generated CLI lifecycle rather than AlienHand app-owned lifecycle
+  + [uncertainty] is proof remains useful as a lower-level transport diagnostic; app-owned lifecycle proof is covered by [AppOwnedChatLifecycleProof]
+
+& [JustificationEntry: AppOwnedChatLifecycleProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [AlienHandIRCTruthTest], [AlienHandIRCChatPlatform.irc_server], [app_lifecycle_node], and [RuntimePrototypeSlice]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/chat_platform.py AlienHandChatService and run_app_lifecycle_proof
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-app-lifecycle-proof command
+  + [implemented_artifact] is AlienHand/python/tests/test_chat_platform.py test_app_chat_service_requires_start_before_publish
+  + [evidence_anchor] is python -m unittest tests.test_chat_platform
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-app-lifecycle-proof --output runs --name chat-app-lifecycle-proof
+  + [verification_result] is AlienHandChatService started real local Ergo on loopback port 60091, connected an AI IRC publisher, published one AH1 envelope to a 33-character IRC channel, stopped the server, and cold replay returned true with 1 resolved payload
+  + [status] is justified
+  + [uncertainty] is this is a Python app-service boundary proof; native C++ app process integration and production supervision remain future work
 
 ## Future Work Behavior
 

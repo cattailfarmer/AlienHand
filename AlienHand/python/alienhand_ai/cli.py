@@ -5,7 +5,15 @@ import json
 from pathlib import Path
 from uuid import uuid4
 
-from .chat_platform import ChannelJSONLHistory, IRCNetworkPublisher, PayloadStore, commit_message, run_chat_truth_test, run_ergo_lifecycle_proof
+from .chat_platform import (
+    ChannelJSONLHistory,
+    IRCNetworkPublisher,
+    PayloadStore,
+    commit_message,
+    run_app_lifecycle_proof,
+    run_chat_truth_test,
+    run_ergo_lifecycle_proof,
+)
 from .godot import load_godot_events, summarize_godot_events
 from .interface_probe import probe_godot_interfaces, summarize_interface_map
 from .interaction_trace import summarize_interaction_trace, write_interaction_trace
@@ -101,6 +109,15 @@ def main() -> None:
     chat_ergo.add_argument("--text", default="hello Ergo")
     chat_ergo.add_argument("--output", default="runs")
     chat_ergo.add_argument("--name", default="chat-ergo-proof")
+
+    chat_app = sub.add_parser("chat-app-lifecycle-proof")
+    chat_app.add_argument("--ergo-root")
+    chat_app.add_argument("--port", type=int)
+    chat_app.add_argument("--nick", default="alienhandagent")
+    chat_app.add_argument("--app-id", type=int, default=1)
+    chat_app.add_argument("--text", default="hello app-owned Ergo")
+    chat_app.add_argument("--output", default="runs")
+    chat_app.add_argument("--name", default="chat-app-lifecycle-proof")
 
     args = parser.parse_args()
     if args.command == "record-process":
@@ -205,6 +222,16 @@ def main() -> None:
         )
     elif args.command == "chat-ergo-proof":
         result = run_ergo_lifecycle_proof(
+            Path(args.output) / args.name,
+            ergo_root=args.ergo_root,
+            app_id=args.app_id,
+            nick=args.nick,
+            text=args.text,
+            port=args.port,
+        )
+        print(json.dumps(result, indent=2))
+    elif args.command == "chat-app-lifecycle-proof":
+        result = run_app_lifecycle_proof(
             Path(args.output) / args.name,
             ergo_root=args.ergo_root,
             app_id=args.app_id,

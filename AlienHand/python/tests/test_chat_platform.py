@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from alienhand_ai.chat_platform import (
+    AlienHandChatService,
     ChannelJSONLHistory,
     EnvelopeOutbox,
     IRCMessageEnvelope,
@@ -222,6 +223,15 @@ languages:
             self.assertNotIn('"[::1]:6667":', config)
             self.assertIn((root / "ircd.db").resolve().as_posix(), config)
             self.assertIn((root / "ircd.lock").resolve().as_posix(), config)
+
+    def test_app_chat_service_requires_start_before_publish(self):
+        with tempfile.TemporaryDirectory() as temp:
+            service = AlienHandChatService(Path(temp) / "app-chat")
+
+            with self.assertRaises(RuntimeError):
+                service.publish_text("hello before start")
+
+            service.stop()
 
 
 class FakeIRCServer:

@@ -67,6 +67,7 @@ python -m alienhand_ai.cli probe-godot --root C:\Project\Codex_Projects\LLMOS-Co
 python -m alienhand_ai.cli chat-truth-test --output runs --name chat-truth-test
 python -m alienhand_ai.cli chat-irc-publish --host 127.0.0.1 --port 6667 --nick alienhand-agent --text "hello AlienHand"
 python -m alienhand_ai.cli chat-ergo-proof --output runs --name chat-ergo-proof
+python -m alienhand_ai.cli chat-app-lifecycle-proof --output runs --name chat-app-lifecycle-proof
 ```
 
 The generic CLI is the intended path for operating and debugging programs such
@@ -82,6 +83,10 @@ server, joins the `#` plus 32-character UUID hex channel, and sends the compact
 `chat-ergo-proof` builds and starts the local Ergo submodule with a generated
 loopback-only config, publishes one envelope through the real server, shuts Ergo
 down, and verifies cold replay from payload files plus channel JSONL history.
+`chat-app-lifecycle-proof` exercises the AlienHand-owned chat service boundary:
+the service starts Ergo, holds the AI IRC publisher while the app is considered
+running, publishes one payload-backed envelope, stops the server, and verifies
+cold replay after shutdown.
 
 If `--name` is omitted or set to `auto`, AlienHand stores the run in the next
 numeric folder under `--output`: `runs\1`, `runs\2`, `runs\3`, and so on. It

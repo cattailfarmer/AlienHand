@@ -302,7 +302,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
 & [ChatPlatformIntegration] is the current feasibility and path assessment
   + [concept] is [AlienHandIRCChatPlatform]
   + [available_support] is Ergo submodule, thelounge submodule, AlienHand Python AI layer, existing JSONL run artifacts, and current docs
-  + [missing_support] is AlienHand app process supervisor integration, user IRC client proof, thelounge render adaptation, access control, and production lifecycle hardening
+  + [missing_support] is user IRC client proof, thelounge render adaptation, access control, and production lifecycle hardening
   + [hidden_constraints] are IRC framing limits, authentication, service discovery, client extension strategy, concurrent writes, payload immutability, and cross-app isolation
   + [feasibility_gradient] is prototypeable
   + [next_step] is [ChatPlatformProtocolReview] followed by [AlienHandIRCTruthTest]
@@ -349,7 +349,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [truth_test_core_node] is verified
   + [truth_test_node] is in_progress
   + [lifecycle_node] is verified_local_ergo
-  + [app_lifecycle_node] is not_started
+  + [app_lifecycle_node] is verified_app_service_proof
   + [client_node] is deferred
   + [ai_node] is not_started
   + [pm_node] is specified
@@ -365,11 +365,12 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [cli_entry] is "python -m alienhand_ai.cli chat-truth-test --output runs --name chat-truth-test"
   + [cli_entry] is "python -m alienhand_ai.cli chat-irc-publish --host 127.0.0.1 --port 6667 --nick alienhand-agent"
   + [cli_entry] is "python -m alienhand_ai.cli chat-ergo-proof --output runs --name chat-ergo-proof"
-  + [verified_behavior] is AH1 envelope round-trip, 32-character channel UUID hex normalization, payload durability, JSONL append, blocked publication on history failure, cold replay, payload_error on missing payload, socket-level IRC JOIN/PRIVMSG publication against a fake server, and real local Ergo startup/publication/shutdown
-  + [remaining_truth_test] is one real user client and AlienHand app-owned lifecycle integration
+  + [cli_entry] is "python -m alienhand_ai.cli chat-app-lifecycle-proof --output runs --name chat-app-lifecycle-proof"
+  + [verified_behavior] is AH1 envelope round-trip, 32-character channel UUID hex normalization, payload durability, JSONL append, blocked publication on history failure, cold replay, payload_error on missing payload, socket-level IRC JOIN/PRIVMSG publication against a fake server, real local Ergo startup/publication/shutdown, and AlienHand-owned service lifecycle startup/publication/shutdown
+  + [remaining_truth_test] is one real user client and thelounge payload rendering
 
   = must: treat this as verified local proof, not as complete user-facing chat integration
-  = must: use this slice as the base for the next user-client and app-lifecycle steps
+  = must: use this slice as the base for the next user-client and rich-rendering steps
 
 ## Dual-Hemisphere Settlement
 

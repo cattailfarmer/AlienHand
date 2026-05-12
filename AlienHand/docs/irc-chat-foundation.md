@@ -139,6 +139,6 @@ The prototype succeeds only if it can publish an `AHIRC/1` envelope, resolve the
 
 The current runtime slice implements the durable substrate core in `alienhand_ai.chat_platform`.
 
-It verifies compact `AH1` envelope round-trip, 32-character channel UUID hex normalization, payload write-before-history-before-publication ordering, JSONL channel append, cold replay from disk, explicit `payload_error` records for missing payloads, socket-level IRC `JOIN`/`PRIVMSG` publication against a fake server, real local Ergo startup/publication/shutdown through `chat-ergo-proof`, AlienHand-owned service lifecycle startup/publication/shutdown through `chat-app-lifecycle-proof`, and minimal user IRC client receive plus payload resolution through `chat-user-client-proof`.
+It verifies compact `AH1` envelope round-trip, 32-character channel UUID hex normalization, payload write-before-history-before-publication ordering, JSONL channel append, cold replay from disk, explicit `payload_error` records for missing payloads, socket-level IRC `JOIN`/`PRIVMSG` publication against a fake server, real local Ergo startup/publication/shutdown through `chat-ergo-proof`, AlienHand-owned service lifecycle startup/publication/shutdown through `chat-app-lifecycle-proof`, minimal user IRC client receive plus payload resolution through `chat-user-client-proof`, and chunked payload replay plus payload-backed `history_request` recording through `chat-history-proof`.
 
-The remaining truth-test work is to adapt thelounge rendering around resolved payload objects and settle history command semantics.
+The remaining truth-test work is to adapt thelounge rendering around resolved payload objects and settle the final user command syntax for history requests.

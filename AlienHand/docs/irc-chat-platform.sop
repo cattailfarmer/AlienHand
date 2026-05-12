@@ -302,7 +302,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
 & [ChatPlatformIntegration] is the current feasibility and path assessment
   + [concept] is [AlienHandIRCChatPlatform]
   + [available_support] is Ergo submodule, thelounge submodule, AlienHand Python AI layer, existing JSONL run artifacts, and current docs
-  + [missing_support] is thelounge render adaptation, history command proof, access control, and production lifecycle hardening
+  + [missing_support] is thelounge render adaptation, final history command syntax, access control, and production lifecycle hardening
   + [hidden_constraints] are IRC framing limits, authentication, service discovery, client extension strategy, concurrent writes, payload immutability, and cross-app isolation
   + [feasibility_gradient] is prototypeable
   + [next_step] is [ChatPlatformProtocolReview] followed by [AlienHandIRCTruthTest]
@@ -322,6 +322,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [payload_resolver_node] is message UUID lookup and render normalization
   + [commit_order_node] is message write ordering before IRC publication
   + [history_node] is per-channel JSONL append and replay
+  + [history_request_node] is payload-backed history request recording and chunked replay
   + [protocol_review_node] is the blocking review before implementation
   + [truth_test_core_node] is the executable substrate proof before real Ergo transport
   + [truth_test_node] is the smallest end-to-end proof
@@ -345,7 +346,8 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [payload_store_node] is verified
   + [payload_resolver_node] is verified
   + [commit_order_node] is verified
-  + [history_node] is verified
+  + [history_node] is verified_chunked_replay
+  + [history_request_node] is verified_payload_backed
   + [protocol_review_node] is specified
   + [truth_test_core_node] is verified
   + [truth_test_node] is verified_minimal_user_client
@@ -369,8 +371,9 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [cli_entry] is "python -m alienhand_ai.cli chat-ergo-proof --output runs --name chat-ergo-proof"
   + [cli_entry] is "python -m alienhand_ai.cli chat-app-lifecycle-proof --output runs --name chat-app-lifecycle-proof"
   + [cli_entry] is "python -m alienhand_ai.cli chat-user-client-proof --output runs --name chat-user-client-proof"
-  + [verified_behavior] is AH1 envelope round-trip, 32-character channel UUID hex normalization, payload durability, JSONL append, blocked publication on history failure, cold replay, payload_error on missing payload, socket-level IRC JOIN/PRIVMSG publication against a fake server, real local Ergo startup/publication/shutdown, AlienHand-owned service lifecycle startup/publication/shutdown, and minimal user IRC client receive plus payload resolution through real local Ergo
-  + [remaining_truth_test] is thelounge payload rendering and history command semantics
+  + [cli_entry] is "python -m alienhand_ai.cli chat-history-proof --output runs --name chat-history-proof"
+  + [verified_behavior] is AH1 envelope round-trip, 32-character channel UUID hex normalization, payload durability, JSONL append, blocked publication on history failure, cold replay, payload_error on missing payload, socket-level IRC JOIN/PRIVMSG publication against a fake server, real local Ergo startup/publication/shutdown, AlienHand-owned service lifecycle startup/publication/shutdown, minimal user IRC client receive plus payload resolution through real local Ergo, payload-backed history_request recording, and recent-first chunked replay of full resolved payloads
+  + [remaining_truth_test] is thelounge payload rendering and final history command syntax
 
   = must: treat this as verified local proof, not as complete user-facing chat integration
   = must: use this slice as the base for the next rich-rendering and history-command steps

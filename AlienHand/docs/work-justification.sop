@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup and the first runtime substrate proof
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, and minimal user-client receive proof are implemented and verified, but thelounge rendering integration and history command behavior are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, minimal user-client receive proof, and chunked history replay are implemented and verified, but thelounge rendering integration and final history command syntax are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -92,7 +92,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-platform.sop
   + [verification_result] is SOP spec defines envelope, payload store, payload resolver, commit order, replay, protocol review, truth test, and progress graph
   + [status] is justified
-  + [uncertainty] is thelounge rendering integration and history command behavior remain unfinished
+  + [uncertainty] is thelounge rendering integration and final history command syntax remain unfinished
 
 & [JustificationEntry: WorkJustificationLayer] is justified
   + [work_type] is documentation
@@ -172,6 +172,18 @@ Description: SOP description of the justification step, called "jusitification" 
   + [verification_result] is a minimal user IRC client joined channel #d9a08bcf59764f119243716745b60f20 on real local Ergo port 61046, received the exact AH1 envelope published by the AI client, resolved payload text "hello user client", and cold replay returned true with 1 resolved payload
   + [status] is justified
   + [uncertainty] is this proves the IRC receive and payload lookup path, not the final thelounge chat bubble renderer
+
+& [JustificationEntry: HistoryReplayProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [ChannelContextReplay], [HistoryCommand], [ChannelJSONLHistory], [PayloadResolver], [history_request_node], and [RuntimePrototypeSlice]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/chat_platform.py replay_channel_chunks, record_history_request, and run_history_replay_proof
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-history-proof command
+  + [implemented_artifact] is AlienHand/python/tests/test_chat_platform.py test_chunked_replay_backfills_recent_full_messages and test_history_replay_proof_records_request_and_chunks_payloads
+  + [evidence_anchor] is python -m unittest tests.test_chat_platform
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-history-proof --output runs --name chat-history-proof
+  + [verification_result] is channel 33d6bd08eccd447296b6d0f7baca8d9f recorded 5 message payloads plus 1 payload-backed history_request, replayed the latest 4 messages as two full-payload chunks of 2, resolved 4 payloads, and returned cold_replay_ok true
+  + [status] is justified
+  + [uncertainty] is the final user-facing command syntax remains unsettled; this proof only verifies the replay substrate the command will call
 
 ## Future Work Behavior
 

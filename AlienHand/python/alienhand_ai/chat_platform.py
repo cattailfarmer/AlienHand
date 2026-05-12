@@ -14,6 +14,8 @@ from uuid import UUID, uuid4
 
 JsonDict = dict[str, Any]
 IRC_BODY_BUDGET_BYTES = 400
+RECENT_FIRST_BACKFILL = "recent_first_backfill"
+OLDEST_FIRST_RECONSTRUCT = "oldest_first_reconstruct"
 
 
 class EnvelopePublisher(Protocol):
@@ -772,6 +774,82 @@ def replay_channel(history: ChannelJSONLHistory, resolver: PayloadResolver, chan
     return replayed
 
 
+def replay_channel_chunks(
+    history: ChannelJSONLHistory,
+    resolver: PayloadResolver,
+    channel_uuid: str,
+    *,
+    chunk_size: int = 50,
+    limit: int | None = None,
+    direction: str = RECENT_FIRST_BACKFILL,
+    event_types: tuple[str, ...] | None = None,
+) -> list[JsonDict]:
+    if chunk_size < 1:
+        raise ValueError("chunk_size must be at least 1")
+    if limit is not None and limit < 1:
+        raise ValueError("limit must be at least 1 when provided")
+    if direction not in {RECENT_FIRST_BACKFILL, OLDEST_FIRST_RECONSTRUCT}:
+        raise ValueError(f"unsupported replay direction: {direction}")
+
+    resolved_channel_uuid = normalize_channel_uuid(channel_uuid)
+    events = history.load(resolved_channel_uuid)
+    if event_types is not None:
+        allowed = set(event_types)
+        events = [event for event in events if event.get("event_type") in allowed]
+    if limit is not None:
+        events = events[-limit:] if direction == RECENT_FIRST_BACKFILL else events[:limit]
+
+    chunks: list[JsonDict] = []
+    if direction == RECENT_FIRST_BACKFILL:
+        end = len(events)
+        while end > 0:
+            start = max(0, end - chunk_size)
+            chunk_events = events[start:end]
+            chunks.append(_replay_chunk(resolver, resolved_channel_uuid, direction, len(chunks), chunk_events, has_more=start > 0))
+            end = start
+    else:
+        for start in range(0, len(events), chunk_size):
+            chunk_events = events[start : start + chunk_size]
+            chunks.append(
+                _replay_chunk(
+                    resolver,
+                    resolved_channel_uuid,
+                    direction,
+                    len(chunks),
+                    chunk_events,
+                    has_more=start + chunk_size < len(events),
+                )
+            )
+    return chunks
+
+
+def record_history_request(
+    *,
+    app_id: int,
+    channel_uuid: str,
+    nick: str,
+    requester_type: str,
+    request: JsonDict,
+    store: PayloadStore,
+    history: ChannelJSONLHistory,
+    publisher: EnvelopePublisher,
+    metadata: JsonDict | None = None,
+) -> PublishedMessage:
+    return commit_message(
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        nick=nick,
+        sender_type=requester_type,
+        payload_kind="system",
+        event_type="history_request",
+        content={"request": request},
+        metadata=metadata,
+        store=store,
+        history=history,
+        publisher=publisher,
+    )
+
+
 def run_chat_truth_test(root: str | Path) -> JsonDict:
     chat_root = Path(root)
     store = PayloadStore(chat_root)
@@ -841,6 +919,74 @@ def run_chat_truth_test(root: str | Path) -> JsonDict:
         "resolved_payloads": len(resolved_messages),
         "payload_errors": len(payload_errors),
         "cold_replay_ok": len(resolved_messages) == 2 and len(payload_errors) == 1,
+        "root": str(chat_root.resolve()),
+    }
+
+
+def run_history_replay_proof(
+    root: str | Path,
+    *,
+    app_id: int = 1,
+    message_count: int = 5,
+    chunk_size: int = 2,
+    limit: int = 4,
+) -> JsonDict:
+    chat_root = Path(root)
+    store = PayloadStore(chat_root)
+    history = ChannelJSONLHistory(chat_root)
+    outbox = EnvelopeOutbox(chat_root / "irc_outbox.jsonl")
+    channel_uuid = uuid4().hex
+    committed = []
+
+    for index in range(1, message_count + 1):
+        committed.append(
+            commit_message(
+                app_id=app_id,
+                channel_uuid=channel_uuid,
+                nick="agent",
+                sender_type="ai_agent",
+                payload_kind="text",
+                content={"text": f"message {index}"},
+                store=store,
+                history=history,
+                publisher=outbox,
+            )
+        )
+
+    request = record_history_request(
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        nick="user",
+        requester_type="user",
+        request={"mode": "last_messages", "messages": limit, "chunk_size": chunk_size},
+        store=store,
+        history=history,
+        publisher=outbox,
+        metadata={"proof": "history_replay"},
+    )
+
+    chunks = replay_channel_chunks(
+        ChannelJSONLHistory(chat_root),
+        PayloadResolver(PayloadStore(chat_root)),
+        channel_uuid,
+        chunk_size=chunk_size,
+        limit=limit,
+        event_types=("message",),
+    )
+    payloads = [row["payload"] for chunk in chunks for row in chunk["events"]]
+    return {
+        "app_id": app_id,
+        "channel_uuid": channel_uuid,
+        "messages_committed": [message.envelope.message_uuid for message in committed],
+        "history_request_uuid": request.envelope.message_uuid,
+        "history_events": len(ChannelJSONLHistory(chat_root).load(channel_uuid)),
+        "outbox_envelopes": len(outbox.lines),
+        "chunk_count": len(chunks),
+        "chunk_lengths": [chunk["event_count"] for chunk in chunks],
+        "first_chunk_texts": [row["payload"]["content"]["text"] for row in chunks[0]["events"]] if chunks else [],
+        "resolved_payloads": len([payload for payload in payloads if payload.get("event_type") != "payload_error"]),
+        "request_recorded": request.payload.event_type == "history_request",
+        "cold_replay_ok": len(payloads) == min(limit, message_count),
         "root": str(chat_root.resolve()),
     }
 
@@ -1015,6 +1161,34 @@ def _parse_irc_privmsg(line: str) -> JsonDict | None:
     if len(parts) < 2 or parts[0].upper() != "PRIVMSG":
         return None
     return {"prefix": prefix, "target": parts[1], "message": message}
+
+
+def _replay_chunk(
+    resolver: PayloadResolver,
+    channel_uuid: str,
+    direction: str,
+    index: int,
+    events: list[JsonDict],
+    *,
+    has_more: bool,
+) -> JsonDict:
+    replayed = []
+    for event in events:
+        message_uuid = str(event.get("message_uuid", ""))
+        replayed.append(
+            {
+                "event": event,
+                "payload": resolver.resolve_render_model(message_uuid) if message_uuid else payload_error("", "missing_message_uuid"),
+            }
+        )
+    return {
+        "channel_uuid": channel_uuid,
+        "direction": direction,
+        "chunk_index": index,
+        "event_count": len(replayed),
+        "has_more": has_more,
+        "events": replayed,
+    }
 
 
 def _yaml_path(path: str | Path) -> str:

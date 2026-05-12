@@ -13,6 +13,7 @@ from .chat_platform import (
     run_app_lifecycle_proof,
     run_chat_truth_test,
     run_ergo_lifecycle_proof,
+    run_history_replay_proof,
     run_user_client_proof,
 )
 from .godot import load_godot_events, summarize_godot_events
@@ -129,6 +130,14 @@ def main() -> None:
     chat_user.add_argument("--text", default="hello user client")
     chat_user.add_argument("--output", default="runs")
     chat_user.add_argument("--name", default="chat-user-client-proof")
+
+    chat_history = sub.add_parser("chat-history-proof")
+    chat_history.add_argument("--app-id", type=int, default=1)
+    chat_history.add_argument("--messages", type=int, default=5)
+    chat_history.add_argument("--chunk-size", type=int, default=2)
+    chat_history.add_argument("--limit", type=int, default=4)
+    chat_history.add_argument("--output", default="runs")
+    chat_history.add_argument("--name", default="chat-history-proof")
 
     args = parser.parse_args()
     if args.command == "record-process":
@@ -260,6 +269,15 @@ def main() -> None:
             user_nick=args.user_nick,
             text=args.text,
             port=args.port,
+        )
+        print(json.dumps(result, indent=2))
+    elif args.command == "chat-history-proof":
+        result = run_history_replay_proof(
+            Path(args.output) / args.name,
+            app_id=args.app_id,
+            message_count=args.messages,
+            chunk_size=args.chunk_size,
+            limit=args.limit,
         )
         print(json.dumps(result, indent=2))
 

@@ -23,8 +23,11 @@ from alienhand_ai.chat_platform import (
     irc_channel_name,
     make_local_ergo_config,
     normalize_channel_uuid,
+    record_history_request,
     replay_channel,
+    replay_channel_chunks,
     run_chat_truth_test,
+    run_history_replay_proof,
 )
 
 
@@ -163,6 +166,63 @@ class ChatPlatformTests(unittest.TestCase):
             self.assertEqual(result["history_events"], 3)
             self.assertEqual(result["resolved_payloads"], 2)
             self.assertEqual(result["payload_errors"], 1)
+
+    def test_chunked_replay_backfills_recent_full_messages(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            store = PayloadStore(root)
+            history = ChannelJSONLHistory(root)
+            outbox = EnvelopeOutbox()
+            channel_uuid = uuid4().hex
+
+            for index in range(1, 6):
+                commit_message(
+                    app_id=7,
+                    channel_uuid=channel_uuid,
+                    nick="agent",
+                    sender_type="ai_agent",
+                    payload_kind="text",
+                    content={"text": f"message {index}"},
+                    store=store,
+                    history=history,
+                    publisher=outbox,
+                )
+            record_history_request(
+                app_id=7,
+                channel_uuid=channel_uuid,
+                nick="user",
+                requester_type="user",
+                request={"mode": "last_messages", "messages": 3, "chunk_size": 2},
+                store=store,
+                history=history,
+                publisher=outbox,
+            )
+
+            chunks = replay_channel_chunks(
+                ChannelJSONLHistory(root),
+                PayloadResolver(PayloadStore(root)),
+                channel_uuid,
+                chunk_size=2,
+                limit=3,
+                event_types=("message",),
+            )
+
+            self.assertEqual([chunk["event_count"] for chunk in chunks], [2, 1])
+            self.assertEqual([row["payload"]["content"]["text"] for row in chunks[0]["events"]], ["message 4", "message 5"])
+            self.assertEqual([row["payload"]["content"]["text"] for row in chunks[1]["events"]], ["message 3"])
+            self.assertTrue(chunks[0]["has_more"])
+            self.assertFalse(chunks[1]["has_more"])
+
+    def test_history_replay_proof_records_request_and_chunks_payloads(self):
+        with tempfile.TemporaryDirectory() as temp:
+            result = run_history_replay_proof(Path(temp) / "history", message_count=5, chunk_size=2, limit=4)
+
+            self.assertTrue(result["request_recorded"])
+            self.assertTrue(result["cold_replay_ok"])
+            self.assertEqual(result["history_events"], 6)
+            self.assertEqual(result["outbox_envelopes"], 6)
+            self.assertEqual(result["chunk_lengths"], [2, 2])
+            self.assertEqual(result["first_chunk_texts"], ["message 4", "message 5"])
 
     def test_network_publisher_sends_join_and_privmsg(self):
         with tempfile.TemporaryDirectory() as temp, FakeIRCServer() as server:

@@ -1,3 +1,6 @@
 [submodule "AlienHand/BizHawk"]
 	path = AlienHand/BizHawk
 	url = https://github.com/TASEmulators/BizHawk.git
+[submodule "AlienHand/Ergo"]
+	path = AlienHand/Ergo
+	url = https://github.com/ergochat/ergo.git

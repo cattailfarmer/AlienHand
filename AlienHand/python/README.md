@@ -66,6 +66,7 @@ python -m alienhand_ai.cli godot-import --log C:\path\alienhand_godot.jsonl --ou
 python -m alienhand_ai.cli probe-godot --root C:\Project\Codex_Projects\LLMOS-Compiler --output runs\godot-interface-map.json
 python -m alienhand_ai.cli chat-truth-test --output runs --name chat-truth-test
 python -m alienhand_ai.cli chat-irc-publish --host 127.0.0.1 --port 6667 --nick alienhand-agent --text "hello AlienHand"
+python -m alienhand_ai.cli chat-ergo-proof --output runs --name chat-ergo-proof
 ```
 
 The generic CLI is the intended path for operating and debugging programs such
@@ -78,6 +79,9 @@ recover payloads while surfacing missing payloads as `payload_error` records.
 `chat-irc-publish` uses the same commit ordering, then registers with an IRC
 server, joins the `#` plus 32-character UUID hex channel, and sends the compact
 `AH1` envelope as a `PRIVMSG`.
+`chat-ergo-proof` builds and starts the local Ergo submodule with a generated
+loopback-only config, publishes one envelope through the real server, shuts Ergo
+down, and verifies cold replay from payload files plus channel JSONL history.
 
 If `--name` is omitted or set to `auto`, AlienHand stores the run in the next
 numeric folder under `--output`: `runs\1`, `runs\2`, `runs\3`, and so on. It

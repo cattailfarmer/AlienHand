@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import socket
+import subprocess
 from time import time
 from typing import Any, Protocol
 from uuid import UUID, uuid4
@@ -276,6 +277,75 @@ class IRCNetworkPublisher:
         return line.rstrip("\r\n")
 
 
+def run_ergo_lifecycle_proof(
+    root: str | Path,
+    *,
+    ergo_root: str | Path | None = None,
+    app_id: int = 1,
+    nick: str = "alienhandagent",
+    text: str = "hello Ergo",
+    port: int | None = None,
+    timeout: float = 30.0,
+) -> JsonDict:
+    chat_root = Path(root)
+    runtime_dir = chat_root / "ergo-runtime"
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    resolved_ergo_root = Path(ergo_root) if ergo_root else default_ergo_root()
+    resolved_port = port or find_free_port()
+    config_path = write_local_ergo_config(resolved_ergo_root, runtime_dir, resolved_port)
+    binary_path = build_ergo_binary(resolved_ergo_root, runtime_dir, timeout=timeout)
+    stdout_path = runtime_dir / "ergo.stdout.log"
+    stderr_path = runtime_dir / "ergo.stderr.log"
+    stdout_file = stdout_path.open("w", encoding="utf-8")
+    stderr_file = stderr_path.open("w", encoding="utf-8")
+    process = subprocess.Popen(
+        [str(binary_path), "run", "--conf", str(config_path), "--quiet"],
+        cwd=resolved_ergo_root,
+        stdout=stdout_file,
+        stderr=stderr_file,
+        text=True,
+    )
+    channel_uuid = uuid4().hex
+    published: PublishedMessage | None = None
+    try:
+        wait_for_tcp("127.0.0.1", resolved_port, timeout=timeout)
+        publisher = IRCNetworkPublisher("127.0.0.1", resolved_port, nick, timeout=5.0)
+        try:
+            published = commit_message(
+                app_id=app_id,
+                channel_uuid=channel_uuid,
+                nick=nick,
+                sender_type="ai_agent",
+                payload_kind="text",
+                content={"text": text},
+                store=PayloadStore(chat_root),
+                history=ChannelJSONLHistory(chat_root),
+                publisher=publisher,
+            )
+        finally:
+            publisher.close()
+        replayed = replay_channel(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
+        resolved_payloads = [row for row in replayed if row["payload"].get("event_type") != "payload_error"]
+        return {
+            "app_id": app_id,
+            "channel_uuid": channel_uuid,
+            "irc_channel": irc_channel_name(channel_uuid),
+            "message_uuid": published.envelope.message_uuid,
+            "envelope": published.envelope.to_line(),
+            "ergo_root": str(resolved_ergo_root.resolve()),
+            "ergo_port": resolved_port,
+            "ergo_started": True,
+            "history_events": len(replayed),
+            "resolved_payloads": len(resolved_payloads),
+            "cold_replay_ok": len(resolved_payloads) == 1,
+            "root": str(chat_root.resolve()),
+        }
+    finally:
+        stop_process(process, timeout=5.0)
+        stdout_file.close()
+        stderr_file.close()
+
+
 def commit_message(
     *,
     app_id: int,
@@ -418,6 +488,92 @@ def run_chat_truth_test(root: str | Path) -> JsonDict:
     }
 
 
+def default_ergo_root() -> Path:
+    return Path(__file__).resolve().parents[2] / "Ergo"
+
+
+def find_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+def write_local_ergo_config(ergo_root: str | Path, runtime_dir: str | Path, port: int) -> Path:
+    source = Path(ergo_root) / "default.yaml"
+    target_dir = Path(runtime_dir)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    config = make_local_ergo_config(
+        source.read_text(encoding="utf-8"),
+        port=port,
+        datastore_path=target_dir / "ircd.db",
+        lock_path=target_dir / "ircd.lock",
+    )
+    target = (target_dir / "ircd.yaml").resolve()
+    target.write_text(config, encoding="utf-8")
+    return target
+
+
+def make_local_ergo_config(default_config: str, *, port: int, datastore_path: str | Path, lock_path: str | Path) -> str:
+    output = []
+    skipping_listeners = False
+    for line in default_config.splitlines():
+        if line == "    listeners:":
+            output.append(line)
+            output.append(f'        "127.0.0.1:{port}":')
+            skipping_listeners = True
+            continue
+        if skipping_listeners:
+            if line.startswith("    unix-bind-mode:"):
+                skipping_listeners = False
+                output.append(line)
+            continue
+        if line.startswith("lock-file:"):
+            output.append(f'lock-file: "{_yaml_path(lock_path)}"')
+        elif line == "    path: ircd.db":
+            output.append(f'    path: "{_yaml_path(datastore_path)}"')
+        else:
+            output.append(line)
+    output.append("")
+    return "\n".join(output)
+
+
+def build_ergo_binary(ergo_root: str | Path, runtime_dir: str | Path, *, timeout: float = 120.0) -> Path:
+    target = (Path(runtime_dir) / ("ergo.exe" if os.name == "nt" else "ergo")).resolve()
+    result = subprocess.run(
+        ["go", "build", "-o", str(target), "."],
+        cwd=Path(ergo_root),
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"Ergo build failed: {result.stderr.strip() or result.stdout.strip()}")
+    return target
+
+
+def wait_for_tcp(host: str, port: int, *, timeout: float = 30.0) -> None:
+    deadline = time() + timeout
+    last_error: OSError | None = None
+    while time() < deadline:
+        try:
+            with socket.create_connection((host, port), timeout=0.5):
+                return
+        except OSError as error:
+            last_error = error
+    raise TimeoutError(f"Timed out waiting for TCP {host}:{port}: {last_error}")
+
+
+def stop_process(process: subprocess.Popen, *, timeout: float = 5.0) -> None:
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=timeout)
+
+
 def irc_channel_name(channel_uuid: str) -> str:
     return f"#{normalize_channel_uuid(channel_uuid)}"
 
@@ -474,3 +630,7 @@ def _require_wire_token(key: str, value: str) -> None:
         raise ValueError(f"empty envelope field: {key}")
     if any(character.isspace() for character in value):
         raise ValueError(f"envelope field contains whitespace: {key}")
+
+
+def _yaml_path(path: str | Path) -> str:
+    return Path(path).resolve().as_posix().replace('"', '\\"')

@@ -19,6 +19,7 @@ from alienhand_ai.chat_platform import (
     PayloadStore,
     commit_message,
     irc_channel_name,
+    make_local_ergo_config,
     normalize_channel_uuid,
     replay_channel,
     run_chat_truth_test,
@@ -187,6 +188,40 @@ class ChatPlatformTests(unittest.TestCase):
             self.assertIn(f"JOIN {irc_channel_name(channel_uuid)}", commands)
             self.assertIn(f"PRIVMSG {irc_channel_name(channel_uuid)} :{published.envelope.to_line()}", commands)
             self.assertTrue(PayloadStore(root).path_for(published.envelope.message_uuid).exists())
+
+    def test_local_ergo_config_uses_loopback_port_and_runtime_paths(self):
+        template = """network:
+    name: ErgoTest
+server:
+    name: ergo.test
+    listeners:
+        "127.0.0.1:6667":
+        "[::1]:6667":
+        ":6697":
+            tls:
+                cert: fullchain.pem
+                key: privkey.pem
+    unix-bind-mode: 0777
+lock-file: "ircd.lock"
+datastore:
+    path: ircd.db
+languages:
+    enabled: true
+"""
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            config = make_local_ergo_config(
+                template,
+                port=16667,
+                datastore_path=root / "ircd.db",
+                lock_path=root / "ircd.lock",
+            )
+
+            self.assertIn('"127.0.0.1:16667":', config)
+            self.assertNotIn('":6697":', config)
+            self.assertNotIn('"[::1]:6667":', config)
+            self.assertIn((root / "ircd.db").resolve().as_posix(), config)
+            self.assertIn((root / "ircd.lock").resolve().as_posix(), config)
 
 
 class FakeIRCServer:

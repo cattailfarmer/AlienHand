@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup and the first runtime substrate proof
-  + [ledger_status] is partially_justified because the durable substrate core is implemented and verified, but real Ergo lifecycle and IRC client transport are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, and local Ergo lifecycle proof are implemented and verified, but real user-client and app-owned lifecycle integration are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -65,7 +65,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is git submodule status 8c02b854b79cc2e71330c5eb2f9fa76bc66f1edf AlienHand/Ergo
   + [verification_result] is Ergo exists under AlienHand/Ergo and provides the planned per-app IRC server dependency
   + [status] is justified
-  + [uncertainty] is app lifecycle startup, config generation, and runtime supervision are not implemented yet
+  + [uncertainty] is AlienHand app-owned lifecycle integration and production supervision are not implemented yet
 
 & [JustificationEntry: TheLoungeNestedDependency] is justified
   + [work_type] is dependency
@@ -92,7 +92,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-platform.sop
   + [verification_result] is SOP spec defines envelope, payload store, payload resolver, commit order, replay, protocol review, truth test, and progress graph
   + [status] is justified
-  + [uncertainty] is document is not committed and real Ergo transport remains not_started
+  + [uncertainty] is real user-client proof and AlienHand app-owned lifecycle integration remain unfinished
 
 & [JustificationEntry: WorkJustificationLayer] is justified
   + [work_type] is documentation
@@ -113,7 +113,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is python -m alienhand_ai.cli chat-truth-test --output runs --name chat-truth-test
   + [verification_result] is chat-platform tests passed and CLI returned cold_replay_ok true with 2 resolved payloads and 1 payload_error
   + [status] is partially_justified
-  + [uncertainty] is the envelope is published to a local outbox, not a live Ergo server; thelounge and AI IRC client integration remain unimplemented
+  + [uncertainty] is the first core command uses a local outbox; real Ergo publication is covered by [ErgoLifecycleProof]; user-client integration remains unimplemented
 
 & [JustificationEntry: ChannelUUIDHexNormalization] is justified
   + [work_type] is runtime_code
@@ -125,16 +125,29 @@ Description: SOP description of the justification step, called "jusitification" 
   + [status] is justified
   + [uncertainty] is none for the current protocol rule
 
-& [JustificationEntry: IRCNetworkPublisherSlice] is partially_justified
+& [JustificationEntry: IRCNetworkPublisherSlice] is justified
   + [work_type] is runtime_code
   + [requirement_anchor] is [IRCMessageEnvelope], [AlienHandIRCTruthTest], and [RuntimePrototypeSlice]
   + [implemented_artifact] is AlienHand/python/alienhand_ai/chat_platform.py IRCNetworkPublisher
   + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-irc-publish command
   + [implemented_artifact] is AlienHand/python/tests/test_chat_platform.py test_network_publisher_sends_join_and_privmsg
   + [evidence_anchor] is python -m unittest tests.test_chat_platform
-  + [verification_result] is fake IRC server observed NICK, USER, JOIN, and PRIVMSG with AH1 envelope after durable payload/history writes
-  + [status] is partially_justified
-  + [uncertainty] is not yet verified against a real Ergo process lifecycle
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-ergo-proof --output runs --name chat-ergo-proof
+  + [verification_result] is fake IRC server observed NICK, USER, JOIN, and PRIVMSG with AH1 envelope after durable payload/history writes; real Ergo lifecycle proof returned cold_replay_ok true
+  + [status] is justified
+  + [uncertainty] is user-client integration remains unimplemented
+
+& [JustificationEntry: ErgoLifecycleProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [AlienHandIRCTruthTest], [lifecycle_node], and [RuntimePrototypeSlice]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/chat_platform.py run_ergo_lifecycle_proof, write_local_ergo_config, build_ergo_binary, and stop_process
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-ergo-proof command
+  + [implemented_artifact] is AlienHand/python/tests/test_chat_platform.py test_local_ergo_config_uses_loopback_port_and_runtime_paths
+  + [evidence_anchor] is python -m unittest tests.test_chat_platform
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-ergo-proof --output runs --name chat-ergo-proof
+  + [verification_result] is real local Ergo started on loopback port 58341, accepted AH1 envelope publication to 33-character IRC channel, and cold replay returned true with 1 resolved payload
+  + [status] is justified
+  + [uncertainty] is proof uses generated CLI lifecycle rather than AlienHand app-owned lifecycle
 
 ## Future Work Behavior
 

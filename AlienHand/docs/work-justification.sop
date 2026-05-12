@@ -111,9 +111,30 @@ Description: SOP description of the justification step, called "jusitification" 
   + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-truth-test command
   + [evidence_anchor] is python -m unittest tests.test_chat_platform
   + [evidence_anchor] is python -m alienhand_ai.cli chat-truth-test --output runs --name chat-truth-test
-  + [verification_result] is 5 chat-platform tests passed and CLI returned cold_replay_ok true with 2 resolved payloads and 1 payload_error
+  + [verification_result] is chat-platform tests passed and CLI returned cold_replay_ok true with 2 resolved payloads and 1 payload_error
   + [status] is partially_justified
   + [uncertainty] is the envelope is published to a local outbox, not a live Ergo server; thelounge and AI IRC client integration remain unimplemented
+
+& [JustificationEntry: ChannelUUIDHexNormalization] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [ChannelIdentity] and [IRCMessageEnvelope]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/chat_platform.py normalize_channel_uuid and irc_channel_name
+  + [implemented_artifact] is AlienHand/python/tests/test_chat_platform.py test_channel_uuid_normalizes_to_plain_hex_channel_name
+  + [evidence_anchor] is python -m unittest tests.test_chat_platform
+  + [verification_result] is channel identity normalizes to 32-character lowercase UUID hex and IRC target renders as 33-character "#" plus channel hex
+  + [status] is justified
+  + [uncertainty] is none for the current protocol rule
+
+& [JustificationEntry: IRCNetworkPublisherSlice] is partially_justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [IRCMessageEnvelope], [AlienHandIRCTruthTest], and [RuntimePrototypeSlice]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/chat_platform.py IRCNetworkPublisher
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-irc-publish command
+  + [implemented_artifact] is AlienHand/python/tests/test_chat_platform.py test_network_publisher_sends_join_and_privmsg
+  + [evidence_anchor] is python -m unittest tests.test_chat_platform
+  + [verification_result] is fake IRC server observed NICK, USER, JOIN, and PRIVMSG with AH1 envelope after durable payload/history writes
+  + [status] is partially_justified
+  + [uncertainty] is not yet verified against a real Ergo process lifecycle
 
 ## Future Work Behavior
 

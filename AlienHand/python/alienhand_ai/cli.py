@@ -3,8 +3,9 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from uuid import uuid4
 
-from .chat_platform import run_chat_truth_test
+from .chat_platform import ChannelJSONLHistory, IRCNetworkPublisher, PayloadStore, commit_message, run_chat_truth_test
 from .godot import load_godot_events, summarize_godot_events
 from .interface_probe import probe_godot_interfaces, summarize_interface_map
 from .interaction_trace import summarize_interaction_trace, write_interaction_trace
@@ -82,6 +83,16 @@ def main() -> None:
     chat_truth.add_argument("--output", default="runs")
     chat_truth.add_argument("--name", default="chat-truth-test")
 
+    chat_irc = sub.add_parser("chat-irc-publish")
+    chat_irc.add_argument("--host", default="127.0.0.1")
+    chat_irc.add_argument("--port", type=int, required=True)
+    chat_irc.add_argument("--nick", default="alienhand-agent")
+    chat_irc.add_argument("--app-id", type=int, default=1)
+    chat_irc.add_argument("--channel")
+    chat_irc.add_argument("--text", default="hello AlienHand")
+    chat_irc.add_argument("--output", default="runs")
+    chat_irc.add_argument("--name", default="chat-irc-publish")
+
     args = parser.parse_args()
     if args.command == "record-process":
         command = _normalize_remainder(args.command_args)
@@ -154,6 +165,35 @@ def main() -> None:
     elif args.command == "chat-truth-test":
         result = run_chat_truth_test(Path(args.output) / args.name)
         print(json.dumps(result, indent=2))
+    elif args.command == "chat-irc-publish":
+        root = Path(args.output) / args.name
+        channel_uuid = args.channel or uuid4().hex
+        publisher = IRCNetworkPublisher(args.host, args.port, args.nick)
+        try:
+            published = commit_message(
+                app_id=args.app_id,
+                channel_uuid=channel_uuid,
+                nick=args.nick,
+                sender_type="ai_agent",
+                payload_kind="text",
+                content={"text": args.text},
+                store=PayloadStore(root),
+                history=ChannelJSONLHistory(root),
+                publisher=publisher,
+            )
+        finally:
+            publisher.close()
+        print(
+            json.dumps(
+                {
+                    "root": str(root.resolve()),
+                    "channel_uuid": channel_uuid,
+                    "message_uuid": published.envelope.message_uuid,
+                    "envelope": published.envelope.to_line(),
+                },
+                indent=2,
+            )
+        )
 
 
 def import_godot_log(log_path: str | Path, output: str | Path, name: str, report: bool) -> dict[str, object]:

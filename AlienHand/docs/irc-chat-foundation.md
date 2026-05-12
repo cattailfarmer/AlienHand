@@ -20,7 +20,8 @@ The work-to-requirement justification ledger is captured in `work-justification.
 
 - Each AlienHand app may own a dedicated IRC server instance.
 - The IRC server for a given app lives inside that app's lifecycle and starts with it.
-- Chat channels are identified by raw UUIDs.
+- Chat channels are identified by lowercase 32-character UUID hex values.
+- IRC channel targets are `#` plus the 32-character channel UUID hex value.
 - Channel topics store the human-readable conversation description.
 - Channel identity is the UUID, not the topic text.
 
@@ -104,13 +105,13 @@ Recommended event types:
 - Durable per-channel history: yes.
 - Ephemeral PM context for live AI use: yes.
 - Per-app dedicated IRC server: yes.
-- Channel UUIDs as canonical identifiers: yes.
+- Channel UUID hex values as canonical identifiers: yes.
 - Channel topics as human-readable labels: yes.
 
 ## Current Protocol Direction
 
 - IRC lines carry compact message envelopes only.
-- The envelope carries app ID, channel UUID, message UUID, nick, and timestamp with milliseconds.
+- The envelope carries app ID, 32-character channel UUID hex, message UUID, nick, and timestamp with milliseconds.
 - Rich message content is resolved from a payload resolver by message UUID.
 - Durable payload files remain readable directly for cold replay if the resolver is unavailable.
 - The client renders the fetched payload as chat bubbles, code frames, image frames, or linked media frames.
@@ -138,6 +139,6 @@ The prototype succeeds only if it can publish an `AHIRC/1` envelope, resolve the
 
 The current runtime slice implements the durable substrate core in `alienhand_ai.chat_platform`.
 
-It verifies compact `AH1` envelope round-trip, payload write-before-history-before-publication ordering, JSONL channel append, cold replay from disk, and explicit `payload_error` records for missing payloads.
+It verifies compact `AH1` envelope round-trip, 32-character channel UUID hex normalization, payload write-before-history-before-publication ordering, JSONL channel append, cold replay from disk, explicit `payload_error` records for missing payloads, and socket-level IRC `JOIN`/`PRIVMSG` publication against a fake server.
 
-The remaining truth-test work is to replace the local envelope outbox with real local Ergo publication and connect one real user client plus one AI IRC client.
+The remaining truth-test work is to run the same publisher against a real local Ergo lifecycle and connect one real user client plus one AI IRC client.

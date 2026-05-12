@@ -65,6 +65,7 @@ python -m alienhand_ai.cli godot-summary --log user://alienhand_godot.jsonl
 python -m alienhand_ai.cli godot-import --log C:\path\alienhand_godot.jsonl --output runs --name godot-import --report
 python -m alienhand_ai.cli probe-godot --root C:\Project\Codex_Projects\LLMOS-Compiler --output runs\godot-interface-map.json
 python -m alienhand_ai.cli chat-truth-test --output runs --name chat-truth-test
+python -m alienhand_ai.cli chat-irc-publish --host 127.0.0.1 --port 6667 --nick alienhand-agent --text "hello AlienHand"
 ```
 
 The generic CLI is the intended path for operating and debugging programs such
@@ -74,6 +75,9 @@ as `LLMOS-Compiler`; game-specific CLIs can stay focused on their own domain.
 payload JSON before channel JSONL history, publishes compact `AH1` envelope lines
 to a local outbox, reloads the store from disk, and confirms cold replay can
 recover payloads while surfacing missing payloads as `payload_error` records.
+`chat-irc-publish` uses the same commit ordering, then registers with an IRC
+server, joins the `#` plus 32-character UUID hex channel, and sends the compact
+`AH1` envelope as a `PRIVMSG`.
 
 If `--name` is omitted or set to `auto`, AlienHand stores the run in the next
 numeric folder under `--output`: `runs\1`, `runs\2`, `runs\3`, and so on. It

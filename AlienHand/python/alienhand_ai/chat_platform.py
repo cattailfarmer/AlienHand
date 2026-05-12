@@ -5,13 +5,19 @@ from datetime import UTC, datetime
 import json
 import os
 from pathlib import Path
+import socket
 from time import time
-from typing import Any
-from uuid import uuid4
+from typing import Any, Protocol
+from uuid import UUID, uuid4
 
 
 JsonDict = dict[str, Any]
 IRC_BODY_BUDGET_BYTES = 400
+
+
+class EnvelopePublisher(Protocol):
+    def publish(self, envelope: "IRCMessageEnvelope") -> str:
+        ...
 
 
 @dataclass(frozen=True)
@@ -23,10 +29,13 @@ class IRCMessageEnvelope:
     timestamp: str
     protocol: str = "AH1"
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "channel_uuid", normalize_channel_uuid(self.channel_uuid))
+
     def to_line(self) -> str:
         values = {
             "a": str(self.app_id),
-            "c": self.channel_uuid,
+            "c": normalize_channel_uuid(self.channel_uuid),
             "m": self.message_uuid,
             "n": self.nick,
             "t": self.timestamp,
@@ -142,7 +151,7 @@ class ChannelJSONLHistory:
         self.channels_dir = self.root / "channels"
 
     def path_for(self, channel_uuid: str) -> Path:
-        return self.channels_dir / f"{channel_uuid}.jsonl"
+        return self.channels_dir / f"{normalize_channel_uuid(channel_uuid)}.jsonl"
 
     def append(self, channel_uuid: str, event: JsonDict) -> Path:
         path = self.path_for(channel_uuid)
@@ -184,6 +193,89 @@ class EnvelopeOutbox:
         return line
 
 
+class IRCNetworkPublisher:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        nick: str,
+        *,
+        username: str = "alienhand",
+        realname: str = "AlienHand",
+        timeout: float = 5.0,
+    ) -> None:
+        self.host = host
+        self.port = port
+        self.nick = nick
+        self.username = username
+        self.realname = realname
+        self.timeout = timeout
+        self._socket: socket.socket | None = None
+        self._file = None
+
+    def connect(self) -> None:
+        if self._socket is not None:
+            return
+        sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
+        sock.settimeout(self.timeout)
+        self._socket = sock
+        self._file = sock.makefile("r", encoding="utf-8", newline="\r\n")
+        self._send_raw(f"NICK {self.nick}")
+        self._send_raw(f"USER {self.username} 0 * :{self.realname}")
+        self._wait_for_registration()
+
+    def publish(self, envelope: IRCMessageEnvelope) -> str:
+        self.connect()
+        target = irc_channel_name(envelope.channel_uuid)
+        line = envelope.to_line()
+        self._send_raw(f"JOIN {target}")
+        self._send_raw(f"PRIVMSG {target} :{line}")
+        return line
+
+    def close(self) -> None:
+        try:
+            if self._socket is not None:
+                self._send_raw("QUIT :AlienHand shutdown")
+        except OSError:
+            pass
+        if self._file is not None:
+            self._file.close()
+        if self._socket is not None:
+            self._socket.close()
+        self._file = None
+        self._socket = None
+
+    def __enter__(self) -> "IRCNetworkPublisher":
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        self.close()
+
+    def _wait_for_registration(self) -> None:
+        while True:
+            line = self._read_raw()
+            parts = line.split()
+            if len(parts) > 1 and parts[1] == "001":
+                return
+            if parts and parts[0] == "PING":
+                token = parts[1] if len(parts) > 1 else ""
+                self._send_raw(f"PONG {token}")
+
+    def _send_raw(self, line: str) -> None:
+        if self._socket is None:
+            raise RuntimeError("IRC publisher is not connected")
+        self._socket.sendall(f"{line}\r\n".encode("utf-8"))
+
+    def _read_raw(self) -> str:
+        if self._file is None:
+            raise RuntimeError("IRC publisher is not connected")
+        line = self._file.readline()
+        if not line:
+            raise ConnectionError("IRC server closed connection before registration completed")
+        return line.rstrip("\r\n")
+
+
 def commit_message(
     *,
     app_id: int,
@@ -194,7 +286,7 @@ def commit_message(
     content: JsonDict,
     store: PayloadStore,
     history: ChannelJSONLHistory,
-    publisher: EnvelopeOutbox,
+    publisher: EnvelopePublisher,
     event_type: str = "message",
     frames: tuple[JsonDict, ...] = (),
     metadata: JsonDict | None = None,
@@ -202,11 +294,12 @@ def commit_message(
     timestamp: str | None = None,
 ) -> PublishedMessage:
     created_at = timestamp or utc_timestamp_ms()
+    resolved_channel_uuid = normalize_channel_uuid(channel_uuid)
     resolved_message_uuid = message_uuid or str(uuid4())
     payload = PayloadObject(
         message_uuid=resolved_message_uuid,
         app_id=app_id,
-        channel_uuid=channel_uuid,
+        channel_uuid=resolved_channel_uuid,
         sender=nick,
         sender_type=sender_type,
         event_type=event_type,
@@ -218,7 +311,7 @@ def commit_message(
     )
     envelope = IRCMessageEnvelope(
         app_id=app_id,
-        channel_uuid=channel_uuid,
+        channel_uuid=resolved_channel_uuid,
         message_uuid=resolved_message_uuid,
         nick=nick,
         timestamp=created_at,
@@ -226,7 +319,7 @@ def commit_message(
     store.write(payload)
     history_event = {
         "app_id": app_id,
-        "channel_uuid": channel_uuid,
+        "channel_uuid": resolved_channel_uuid,
         "event_type": event_type,
         "message_uuid": resolved_message_uuid,
         "nick": nick,
@@ -234,14 +327,14 @@ def commit_message(
         "timestamp": created_at,
         "envelope": envelope.to_dict(),
     }
-    history.append(channel_uuid, history_event)
+    history.append(resolved_channel_uuid, history_event)
     publisher.publish(envelope)
     return PublishedMessage(envelope=envelope, payload=payload, history_event=history_event)
 
 
 def replay_channel(history: ChannelJSONLHistory, resolver: PayloadResolver, channel_uuid: str) -> list[JsonDict]:
     replayed = []
-    for event in history.load(channel_uuid):
+    for event in history.load(normalize_channel_uuid(channel_uuid)):
         message_uuid = str(event.get("message_uuid", ""))
         replayed.append(
             {
@@ -257,7 +350,7 @@ def run_chat_truth_test(root: str | Path) -> JsonDict:
     store = PayloadStore(chat_root)
     history = ChannelJSONLHistory(chat_root)
     outbox = EnvelopeOutbox(chat_root / "irc_outbox.jsonl")
-    channel_uuid = str(uuid4())
+    channel_uuid = uuid4().hex
     app_id = 1
 
     first = commit_message(
@@ -323,6 +416,20 @@ def run_chat_truth_test(root: str | Path) -> JsonDict:
         "cold_replay_ok": len(resolved_messages) == 2 and len(payload_errors) == 1,
         "root": str(chat_root.resolve()),
     }
+
+
+def irc_channel_name(channel_uuid: str) -> str:
+    return f"#{normalize_channel_uuid(channel_uuid)}"
+
+
+def normalize_channel_uuid(channel_uuid: str | UUID) -> str:
+    raw = str(channel_uuid).strip()
+    if raw.startswith("#"):
+        raw = raw[1:]
+    try:
+        return UUID(raw).hex
+    except ValueError as error:
+        raise ValueError("channel UUID must be a 32-character hexadecimal UUID value") from error
 
 
 def payload_error(message_uuid: str, reason: str) -> JsonDict:

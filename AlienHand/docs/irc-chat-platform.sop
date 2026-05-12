@@ -22,7 +22,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [irc_server] is Ergo running inside the lifecycle of [app_instance]
   + [human_client] is thelounge adapted as the human-facing chat surface
   + [ai_client] is one independent IRC client connection for one AI agent identity
-  + [channel] is a UUID-named IRC channel whose topic stores the human-readable conversation description
+  + [channel] is a 32-character UUID-hex-named IRC channel whose topic stores the human-readable conversation description
   + [message_envelope] is the compact IRC-delivered reference to a message payload
   + [message_payload] is the rich message object fetched by UUID from the payload resolver or read from the payload store
   + [channel_history] is append-only JSONL scoped to one channel UUID
@@ -67,12 +67,15 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
 | [ReplayDirection] is (recent_first_backfill | oldest_first_reconstruct)
 
 & [ChannelIdentity] is the stable conversation identity
-  + [channel_uuid] is a raw UUID used as IRC channel name
+  + [channel_uuid] is the 32-character lowercase hexadecimal UUID value
+  + [irc_channel_name] is "#" plus [channel_uuid], with expected length 33
   + [topic] is the human-readable conversation description
   + [history_path] is the durable JSONL stream for [channel_uuid]
   + [payload_index] is the set of message UUIDs referenced by [history_path]
 
   = must: use [channel_uuid] for routing, storage, replay, and identity
+  = must: normalize hyphenated UUID text into 32-character lowercase hex before persistence or IRC publication
+  = must: publish IRC channel targets as [irc_channel_name]
   = must: allow [topic] to change without changing identity
   - never: infer identity from topic text
 
@@ -91,7 +94,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
 & [IRCMessageEnvelope] is the compact line payload sent through IRC for one rich message
   + [protocol] is AHIRC/1
   + [app_id] is compact 64-bit app identifier
-  + [channel_uuid] is the channel identity
+  + [channel_uuid] is the 32-character channel identity
   + [message_uuid] is the payload and history event identity
   + [nick] is the sender nick at send time
   + [timestamp] is UTC date-time with milliseconds
@@ -101,7 +104,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   = must: stay boring and parseable
   = must: keep [wire_form] below a conservative IRC body budget before server framing
   = must: allow the client to render a placeholder while resolving [message_uuid]
-  = should: use canonical UUID text unless a later byte budget requires compact encoding
+  = must: use 32-character lowercase UUID hex for [channel_uuid]
   = should: use a fixed timestamp form such as YYYYMMDDTHHMMSS.mmmZ
   = should: keep field labels short if labels are used
   - never: include rich message content in [wire_form]
@@ -109,10 +112,10 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   - never: use [wire_form] to hide command payloads
 
 ! [EnvelopeBudget] is acceptable for the current metadata set
-  @ [support] two canonical UUIDs, one 64-bit app id, nick, and millisecond timestamp fit comfortably under the common IRC 512-byte line budget when the message body remains compact
+  @ [support] one 32-character channel UUID hex value, one message UUID, one 64-bit app id, nick, and millisecond timestamp fit comfortably under the common IRC 512-byte line budget when the message body remains compact
 
 ~ [EnvelopeWireForm] is provisional
-  + [candidate] is "AH1 a=<app_id> c=<channel_uuid> m=<message_uuid> n=<nick> t=<YYYYMMDDTHHMMSS.mmmZ>"
+  + [candidate] is "AH1 a=<app_id> c=<32_char_channel_uuid_hex> m=<message_uuid> n=<nick> t=<YYYYMMDDTHHMMSS.mmmZ>"
   + [reason] is readable compactness while preserving direct debugging value
 
 ## Payload Store And Resolver
@@ -278,7 +281,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
 & [AlienHandIRCTruthTest] is the smallest end-to-end proof of the chat substrate
   + [one_app] is one AlienHand app instance
   + [one_ergo] is one local Ergo server
-  + [one_channel] is one UUID-named channel
+  + [one_channel] is one 32-character UUID-hex-named channel
   + [one_user_client] is thelounge or a minimal IRC client
   + [one_ai_client] is one independent AI IRC connection
   + [one_payload_store] is durable payload object storage
@@ -314,6 +317,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [root_goal] is stable AI-user chat with IRC delivery, rich payload rendering, and replayable context
   + [identity_node] is channel/app/actor/message identity
   + [transport_node] is IRC envelope delivery
+  + [irc_publisher_node] is socket-level IRC registration, join, and envelope PRIVMSG publication
   + [payload_store_node] is file-backed rich message durability
   + [payload_resolver_node] is message UUID lookup and render normalization
   + [commit_order_node] is message write ordering before IRC publication
@@ -335,6 +339,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
 & [ProgressStatus] is the current tracked state of each work node
   + [identity_node] is specified
   + [transport_node] is in_progress
+  + [irc_publisher_node] is verified_against_fake_server
   + [payload_store_node] is verified
   + [payload_resolver_node] is verified
   + [commit_order_node] is verified
@@ -356,8 +361,9 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [implemented_artifact] is AlienHand/python/alienhand_ai/chat_platform.py
   + [test_artifact] is AlienHand/python/tests/test_chat_platform.py
   + [cli_entry] is "python -m alienhand_ai.cli chat-truth-test --output runs --name chat-truth-test"
-  + [verified_behavior] is AH1 envelope round-trip, payload durability, JSONL append, blocked publication on history failure, cold replay, and payload_error on missing payload
-  + [remaining_truth_test] is real local Ergo lifecycle, real IRC client publication, and thelounge or minimal IRC client integration
+  + [cli_entry] is "python -m alienhand_ai.cli chat-irc-publish --host 127.0.0.1 --port 6667 --nick alienhand-agent"
+  + [verified_behavior] is AH1 envelope round-trip, 32-character channel UUID hex normalization, payload durability, JSONL append, blocked publication on history failure, cold replay, payload_error on missing payload, and socket-level IRC JOIN/PRIVMSG publication against a fake server
+  + [remaining_truth_test] is real local Ergo lifecycle, real Ergo publication, and thelounge or minimal IRC client integration
 
   = must: treat this as verified substrate core, not as complete Ergo integration
   = must: use this slice as the base for the next real IRC transport step

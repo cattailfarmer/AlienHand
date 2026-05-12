@@ -17,17 +17,21 @@ from alienhand_ai.chat_platform import (
     IRCEnvelopeReceiver,
     IRCMessageEnvelope,
     IRCNetworkPublisher,
+    PayloadObject,
     PayloadResolver,
     PayloadStore,
     commit_message,
     irc_channel_name,
     make_local_ergo_config,
     normalize_channel_uuid,
+    payload_to_render_model,
     record_history_request,
     replay_channel,
     replay_channel_chunks,
+    replay_channel_render_models,
     run_chat_truth_test,
     run_history_replay_proof,
+    run_render_model_proof,
 )
 
 
@@ -223,6 +227,61 @@ class ChatPlatformTests(unittest.TestCase):
             self.assertEqual(result["outbox_envelopes"], 6)
             self.assertEqual(result["chunk_lengths"], [2, 2])
             self.assertEqual(result["first_chunk_texts"], ["message 4", "message 5"])
+
+    def test_payload_render_model_orients_sender_and_normalizes_frames(self):
+        payload = PayloadObject(
+            message_uuid=str(uuid4()),
+            app_id=7,
+            channel_uuid=uuid4().hex,
+            sender="agent",
+            sender_type="ai_agent",
+            event_type="message",
+            payload_kind="mixed",
+            created_at="20260512T121314.159Z",
+            content={"text": "frames"},
+            frames=({"kind": "code", "language": "python", "code": "print('ok')"},),
+        )
+
+        row = payload_to_render_model(payload)
+
+        self.assertEqual(row["orientation"], "right")
+        self.assertEqual(row["status"], "resolved")
+        self.assertEqual(row["frames"][0]["kind"], "code")
+        self.assertEqual(row["frames"][0]["text"], "print('ok')")
+
+    def test_replay_render_models_surface_payload_errors_as_system_rows(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            history = ChannelJSONLHistory(root)
+            channel_uuid = uuid4().hex
+            missing_uuid = str(uuid4())
+            history.append(
+                channel_uuid,
+                {
+                    "app_id": 7,
+                    "channel_uuid": channel_uuid,
+                    "event_type": "message",
+                    "message_uuid": missing_uuid,
+                    "nick": "service",
+                    "sender_type": "service",
+                    "timestamp": "20260512T121314.159Z",
+                },
+            )
+
+            rows = replay_channel_render_models(history, PayloadResolver(PayloadStore(root)), channel_uuid)
+
+            self.assertEqual(rows[0]["status"], "payload_error")
+            self.assertEqual(rows[0]["orientation"], "system")
+            self.assertEqual(rows[0]["message_uuid"], missing_uuid)
+
+    def test_render_model_proof_builds_bubbles_frames_and_payload_error(self):
+        with tempfile.TemporaryDirectory() as temp:
+            result = run_render_model_proof(Path(temp) / "render")
+
+            self.assertTrue(result["render_model_ok"])
+            self.assertEqual(result["orientation_sequence"], ["left", "right", "system"])
+            self.assertEqual(result["agent_frame_kinds"], ["code", "image"])
+            self.assertEqual(result["payload_error_rows"], 1)
 
     def test_network_publisher_sends_join_and_privmsg(self):
         with tempfile.TemporaryDirectory() as temp, FakeIRCServer() as server:

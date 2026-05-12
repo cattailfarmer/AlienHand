@@ -823,6 +823,31 @@ def replay_channel_chunks(
     return chunks
 
 
+def payload_to_render_model(payload: PayloadObject | JsonDict) -> JsonDict:
+    data = payload.to_dict() if isinstance(payload, PayloadObject) else dict(payload)
+    sender_type = str(data.get("sender_type", "service"))
+    event_type = str(data.get("event_type", "message"))
+    payload_kind = str(data.get("payload_kind", "system"))
+    return {
+        "message_uuid": data.get("message_uuid", ""),
+        "channel_uuid": data.get("channel_uuid", ""),
+        "sender": data.get("sender", ""),
+        "sender_type": sender_type,
+        "event_type": event_type,
+        "payload_kind": payload_kind,
+        "created_at": data.get("created_at", ""),
+        "orientation": _render_orientation(sender_type, event_type),
+        "status": "payload_error" if event_type == "payload_error" else "resolved",
+        "content": data.get("content", {}),
+        "frames": _normalize_render_frames(data.get("frames", ()), payload_kind),
+        "metadata": data.get("metadata", {}),
+    }
+
+
+def replay_channel_render_models(history: ChannelJSONLHistory, resolver: PayloadResolver, channel_uuid: str) -> list[JsonDict]:
+    return [payload_to_render_model(row["payload"]) for row in replay_channel(history, resolver, channel_uuid)]
+
+
 def record_history_request(
     *,
     app_id: int,
@@ -987,6 +1012,81 @@ def run_history_replay_proof(
         "resolved_payloads": len([payload for payload in payloads if payload.get("event_type") != "payload_error"]),
         "request_recorded": request.payload.event_type == "history_request",
         "cold_replay_ok": len(payloads) == min(limit, message_count),
+        "root": str(chat_root.resolve()),
+    }
+
+
+def run_render_model_proof(root: str | Path, *, app_id: int = 1) -> JsonDict:
+    chat_root = Path(root)
+    store = PayloadStore(chat_root)
+    history = ChannelJSONLHistory(chat_root)
+    outbox = EnvelopeOutbox(chat_root / "irc_outbox.jsonl")
+    channel_uuid = uuid4().hex
+
+    user_message = commit_message(
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        nick="user",
+        sender_type="user",
+        payload_kind="text",
+        content={"text": "hello agent"},
+        store=store,
+        history=history,
+        publisher=outbox,
+    )
+    agent_message = commit_message(
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        nick="agent",
+        sender_type="ai_agent",
+        payload_kind="mixed",
+        content={"text": "code and image frames"},
+        frames=(
+            {"kind": "code", "language": "python", "code": "print('alienhand')"},
+            {"kind": "image", "source": "payloads/example.png", "alt": "example image"},
+        ),
+        store=store,
+        history=history,
+        publisher=outbox,
+    )
+
+    missing_uuid = str(uuid4())
+    missing_envelope = IRCMessageEnvelope(
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        message_uuid=missing_uuid,
+        nick="service",
+        timestamp=utc_timestamp_ms(),
+    )
+    history.append(
+        channel_uuid,
+        {
+            "app_id": app_id,
+            "channel_uuid": channel_uuid,
+            "event_type": "message",
+            "message_uuid": missing_uuid,
+            "nick": "service",
+            "sender_type": "service",
+            "timestamp": missing_envelope.timestamp,
+            "envelope": missing_envelope.to_dict(),
+        },
+    )
+
+    rows = replay_channel_render_models(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
+    agent_row = next(row for row in rows if row["message_uuid"] == agent_message.envelope.message_uuid)
+    payload_error_rows = [row for row in rows if row["status"] == "payload_error"]
+    return {
+        "app_id": app_id,
+        "channel_uuid": channel_uuid,
+        "user_message_uuid": user_message.envelope.message_uuid,
+        "agent_message_uuid": agent_message.envelope.message_uuid,
+        "render_rows": len(rows),
+        "orientation_sequence": [row["orientation"] for row in rows],
+        "agent_frame_kinds": [frame["kind"] for frame in agent_row["frames"]],
+        "payload_error_rows": len(payload_error_rows),
+        "render_model_ok": [row["orientation"] for row in rows] == ["left", "right", "system"]
+        and [frame["kind"] for frame in agent_row["frames"]] == ["code", "image"]
+        and len(payload_error_rows) == 1,
         "root": str(chat_root.resolve()),
     }
 
@@ -1189,6 +1289,49 @@ def _replay_chunk(
         "has_more": has_more,
         "events": replayed,
     }
+
+
+def _render_orientation(sender_type: str, event_type: str) -> str:
+    if event_type == "payload_error" or sender_type in {"system", "service"}:
+        return "system"
+    if sender_type == "ai_agent":
+        return "right"
+    return "left"
+
+
+def _normalize_render_frames(frames: Any, payload_kind: str) -> list[JsonDict]:
+    normalized = []
+    for index, frame in enumerate(frames or []):
+        frame_data = dict(frame)
+        kind = str(frame_data.get("kind") or frame_data.get("type") or payload_kind or "mixed")
+        render_frame = {"index": index, "kind": kind, "metadata": frame_data.get("metadata", {})}
+        if kind == "code":
+            render_frame.update(
+                {
+                    "language": frame_data.get("language", ""),
+                    "text": frame_data.get("code", frame_data.get("text", "")),
+                }
+            )
+        elif kind == "image":
+            render_frame.update(
+                {
+                    "source": frame_data.get("source", frame_data.get("url", frame_data.get("path", ""))),
+                    "alt": frame_data.get("alt", ""),
+                    "mime_type": frame_data.get("mime_type", ""),
+                }
+            )
+        elif kind in {"file", "link"}:
+            render_frame.update(
+                {
+                    "source": frame_data.get("source", frame_data.get("url", frame_data.get("path", ""))),
+                    "label": frame_data.get("label", frame_data.get("title", "")),
+                    "mime_type": frame_data.get("mime_type", ""),
+                }
+            )
+        else:
+            render_frame["content"] = frame_data
+        normalized.append(render_frame)
+    return normalized
 
 
 def _yaml_path(path: str | Path) -> str:

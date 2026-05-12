@@ -70,6 +70,7 @@ python -m alienhand_ai.cli chat-ergo-proof --output runs --name chat-ergo-proof
 python -m alienhand_ai.cli chat-app-lifecycle-proof --output runs --name chat-app-lifecycle-proof
 python -m alienhand_ai.cli chat-user-client-proof --output runs --name chat-user-client-proof
 python -m alienhand_ai.cli chat-history-proof --output runs --name chat-history-proof
+python -m alienhand_ai.cli chat-render-proof --output runs --name chat-render-proof
 ```
 
 The generic CLI is the intended path for operating and debugging programs such
@@ -96,6 +97,9 @@ then verifies cold replay.
 `chat-history-proof` records a payload-backed `history_request` event and
 replays prior channel messages in full payload chunks. It does not choose the
 final user command syntax; it proves the replay substrate that syntax will call.
+`chat-render-proof` turns resolved payloads into render rows for the future
+client surface: user rows orient left, AI-agent rows orient right, service/error
+rows render as system rows, and code/image frames are normalized for the UI.
 
 If `--name` is omitted or set to `auto`, AlienHand stores the run in the next
 numeric folder under `--output`: `runs\1`, `runs\2`, `runs\3`, and so on. It

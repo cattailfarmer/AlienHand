@@ -14,6 +14,7 @@ from .chat_platform import (
     run_chat_truth_test,
     run_ergo_lifecycle_proof,
     run_history_replay_proof,
+    run_render_model_proof,
     run_user_client_proof,
 )
 from .godot import load_godot_events, summarize_godot_events
@@ -138,6 +139,11 @@ def main() -> None:
     chat_history.add_argument("--limit", type=int, default=4)
     chat_history.add_argument("--output", default="runs")
     chat_history.add_argument("--name", default="chat-history-proof")
+
+    chat_render = sub.add_parser("chat-render-proof")
+    chat_render.add_argument("--app-id", type=int, default=1)
+    chat_render.add_argument("--output", default="runs")
+    chat_render.add_argument("--name", default="chat-render-proof")
 
     args = parser.parse_args()
     if args.command == "record-process":
@@ -279,6 +285,9 @@ def main() -> None:
             chunk_size=args.chunk_size,
             limit=args.limit,
         )
+        print(json.dumps(result, indent=2))
+    elif args.command == "chat-render-proof":
+        result = run_render_model_proof(Path(args.output) / args.name, app_id=args.app_id)
         print(json.dumps(result, indent=2))
 
 

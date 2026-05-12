@@ -4,3 +4,6 @@
 [submodule "AlienHand/Ergo"]
 	path = AlienHand/Ergo
 	url = https://github.com/ergochat/ergo.git
+[submodule "AlienHand/thelounge"]
+	path = AlienHand/thelounge
+	url = https://github.com/thelounge/thelounge.git

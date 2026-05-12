@@ -1,0 +1,376 @@
+Subject: AlienHand IRC Chat Platform
+
+Description: SOP specification for the AlienHand chat substrate that uses Ergo as the per-app IRC server, thelounge as the human client surface, IRC lines as compact message envelopes, a payload store and resolver as the rich payload provider, JSONL as durable per-channel history, and independent IRC client connections for each AI agent.
+
+@ [source] platform/source/SOP_Markdown.md
+@ [source] platform/Delineation.sop
+@ [source] platform/Integration.sop
+@ [source] platform/Semantic_Refinement.sop
+@ [source] platform/refinement/Dual_Hemisphere_Thinking.sop
+@ [source] platform/refinement/Faculty_Integration.sop
+@ [source] platform/source/retired/Sierpinski_Reasoning.md
+@ [foundation] AlienHand/docs/irc-chat-foundation.md
+@ [justification] AlienHand/docs/work-justification.sop
+@ [submodule] AlienHand/BizHawk
+@ [submodule] AlienHand/Ergo
+@ [submodule] AlienHand/thelounge
+
+& [AlienHandIRCChatPlatform] is the bounded chat substrate for AI-user conversation inside AlienHand apps
+  + [purpose] is to host persistent channel conversation between users and AI agents while preserving full replayable context
+  + [app_instance] is one running AlienHand app using chat
+  + [app_id] is a compact app-scoped identifier, expected to fit in 64 bits
+  + [irc_server] is Ergo running inside the lifecycle of [app_instance]
+  + [human_client] is thelounge adapted as the human-facing chat surface
+  + [ai_client] is one independent IRC client connection for one AI agent identity
+  + [channel] is a UUID-named IRC channel whose topic stores the human-readable conversation description
+  + [message_envelope] is the compact IRC-delivered reference to a message payload
+  + [message_payload] is the rich message object fetched by UUID from the payload resolver or read from the payload store
+  + [channel_history] is append-only JSONL scoped to one channel UUID
+  + [payload_store] is durable immutable storage for payload objects
+  + [payload_resolver] is the service API that resolves message UUIDs into rich renderable payloads
+  + [context_replay] is chunked back-fill of channel history for AI context reconstruction or user history commands
+  + [ephemeral_pm_context] is private-message context retained only for a live user session when needed by AI
+  + [resolution] is proceed_to_design_after_protocol_review
+
+  = must: start [irc_server] whenever [app_instance] starts and chat is enabled
+  = must: connect each AI agent through its own [ai_client]
+  = must: use [channel] UUID as stable identity and topic text as mutable description
+  = must: keep IRC delivery compact and delegate rich content to [payload_store] and [payload_resolver]
+  = must: store durable channel events as JSONL
+  = must: replay channel history from JSONL and payload files, not from live IRC memory alone
+  = must: preserve uncertainty where command syntax, chunk sizing, and retention policy remain open
+  - never: treat the IRC line as the rich content payload
+  - never: treat channel topic as channel identity
+  - never: persist private messages by default
+
+## Boundary
+
+/ [AlienHandIRCChatPlatform] -(Delineation)> [inside], [outside], [references], [uncertainty]
+
+& [ChatPlatformBoundary] is the subject boundary for the current planning stage
+  + [inside] is app-owned IRC lifecycle, AI IRC identities, channel UUIDs, envelope format, payload storage, payload resolution, commit order, JSONL channel logs, replay, and rich client rendering contracts
+  + [outside] is emulator control, game automation policy, model prompting policy, account federation, public IRC network operation, and production deployment hardening
+  + [references] are Ergo, thelounge, BizHawk, SOP platform docs, and existing AlienHand AI telemetry/context systems
+  + [uncertainty] is history command syntax, payload directory layout, access control, PM retention timeout, message chunk size, and exact thelounge extension strategy
+
+  = must: keep implementation work blocked until the subject contract is reviewed
+  = must: preserve [outside] as adjacent but not fused into the chat substrate
+  = must: move [uncertainty] into progress nodes rather than hiding it in prose
+
+## Identity Vocabulary
+
+| [ChatActorType] is (user | ai_agent | system | service)
+| [MessageEventType] is (message | action | join | part | nick_change | topic_change | history_request | system_note | ai_observation | ai_response | payload_error)
+| [PayloadKind] is (text | rich_text | code | image | file | link | mixed | system)
+| [PersistenceScope] is (durable_channel | ephemeral_session | service_cache)
+| [ProgressState] is (not_started | specified | prototype_ready | in_progress | blocked | verified | deferred)
+| [ReplayDirection] is (recent_first_backfill | oldest_first_reconstruct)
+
+& [ChannelIdentity] is the stable conversation identity
+  + [channel_uuid] is a raw UUID used as IRC channel name
+  + [topic] is the human-readable conversation description
+  + [history_path] is the durable JSONL stream for [channel_uuid]
+  + [payload_index] is the set of message UUIDs referenced by [history_path]
+
+  = must: use [channel_uuid] for routing, storage, replay, and identity
+  = must: allow [topic] to change without changing identity
+  - never: infer identity from topic text
+
+& [AIClientIdentity] is the network-visible identity of one AI agent
+  + [agent_id] is the stable AlienHand AI identity
+  + [nick] is the IRC-visible nickname
+  + [connection] is the agent's dedicated IRC client session
+  + [actor_type] is ai_agent
+
+  = must: allocate one [connection] per active AI agent
+  = must: preserve attribution per [agent_id]
+  = must: avoid shared bot identity for multiple agents
+
+## IRC Envelope
+
+& [IRCMessageEnvelope] is the compact line payload sent through IRC for one rich message
+  + [protocol] is AHIRC/1
+  + [app_id] is compact 64-bit app identifier
+  + [channel_uuid] is the channel identity
+  + [message_uuid] is the payload and history event identity
+  + [nick] is the sender nick at send time
+  + [timestamp] is UTC date-time with milliseconds
+  + [wire_form] is a compact token sequence carried in the IRC message body
+
+  = must: include [app_id], [channel_uuid], [message_uuid], [nick], and [timestamp]
+  = must: stay boring and parseable
+  = must: keep [wire_form] below a conservative IRC body budget before server framing
+  = must: allow the client to render a placeholder while resolving [message_uuid]
+  = should: use canonical UUID text unless a later byte budget requires compact encoding
+  = should: use a fixed timestamp form such as YYYYMMDDTHHMMSS.mmmZ
+  = should: keep field labels short if labels are used
+  - never: include rich message content in [wire_form]
+  - never: embed JSON in [wire_form]
+  - never: use [wire_form] to hide command payloads
+
+! [EnvelopeBudget] is acceptable for the current metadata set
+  @ [support] two canonical UUIDs, one 64-bit app id, nick, and millisecond timestamp fit comfortably under the common IRC 512-byte line budget when the message body remains compact
+
+~ [EnvelopeWireForm] is provisional
+  + [candidate] is "AH1 a=<app_id> c=<channel_uuid> m=<message_uuid> n=<nick> t=<YYYYMMDDTHHMMSS.mmmZ>"
+  + [reason] is readable compactness while preserving direct debugging value
+
+## Payload Store And Resolver
+
+& [PayloadStore] is durable immutable storage for payload objects
+  + [message_uuid] is the lookup key and payload identity
+  + [payload_file] is the stored rich message object
+  + [durability] is confirmed enough for prototype replay before IRC publication
+  + [immutability] is the rule that payload files are not rewritten once referenced
+
+  = must: write [PayloadObject] before [IRCMessageEnvelope] publication
+  = must: preserve payloads independently of resolver process availability
+  = must: allow cold replay to read stored payloads directly
+  = must: make missing payloads observable as payload_error rather than silent loss
+  = should: keep payload files immutable once referenced by durable history
+
+& [PayloadResolver] is the service API that resolves message UUIDs into renderable payloads
+  + [message_uuid] is the lookup key
+  + [payload_store] is [PayloadStore]
+  + [payload_kind] is one [PayloadKind]
+  + [attachments] are linked media or files referenced by the payload
+  + [render_model] is the normalized structure consumed by the chat client
+  + [cache_policy] is the local client and service caching rule
+
+  = must: return payload data by [message_uuid]
+  = must: read from [PayloadStore]
+  = must: support text, rich text, code frames, image frames, links, files, and mixed payloads
+  = must: return a structured error payload when [message_uuid] cannot be resolved
+  = should: normalize payloads into a render model without becoming the durability owner
+
+& [PayloadObject] is the canonical rich message data resolved by [PayloadResolver] or read directly from [PayloadStore]
+  + [message_uuid] is stable identity
+  + [app_id] is source app identity
+  + [channel_uuid] is source channel identity
+  + [sender] is sender nick or stable actor id
+  + [sender_type] is one [ChatActorType]
+  + [event_type] is one [MessageEventType]
+  + [payload_kind] is one [PayloadKind]
+  + [created_at] is UTC timestamp with milliseconds
+  + [content] is the rich content body
+  + [frames] are code, image, file, link, or mixed media render units
+  + [metadata] is optional structured support data
+
+  = must: be sufficient for client rendering without depending on the IRC line after lookup
+  = must: be sufficient for AI replay after lookup
+  = must: preserve sender, channel, timestamp, event type, payload kind, and content metadata
+
+## Commit Order
+
+& [MessageCommitOrder] is the durability ordering for one message
+  + [message_uuid] is allocated before durable writes
+  + [payload_write] is writing [PayloadObject] into [PayloadStore]
+  + [payload_durability] is confirmation that [payload_write] is durable enough for prototype replay
+  + [history_append] is appending the channel JSONL event
+  + [irc_publish] is publishing [IRCMessageEnvelope] after durable state exists
+
+  = must: allocate [message_uuid]
+  = must: write [PayloadObject]
+  = must: confirm [payload_durability] within prototype scope
+  = must: append [ChannelJSONLHistory] event
+  = must: publish [IRCMessageEnvelope] only after payload and history writes succeed
+  ? [IRC publish succeeds but client payload lookup fails]
+    = must: render placeholder or payload_error
+  ? [payload write fails]
+    = must: block [irc_publish]
+  ? [history_append fails]
+    = must: block [irc_publish]
+    = must: preserve failed write state for inspection if payload already exists
+
+  - never: depend on live IRC memory for replay success
+
+## Durable History
+
+& [ChannelJSONLHistory] is the durable append-only event stream for one channel
+  + [scope] is durable_channel
+  + [channel_uuid] is the owning channel
+  + [event] is one JSON object per line
+  + [message_uuid] links to [PayloadObject] when the event has payload content
+  + [ordering] is timestamp plus append order
+
+  = must: append channel events without rewriting history
+  = must: record history requests as structured events
+  = must: preserve enough metadata to rebuild channel context from cold start
+  = should: include both [message_uuid] and [timestamp] for replay ordering
+
+## Replay And Context
+
+& [ChannelContextReplay] is the chunked recovery of prior channel messages
+  + [source] is [ChannelJSONLHistory]
+  + [payload_resolver] is [PayloadResolver]
+  + [payload_store] is [PayloadStore]
+  + [direction] is recent_first_backfill by default
+  + [chunk] is a bounded set of history events and payloads
+  + [consumer] is AI context loader or user history command handler
+  + [stop_condition] is request fulfilled, context budget reached, or source exhausted
+
+  = must: back-fill full previous messages in chunks
+  = must: resolve message payloads by UUID during replay
+  = must: read [PayloadStore] directly when [PayloadResolver] is unavailable
+  = must: preserve chronological reconstruction when presenting history
+  = must: expose missing payloads as payload_error events
+  = should: load recent chunks first for AI usefulness, then expand backward as needed
+
+& [HistoryCommand] is the user-triggered request for channel history
+  + [syntax] is unresolved
+  + [channel_uuid] is the current channel identity
+  + [requester] is the user nick or actor id
+  + [range] is requested chunk count, message count, time span, or all
+  + [response_mode] is unresolved
+
+  ? [syntax is selected]
+    = must: parse before normal AI response generation
+    = must: record [history_request] as a payload-backed structured event
+    = must: call [ChannelContextReplay]
+
+  ~ [syntax] is provisional until the client command model is chosen
+
+## Ephemeral Private Messages
+
+& [EphemeralPMContext] is the live private-message context available to AI during a user session
+  + [scope] is ephemeral_session
+  + [user_session] is the active private-message relation
+  + [consumer] is an AI agent context window
+  + [retention] is until disconnect or session expiry
+
+  = may: feed live AI context while the user remains connected
+  = must: dispose when [user_session] ends or expires
+  = must: stay outside durable per-channel JSONL history
+  - never: persist PMs by default
+
+## Client Rendering
+
+& [RichChatClientSurface] is the adapted thelounge channel perspective for AlienHand chat
+  + [left_bubble] is user-originated message rendering
+  + [right_bubble] is AI-agent-originated message rendering
+  + [system_row] is system or service event rendering
+  + [code_frame] is framed code rendering with language metadata when available
+  + [image_frame] is framed image rendering from linked media
+  + [media_frame] is linked file, link, or mixed payload rendering
+  + [placeholder] is the temporary UI for unresolved payload UUIDs
+
+  = must: render users left-oriented and AI agents right-oriented
+  = must: render rich payloads from [PayloadObject], not from IRC text content
+  = must: support code frames, image frames, linked media, and rich text or equivalent structured formatting
+  = must: show graceful unresolved-payload state
+  = should: remain deferred until envelope delivery, payload lookup, and cold replay are verified
+
+## Protocol Review
+
+& [ChatPlatformProtocolReview] is the blocking review before implementation
+  + [review_targets] are envelope, commit order, replay semantics, payload errors, identity, and PM retention
+  + [acceptance] is smallest prototype contract approved
+  + [minimum_payload_schema] is the smallest [PayloadObject] that can render and replay one message
+  + [minimum_history_schema] is the smallest [ChannelJSONLHistory] event that can cold-replay one channel
+  + [cold_replay_acceptance_test] is restarting with no live IRC memory and reconstructing the channel from JSONL plus payload files
+
+  = must: resolve write ordering
+  = must: choose [minimum_payload_schema]
+  = must: choose [minimum_history_schema]
+  = must: choose [cold_replay_acceptance_test]
+  = must: leave thelounge rich rendering deferred
+
+& [AlienHandIRCTruthTest] is the smallest end-to-end proof of the chat substrate
+  + [one_app] is one AlienHand app instance
+  + [one_ergo] is one local Ergo server
+  + [one_channel] is one UUID-named channel
+  + [one_user_client] is thelounge or a minimal IRC client
+  + [one_ai_client] is one independent AI IRC connection
+  + [one_payload_store] is durable payload object storage
+  + [one_payload_resolver] resolves message UUID to payload JSON
+  + [one_history_file] is append-only JSONL for the channel
+
+  = must: start Ergo with app lifecycle
+  = must: send AHIRC/1 envelope through IRC
+  = must: write payload object before or atomically with envelope publication
+  = must: append JSONL event for the channel
+  = must: resolve payload by message UUID
+  = must: cold-replay channel context after restart
+  = must: show unresolved payload as explicit payload_error
+  - never: depend on live IRC memory for replay success
+
+## Integration Assessment
+
+& [ChatPlatformIntegration] is the current feasibility and path assessment
+  + [concept] is [AlienHandIRCChatPlatform]
+  + [available_support] is Ergo submodule, thelounge submodule, AlienHand Python AI layer, existing JSONL run artifacts, and current docs
+  + [missing_support] is process supervisor, Ergo config generation, AI IRC client library, payload store, payload resolver, channel JSONL writer, history replay loader, and thelounge render adaptation
+  + [hidden_constraints] are IRC framing limits, authentication, service discovery, client extension strategy, concurrent writes, payload immutability, and cross-app isolation
+  + [feasibility_gradient] is prototypeable
+  + [next_step] is [ChatPlatformProtocolReview] followed by [AlienHandIRCTruthTest]
+
+  = must: prototype before broad UI customization
+  = must: validate envelope delivery and payload lookup before rich rendering
+  = must: validate replay from cold JSONL before AI context claims are made
+
+## Sierpinski Work Graph
+
+& [ChatPlatformProgressGraph] is the staged convergence graph for tracking heavy work
+  + [root_goal] is stable AI-user chat with IRC delivery, rich payload rendering, and replayable context
+  + [identity_node] is channel/app/actor/message identity
+  + [transport_node] is IRC envelope delivery
+  + [payload_store_node] is file-backed rich message durability
+  + [payload_resolver_node] is message UUID lookup and render normalization
+  + [commit_order_node] is message write ordering before IRC publication
+  + [history_node] is per-channel JSONL append and replay
+  + [protocol_review_node] is the blocking review before implementation
+  + [truth_test_core_node] is the executable substrate proof before real Ergo transport
+  + [truth_test_node] is the smallest end-to-end proof
+  + [lifecycle_node] is per-app Ergo startup and shutdown
+  + [client_node] is thelounge bubble and frame rendering
+  + [ai_node] is one AI connection per agent plus context replay
+  + [pm_node] is ephemeral private-message context
+  + [security_node] is auth, isolation, access control, and data exposure policy
+  + [resolution] is rerun_required until prototype tests verify child nodes
+
+  = must: resolve child nodes before claiming parent convergence
+  = must: backpropagate failures to the earliest unstable node
+  = must: update boundary, priority, or decomposition before rerunning a failed pass
+
+& [ProgressStatus] is the current tracked state of each work node
+  + [identity_node] is specified
+  + [transport_node] is in_progress
+  + [payload_store_node] is verified
+  + [payload_resolver_node] is verified
+  + [commit_order_node] is verified
+  + [history_node] is verified
+  + [protocol_review_node] is specified
+  + [truth_test_core_node] is verified
+  + [truth_test_node] is in_progress
+  + [lifecycle_node] is not_started
+  + [client_node] is deferred
+  + [ai_node] is not_started
+  + [pm_node] is specified
+  + [security_node] is deferred
+
+  ? [prototype begins]
+    = must: move only the active node to in_progress
+    = must: leave unimplemented nodes visible
+
+& [RuntimePrototypeSlice] is the implemented first slice of [AlienHandIRCTruthTest]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/chat_platform.py
+  + [test_artifact] is AlienHand/python/tests/test_chat_platform.py
+  + [cli_entry] is "python -m alienhand_ai.cli chat-truth-test --output runs --name chat-truth-test"
+  + [verified_behavior] is AH1 envelope round-trip, payload durability, JSONL append, blocked publication on history failure, cold replay, and payload_error on missing payload
+  + [remaining_truth_test] is real local Ergo lifecycle, real IRC client publication, and thelounge or minimal IRC client integration
+
+  = must: treat this as verified substrate core, not as complete Ergo integration
+  = must: use this slice as the base for the next real IRC transport step
+
+## Dual-Hemisphere Settlement
+
+& [DualHemisphereSettlement] is the current balanced interpretation of the design
+  + [master_pattern] is IRC as narrow live coordination while the real chat substrate is the subject graph of channel UUIDs, JSONL history, immutable payload files, and replay
+  + [emissary_structure] is envelope, commit order, payload store, payload resolver, history, replay, rendering, and lifecycle contracts
+  + [friction] is the risk that this becomes over-complex before the smallest truth test
+  + [convergence_notice] is that the architecture is coherent if the first prototype proves durability and replay before UI richness
+  + [uncertainty] is command syntax, access control, file layout, and thelounge adaptation path
+
+  = must: keep the living chat experience as the final purpose
+  = must: let the compact protocol serve that purpose without becoming the whole system
+  = must: run the smallest truth test before expanding rich UI work

@@ -1,0 +1,369 @@
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+import json
+import os
+from pathlib import Path
+from time import time
+from typing import Any
+from uuid import uuid4
+
+
+JsonDict = dict[str, Any]
+IRC_BODY_BUDGET_BYTES = 400
+
+
+@dataclass(frozen=True)
+class IRCMessageEnvelope:
+    app_id: int
+    channel_uuid: str
+    message_uuid: str
+    nick: str
+    timestamp: str
+    protocol: str = "AH1"
+
+    def to_line(self) -> str:
+        values = {
+            "a": str(self.app_id),
+            "c": self.channel_uuid,
+            "m": self.message_uuid,
+            "n": self.nick,
+            "t": self.timestamp,
+        }
+        for key, value in values.items():
+            _require_wire_token(key, value)
+        line = f"{self.protocol} a={values['a']} c={values['c']} m={values['m']} n={values['n']} t={values['t']}"
+        if len(line.encode("utf-8")) > IRC_BODY_BUDGET_BYTES:
+            raise ValueError("IRC envelope exceeds the prototype body budget")
+        return line
+
+    def to_dict(self) -> JsonDict:
+        return asdict(self)
+
+    @classmethod
+    def from_line(cls, line: str) -> "IRCMessageEnvelope":
+        parts = line.strip().split()
+        if not parts or parts[0] != "AH1":
+            raise ValueError("unsupported IRC envelope protocol")
+        values = _parse_wire_tokens(parts[1:])
+        return cls(
+            protocol=parts[0],
+            app_id=int(values["a"]),
+            channel_uuid=values["c"],
+            message_uuid=values["m"],
+            nick=values["n"],
+            timestamp=values["t"],
+        )
+
+
+@dataclass(frozen=True)
+class PayloadObject:
+    message_uuid: str
+    app_id: int
+    channel_uuid: str
+    sender: str
+    sender_type: str
+    event_type: str
+    payload_kind: str
+    created_at: str
+    content: JsonDict
+    frames: tuple[JsonDict, ...] = ()
+    metadata: JsonDict = field(default_factory=dict)
+
+    def to_dict(self) -> JsonDict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, payload: JsonDict) -> "PayloadObject":
+        data = dict(payload)
+        data["frames"] = tuple(data.get("frames", ()))
+        data["metadata"] = data.get("metadata", {})
+        return cls(**data)
+
+
+@dataclass(frozen=True)
+class PublishedMessage:
+    envelope: IRCMessageEnvelope
+    payload: PayloadObject
+    history_event: JsonDict
+
+
+class PayloadStore:
+    def __init__(self, root: str | Path) -> None:
+        self.root = Path(root)
+        self.payloads_dir = self.root / "payloads"
+
+    def path_for(self, message_uuid: str) -> Path:
+        return self.payloads_dir / f"{message_uuid}.json"
+
+    def write(self, payload: PayloadObject) -> Path:
+        target = self.path_for(payload.message_uuid)
+        if target.exists():
+            raise FileExistsError(f"payload already exists: {payload.message_uuid}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temp = target.with_suffix(".json.tmp")
+        encoded = json.dumps(payload.to_dict(), indent=2, sort_keys=True)
+        try:
+            with temp.open("w", encoding="utf-8") as file:
+                file.write(encoded)
+                file.write("\n")
+                file.flush()
+                os.fsync(file.fileno())
+            os.replace(temp, target)
+        finally:
+            if temp.exists():
+                temp.unlink()
+        return target
+
+    def read(self, message_uuid: str) -> PayloadObject:
+        path = self.path_for(message_uuid)
+        with path.open("r", encoding="utf-8") as file:
+            return PayloadObject.from_dict(json.load(file))
+
+
+class PayloadResolver:
+    def __init__(self, store: PayloadStore) -> None:
+        self.store = store
+
+    def resolve(self, message_uuid: str) -> PayloadObject:
+        return self.store.read(message_uuid)
+
+    def resolve_render_model(self, message_uuid: str) -> JsonDict:
+        try:
+            return self.resolve(message_uuid).to_dict()
+        except FileNotFoundError:
+            return payload_error(message_uuid, "payload_not_found")
+
+
+class ChannelJSONLHistory:
+    def __init__(self, root: str | Path) -> None:
+        self.root = Path(root)
+        self.channels_dir = self.root / "channels"
+
+    def path_for(self, channel_uuid: str) -> Path:
+        return self.channels_dir / f"{channel_uuid}.jsonl"
+
+    def append(self, channel_uuid: str, event: JsonDict) -> Path:
+        path = self.path_for(channel_uuid)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as file:
+            file.write(json.dumps(event, sort_keys=True))
+            file.write("\n")
+            file.flush()
+            os.fsync(file.fileno())
+        return path
+
+    def load(self, channel_uuid: str) -> list[JsonDict]:
+        path = self.path_for(channel_uuid)
+        if not path.exists():
+            return []
+        events = []
+        with path.open("r", encoding="utf-8") as file:
+            for line in file:
+                if line.strip():
+                    events.append(json.loads(line))
+        return events
+
+
+class EnvelopeOutbox:
+    def __init__(self, path: str | Path | None = None) -> None:
+        self.path = Path(path) if path else None
+        self.lines: list[str] = []
+
+    def publish(self, envelope: IRCMessageEnvelope) -> str:
+        line = envelope.to_line()
+        self.lines.append(line)
+        if self.path:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with self.path.open("a", encoding="utf-8") as file:
+                file.write(line)
+                file.write("\n")
+                file.flush()
+                os.fsync(file.fileno())
+        return line
+
+
+def commit_message(
+    *,
+    app_id: int,
+    channel_uuid: str,
+    nick: str,
+    sender_type: str,
+    payload_kind: str,
+    content: JsonDict,
+    store: PayloadStore,
+    history: ChannelJSONLHistory,
+    publisher: EnvelopeOutbox,
+    event_type: str = "message",
+    frames: tuple[JsonDict, ...] = (),
+    metadata: JsonDict | None = None,
+    message_uuid: str | None = None,
+    timestamp: str | None = None,
+) -> PublishedMessage:
+    created_at = timestamp or utc_timestamp_ms()
+    resolved_message_uuid = message_uuid or str(uuid4())
+    payload = PayloadObject(
+        message_uuid=resolved_message_uuid,
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        sender=nick,
+        sender_type=sender_type,
+        event_type=event_type,
+        payload_kind=payload_kind,
+        created_at=created_at,
+        content=content,
+        frames=frames,
+        metadata=metadata or {},
+    )
+    envelope = IRCMessageEnvelope(
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        message_uuid=resolved_message_uuid,
+        nick=nick,
+        timestamp=created_at,
+    )
+    store.write(payload)
+    history_event = {
+        "app_id": app_id,
+        "channel_uuid": channel_uuid,
+        "event_type": event_type,
+        "message_uuid": resolved_message_uuid,
+        "nick": nick,
+        "sender_type": sender_type,
+        "timestamp": created_at,
+        "envelope": envelope.to_dict(),
+    }
+    history.append(channel_uuid, history_event)
+    publisher.publish(envelope)
+    return PublishedMessage(envelope=envelope, payload=payload, history_event=history_event)
+
+
+def replay_channel(history: ChannelJSONLHistory, resolver: PayloadResolver, channel_uuid: str) -> list[JsonDict]:
+    replayed = []
+    for event in history.load(channel_uuid):
+        message_uuid = str(event.get("message_uuid", ""))
+        replayed.append(
+            {
+                "event": event,
+                "payload": resolver.resolve_render_model(message_uuid) if message_uuid else payload_error("", "missing_message_uuid"),
+            }
+        )
+    return replayed
+
+
+def run_chat_truth_test(root: str | Path) -> JsonDict:
+    chat_root = Path(root)
+    store = PayloadStore(chat_root)
+    history = ChannelJSONLHistory(chat_root)
+    outbox = EnvelopeOutbox(chat_root / "irc_outbox.jsonl")
+    channel_uuid = str(uuid4())
+    app_id = 1
+
+    first = commit_message(
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        nick="user",
+        sender_type="user",
+        payload_kind="text",
+        content={"text": "hello AlienHand"},
+        store=store,
+        history=history,
+        publisher=outbox,
+    )
+    second = commit_message(
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        nick="agent",
+        sender_type="ai_agent",
+        payload_kind="text",
+        content={"text": "hello user"},
+        store=store,
+        history=history,
+        publisher=outbox,
+    )
+
+    missing_uuid = str(uuid4())
+    missing_envelope = IRCMessageEnvelope(
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        message_uuid=missing_uuid,
+        nick="service",
+        timestamp=utc_timestamp_ms(),
+    )
+    history.append(
+        channel_uuid,
+        {
+            "app_id": app_id,
+            "channel_uuid": channel_uuid,
+            "event_type": "message",
+            "message_uuid": missing_uuid,
+            "nick": "service",
+            "sender_type": "service",
+            "timestamp": missing_envelope.timestamp,
+            "envelope": missing_envelope.to_dict(),
+        },
+    )
+
+    cold_history = ChannelJSONLHistory(chat_root)
+    cold_resolver = PayloadResolver(PayloadStore(chat_root))
+    replayed = replay_channel(cold_history, cold_resolver, channel_uuid)
+    payload_errors = [row for row in replayed if row["payload"].get("event_type") == "payload_error"]
+    resolved_messages = [row for row in replayed if row["payload"].get("event_type") != "payload_error"]
+
+    return {
+        "app_id": app_id,
+        "channel_uuid": channel_uuid,
+        "messages_committed": [first.envelope.message_uuid, second.envelope.message_uuid],
+        "envelopes_published": len(outbox.lines),
+        "history_events": len(cold_history.load(channel_uuid)),
+        "replayed": len(replayed),
+        "resolved_payloads": len(resolved_messages),
+        "payload_errors": len(payload_errors),
+        "cold_replay_ok": len(resolved_messages) == 2 and len(payload_errors) == 1,
+        "root": str(chat_root.resolve()),
+    }
+
+
+def payload_error(message_uuid: str, reason: str) -> JsonDict:
+    return {
+        "message_uuid": message_uuid,
+        "sender": "payload_resolver",
+        "sender_type": "service",
+        "event_type": "payload_error",
+        "payload_kind": "system",
+        "created_at": utc_timestamp_ms(),
+        "content": {"reason": reason},
+        "frames": [],
+        "metadata": {},
+    }
+
+
+def utc_timestamp_ms(now: datetime | None = None) -> str:
+    value = now.astimezone(UTC) if now else datetime.now(UTC)
+    return f"{value:%Y%m%dT%H%M%S}.{value.microsecond // 1000:03d}Z"
+
+
+def unix_millis() -> int:
+    return int(time() * 1000)
+
+
+def _parse_wire_tokens(tokens: list[str]) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for token in tokens:
+        if "=" not in token:
+            raise ValueError(f"invalid envelope token: {token}")
+        key, value = token.split("=", 1)
+        values[key] = value
+    required = {"a", "c", "m", "n", "t"}
+    missing = required - values.keys()
+    if missing:
+        raise ValueError(f"missing envelope fields: {sorted(missing)}")
+    return values
+
+
+def _require_wire_token(key: str, value: str) -> None:
+    if not value:
+        raise ValueError(f"empty envelope field: {key}")
+    if any(character.isspace() for character in value):
+        raise ValueError(f"envelope field contains whitespace: {key}")

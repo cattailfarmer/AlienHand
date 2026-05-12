@@ -15,6 +15,7 @@ model scaffolding from `alienhand_ai`.
 - `alienhand_ai.motion`: semantic motion compression for steady cursor/object movement.
 - `alienhand_ai.interaction_trace`: previous-frame + observed-input + current-frame transition builder for later semantic analysis.
 - `alienhand_ai.bitmap`: tiny BMP loader for captured observations.
+- `alienhand_ai.chat_platform`: first IRC chat substrate truth-test core for AHIRC/1 envelopes, durable payload files, JSONL channel history, payload resolution, and cold replay.
 - `alienhand_ai.godot`: parser and normalizer for Godot-side AlienHandAgent JSONL streams.
 - `alienhand_ai.interface_probe`: static interface mapper for Godot APIs, editor shortcuts, project inputs, and AlienHand bridge hooks.
 - `alienhand_ai.learning`: named learning profiles with mechanics sensitivity, exploration, memory decay, and back-propagation rates.
@@ -63,10 +64,16 @@ python -m alienhand_ai.cli ingest-learning-digest --packets runs\llmos\learning_
 python -m alienhand_ai.cli godot-summary --log user://alienhand_godot.jsonl
 python -m alienhand_ai.cli godot-import --log C:\path\alienhand_godot.jsonl --output runs --name godot-import --report
 python -m alienhand_ai.cli probe-godot --root C:\Project\Codex_Projects\LLMOS-Compiler --output runs\godot-interface-map.json
+python -m alienhand_ai.cli chat-truth-test --output runs --name chat-truth-test
 ```
 
 The generic CLI is the intended path for operating and debugging programs such
 as `LLMOS-Compiler`; game-specific CLIs can stay focused on their own domain.
+
+`chat-truth-test` exercises the first AlienHand chat substrate slice. It writes
+payload JSON before channel JSONL history, publishes compact `AH1` envelope lines
+to a local outbox, reloads the store from disk, and confirms cold replay can
+recover payloads while surfacing missing payloads as `payload_error` records.
 
 If `--name` is omitted or set to `auto`, AlienHand stores the run in the next
 numeric folder under `--output`: `runs\1`, `runs\2`, `runs\3`, and so on. It

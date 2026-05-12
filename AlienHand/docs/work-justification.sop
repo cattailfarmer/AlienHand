@@ -1,0 +1,147 @@
+Subject: AlienHand Work Justification
+
+Description: SOP description of the justification step, called "jusitification" by the user, for matching actual work performed to the specification requirements that warranted the work. This artifact is a behavior note for future work and a current ledger of completed project changes.
+
+@ [source] platform/source/SOP_Markdown.md
+@ [source] platform/source/Subject-Driven_Design.md
+@ [source] platform/Delineation.sop
+@ [source] platform/Integration.sop
+@ [specification] AlienHand/docs/irc-chat-platform.sop
+@ [foundation] AlienHand/docs/irc-chat-foundation.md
+
+& [WorkJustification] is the accountability pass that connects implemented work to the specification requirement that called for it
+  + [user_term] is "jusitification"
+  + [canonical_term] is justification
+  + [implemented_work] is an artifact, code path, dependency, configuration, document, test, or committed change that exists in the repository
+  + [spec_requirement] is the SOP subject, directive, constraint, or progress node that warranted the work
+  + [evidence] is an inspectable file, git commit, submodule state, command result, or test result
+  + [verification] is the check that confirms the work matches the requirement
+  + [unresolved] is any remainder that prevents claiming full completion
+  + [resolution] is justified, partially_justified, specified_only, blocked, or rejected
+
+  = must: distinguish implemented work from planned work
+  = must: map each work claim to at least one [spec_requirement]
+  = must: preserve evidence for each claim
+  = must: preserve unresolved gaps instead of converting them into completion language
+  = must: update this layer when substantial work changes the project state
+  - never: claim a feature is implemented merely because it is specified
+  - never: hide missing verification behind a broad summary
+
+## Justification Entry Schema
+
+& [JustificationEntry] is one auditable mapping from work performed to requirement satisfied
+  + [work_id] is a stable local identifier for the work entry
+  + [work_type] is dependency, documentation, protocol, runtime_code, test, configuration, or verification
+  + [requirement_anchor] is the specification subject or directive that required the work
+  + [implemented_artifact] is the repository artifact that now exists
+  + [evidence_anchor] is the file path, commit, command, or observation supporting the claim
+  + [verification_result] is what was checked
+  + [status] is justified, partially_justified, specified_only, blocked, or rejected
+  + [uncertainty] is the honest remainder
+
+  = must: be specific enough that a future pass can inspect the claim
+  = must: use [specified_only] when a runtime behavior is only described by a requirement document and does not yet exist
+  = must: use [partially_justified] when work exists but implementation or verification is incomplete
+
+## Current Work Ledger
+
+& [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
+  + [scope] is work performed in the AlienHand repository for chat-platform setup and the first runtime substrate proof
+  + [ledger_status] is partially_justified because the durable substrate core is implemented and verified, but real Ergo lifecycle and IRC client transport are not implemented
+
+& [JustificationEntry: BizHawkNestedDependency] is justified
+  + [work_type] is dependency
+  + [requirement_anchor] is [AlienHandIRCChatPlatform.references] and [ChatPlatformIntegration.available_support]
+  + [implemented_artifact] is AlienHand/BizHawk
+  + [evidence_anchor] is git submodule status 87dbea8465ea384255cf3474446f7706bc784c36 AlienHand/BizHawk
+  + [verification_result] is submodule exists under AlienHand/BizHawk and not at repository root
+  + [status] is justified
+  + [uncertainty] is integration with chat or emulator control is outside current chat-platform scope
+
+& [JustificationEntry: ErgoNestedDependency] is justified
+  + [work_type] is dependency
+  + [requirement_anchor] is [AlienHandIRCChatPlatform.irc_server] and [ChatPlatformIntegration.available_support]
+  + [implemented_artifact] is AlienHand/Ergo
+  + [evidence_anchor] is git submodule status 8c02b854b79cc2e71330c5eb2f9fa76bc66f1edf AlienHand/Ergo
+  + [verification_result] is Ergo exists under AlienHand/Ergo and provides the planned per-app IRC server dependency
+  + [status] is justified
+  + [uncertainty] is app lifecycle startup, config generation, and runtime supervision are not implemented yet
+
+& [JustificationEntry: TheLoungeNestedDependency] is justified
+  + [work_type] is dependency
+  + [requirement_anchor] is [AlienHandIRCChatPlatform.human_client] and [RichChatClientSurface]
+  + [implemented_artifact] is AlienHand/thelounge
+  + [evidence_anchor] is git submodule status a63b7b45b7bdfaf4e137e09f2c16e2508979dc50 AlienHand/thelounge
+  + [verification_result] is thelounge exists under AlienHand/thelounge and provides the planned human client dependency
+  + [status] is justified
+  + [uncertainty] is AlienHand-specific rendering adaptation is deferred until transport, payload, and replay are verified
+
+& [JustificationEntry: ChatFoundationDocument] is justified
+  + [work_type] is documentation
+  + [requirement_anchor] is [AlienHandIRCChatPlatform] planning boundary and [DualHemisphereSettlement]
+  + [implemented_artifact] is AlienHand/docs/irc-chat-foundation.md
+  + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-foundation.md
+  + [verification_result] is document describes topology, persistence, protocol direction, commit order, and first truth test
+  + [status] is justified
+  + [uncertainty] is document is not committed and does not implement runtime behavior
+
+& [JustificationEntry: ChatPlatformSOPSpecification] is justified
+  + [work_type] is protocol
+  + [requirement_anchor] is user request to define the chat platform in SOP terms and track project progress
+  + [implemented_artifact] is AlienHand/docs/irc-chat-platform.sop
+  + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-platform.sop
+  + [verification_result] is SOP spec defines envelope, payload store, payload resolver, commit order, replay, protocol review, truth test, and progress graph
+  + [status] is justified
+  + [uncertainty] is document is not committed and real Ergo transport remains not_started
+
+& [JustificationEntry: WorkJustificationLayer] is justified
+  + [work_type] is documentation
+  + [requirement_anchor] is user request for an SOP description of actual work done matched to specification requirements
+  + [implemented_artifact] is AlienHand/docs/work-justification.sop
+  + [evidence_anchor] is local uncommitted file AlienHand/docs/work-justification.sop
+  + [verification_result] is this artifact defines the justification pass and current work ledger
+  + [status] is justified
+  + [uncertainty] is future runtime work must append or update entries as implementation proceeds
+
+& [JustificationEntry: ChatRuntimeTruthTestCore] is partially_justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [AlienHandIRCTruthTest], [MessageCommitOrder], [PayloadStore], [PayloadResolver], [ChannelJSONLHistory], and [ChannelContextReplay]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/chat_platform.py
+  + [implemented_artifact] is AlienHand/python/tests/test_chat_platform.py
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-truth-test command
+  + [evidence_anchor] is python -m unittest tests.test_chat_platform
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-truth-test --output runs --name chat-truth-test
+  + [verification_result] is 5 chat-platform tests passed and CLI returned cold_replay_ok true with 2 resolved payloads and 1 payload_error
+  + [status] is partially_justified
+  + [uncertainty] is the envelope is published to a local outbox, not a live Ergo server; thelounge and AI IRC client integration remain unimplemented
+
+## Future Work Behavior
+
+& [JustificationBehavior] is the required behavior while implementing future work
+  + [before_work] is the act of identifying the specification requirement being served
+  + [during_work] is the act of preserving evidence and avoiding scope drift
+  + [after_work] is the act of updating or adding [JustificationEntry]
+  + [claim_check] is the final distinction between implemented, verified, partial, or specified-only
+
+  = must: identify [requirement_anchor] before starting a substantial implementation step
+  = must: update [implemented_artifact] after the work exists on disk
+  = must: record [verification_result] after inspection, command output, test, or review
+  = must: mark runtime work as [partially_justified] until a truth test or focused verification passes
+  = must: mark documentation-only work as [justified] when it directly satisfies a documentation or specification requirement
+  = must: mark runtime behavior as [specified_only] when it exists only as a document
+  = should: append one new [JustificationEntry] per coherent feature or requirement group
+  = should: keep entries small enough that progress can be audited without rereading the whole project
+
+## Claim Discipline
+
+& [CompletionClaimDiscipline] is the guardrail against false completion
+  + [implemented] is work that exists in the repository
+  + [verified] is implemented work that has passed a relevant check
+  + [specified] is work described by a requirement but not yet implemented
+  + [justified] is work whose implementation and verification satisfy the cited requirement
+
+  = must: say implemented only when the artifact exists
+  = must: say verified only when a check has been run or an inspection result exists
+  = must: say specified only when the work remains a plan
+  = must: say justified only when the evidence matches the requirement
+  - never: let a clean narrative replace evidence

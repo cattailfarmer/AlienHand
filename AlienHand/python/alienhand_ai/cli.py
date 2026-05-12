@@ -4,6 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
+from .chat_platform import run_chat_truth_test
 from .godot import load_godot_events, summarize_godot_events
 from .interface_probe import probe_godot_interfaces, summarize_interface_map
 from .interaction_trace import summarize_interaction_trace, write_interaction_trace
@@ -77,6 +78,10 @@ def main() -> None:
     probe.add_argument("--root", required=True)
     probe.add_argument("--output")
 
+    chat_truth = sub.add_parser("chat-truth-test")
+    chat_truth.add_argument("--output", default="runs")
+    chat_truth.add_argument("--name", default="chat-truth-test")
+
     args = parser.parse_args()
     if args.command == "record-process":
         command = _normalize_remainder(args.command_args)
@@ -146,6 +151,9 @@ def main() -> None:
         interface_map = probe_godot_interfaces(args.root)
         output = interface_map.write_json(args.output) if args.output else None
         print(json.dumps({"summary": summarize_interface_map(interface_map), "output": str(output) if output else None}, indent=2))
+    elif args.command == "chat-truth-test":
+        result = run_chat_truth_test(Path(args.output) / args.name)
+        print(json.dumps(result, indent=2))
 
 
 def import_godot_log(log_path: str | Path, output: str | Path, name: str, report: bool) -> dict[str, object]:

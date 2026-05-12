@@ -2,6 +2,7 @@
 
 __all__ = [
     "bitmap",
+    "chat_platform",
     "godot",
     "input_control",
     "input_observer",

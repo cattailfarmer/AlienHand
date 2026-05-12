@@ -13,6 +13,7 @@ from .chat_platform import (
     run_app_lifecycle_proof,
     run_chat_truth_test,
     run_ergo_lifecycle_proof,
+    run_user_client_proof,
 )
 from .godot import load_godot_events, summarize_godot_events
 from .interface_probe import probe_godot_interfaces, summarize_interface_map
@@ -118,6 +119,16 @@ def main() -> None:
     chat_app.add_argument("--text", default="hello app-owned Ergo")
     chat_app.add_argument("--output", default="runs")
     chat_app.add_argument("--name", default="chat-app-lifecycle-proof")
+
+    chat_user = sub.add_parser("chat-user-client-proof")
+    chat_user.add_argument("--ergo-root")
+    chat_user.add_argument("--port", type=int)
+    chat_user.add_argument("--agent-nick", default="alienhandagent")
+    chat_user.add_argument("--user-nick", default="alienhanduser")
+    chat_user.add_argument("--app-id", type=int, default=1)
+    chat_user.add_argument("--text", default="hello user client")
+    chat_user.add_argument("--output", default="runs")
+    chat_user.add_argument("--name", default="chat-user-client-proof")
 
     args = parser.parse_args()
     if args.command == "record-process":
@@ -236,6 +247,17 @@ def main() -> None:
             ergo_root=args.ergo_root,
             app_id=args.app_id,
             nick=args.nick,
+            text=args.text,
+            port=args.port,
+        )
+        print(json.dumps(result, indent=2))
+    elif args.command == "chat-user-client-proof":
+        result = run_user_client_proof(
+            Path(args.output) / args.name,
+            ergo_root=args.ergo_root,
+            app_id=args.app_id,
+            agent_nick=args.agent_nick,
+            user_nick=args.user_nick,
             text=args.text,
             port=args.port,
         )

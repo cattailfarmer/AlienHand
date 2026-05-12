@@ -302,7 +302,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
 & [ChatPlatformIntegration] is the current feasibility and path assessment
   + [concept] is [AlienHandIRCChatPlatform]
   + [available_support] is Ergo submodule, thelounge submodule, AlienHand Python AI layer, existing JSONL run artifacts, and current docs
-  + [missing_support] is user IRC client proof, thelounge render adaptation, access control, and production lifecycle hardening
+  + [missing_support] is thelounge render adaptation, history command proof, access control, and production lifecycle hardening
   + [hidden_constraints] are IRC framing limits, authentication, service discovery, client extension strategy, concurrent writes, payload immutability, and cross-app isolation
   + [feasibility_gradient] is prototypeable
   + [next_step] is [ChatPlatformProtocolReview] followed by [AlienHandIRCTruthTest]
@@ -327,6 +327,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [truth_test_node] is the smallest end-to-end proof
   + [lifecycle_node] is local Ergo startup and shutdown
   + [app_lifecycle_node] is AlienHand app-owned Ergo startup and shutdown
+  + [user_client_probe_node] is minimal user IRC client receive and payload resolution
   + [client_node] is thelounge bubble and frame rendering
   + [ai_node] is one AI connection per agent plus context replay
   + [pm_node] is ephemeral private-message context
@@ -347,9 +348,10 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [history_node] is verified
   + [protocol_review_node] is specified
   + [truth_test_core_node] is verified
-  + [truth_test_node] is in_progress
+  + [truth_test_node] is verified_minimal_user_client
   + [lifecycle_node] is verified_local_ergo
   + [app_lifecycle_node] is verified_app_service_proof
+  + [user_client_probe_node] is verified_real_ergo
   + [client_node] is deferred
   + [ai_node] is not_started
   + [pm_node] is specified
@@ -366,11 +368,12 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [cli_entry] is "python -m alienhand_ai.cli chat-irc-publish --host 127.0.0.1 --port 6667 --nick alienhand-agent"
   + [cli_entry] is "python -m alienhand_ai.cli chat-ergo-proof --output runs --name chat-ergo-proof"
   + [cli_entry] is "python -m alienhand_ai.cli chat-app-lifecycle-proof --output runs --name chat-app-lifecycle-proof"
-  + [verified_behavior] is AH1 envelope round-trip, 32-character channel UUID hex normalization, payload durability, JSONL append, blocked publication on history failure, cold replay, payload_error on missing payload, socket-level IRC JOIN/PRIVMSG publication against a fake server, real local Ergo startup/publication/shutdown, and AlienHand-owned service lifecycle startup/publication/shutdown
-  + [remaining_truth_test] is one real user client and thelounge payload rendering
+  + [cli_entry] is "python -m alienhand_ai.cli chat-user-client-proof --output runs --name chat-user-client-proof"
+  + [verified_behavior] is AH1 envelope round-trip, 32-character channel UUID hex normalization, payload durability, JSONL append, blocked publication on history failure, cold replay, payload_error on missing payload, socket-level IRC JOIN/PRIVMSG publication against a fake server, real local Ergo startup/publication/shutdown, AlienHand-owned service lifecycle startup/publication/shutdown, and minimal user IRC client receive plus payload resolution through real local Ergo
+  + [remaining_truth_test] is thelounge payload rendering and history command semantics
 
   = must: treat this as verified local proof, not as complete user-facing chat integration
-  = must: use this slice as the base for the next user-client and rich-rendering steps
+  = must: use this slice as the base for the next rich-rendering and history-command steps
 
 ## Dual-Hemisphere Settlement
 

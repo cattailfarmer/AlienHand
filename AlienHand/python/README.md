@@ -68,6 +68,7 @@ python -m alienhand_ai.cli chat-truth-test --output runs --name chat-truth-test
 python -m alienhand_ai.cli chat-irc-publish --host 127.0.0.1 --port 6667 --nick alienhand-agent --text "hello AlienHand"
 python -m alienhand_ai.cli chat-ergo-proof --output runs --name chat-ergo-proof
 python -m alienhand_ai.cli chat-app-lifecycle-proof --output runs --name chat-app-lifecycle-proof
+python -m alienhand_ai.cli chat-user-client-proof --output runs --name chat-user-client-proof
 ```
 
 The generic CLI is the intended path for operating and debugging programs such
@@ -87,6 +88,10 @@ down, and verifies cold replay from payload files plus channel JSONL history.
 the service starts Ergo, holds the AI IRC publisher while the app is considered
 running, publishes one payload-backed envelope, stops the server, and verifies
 cold replay after shutdown.
+`chat-user-client-proof` adds a minimal user-side IRC client to the same service
+boundary. The user client joins the UUID channel, receives the compact `AH1`
+envelope from Ergo, resolves the message UUID through the payload store, and
+then verifies cold replay.
 
 If `--name` is omitted or set to `auto`, AlienHand stores the run in the next
 numeric folder under `--output`: `runs\1`, `runs\2`, `runs\3`, and so on. It

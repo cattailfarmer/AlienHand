@@ -14,6 +14,7 @@ from alienhand_ai.chat_platform import (
     AlienHandChatService,
     ChannelJSONLHistory,
     EnvelopeOutbox,
+    IRCEnvelopeReceiver,
     IRCMessageEnvelope,
     IRCNetworkPublisher,
     PayloadResolver,
@@ -190,6 +191,30 @@ class ChatPlatformTests(unittest.TestCase):
             self.assertIn(f"PRIVMSG {irc_channel_name(channel_uuid)} :{published.envelope.to_line()}", commands)
             self.assertTrue(PayloadStore(root).path_for(published.envelope.message_uuid).exists())
 
+    def test_envelope_receiver_waits_for_channel_privmsg(self):
+        channel_uuid = uuid4().hex
+        envelope = IRCMessageEnvelope(
+            app_id=7,
+            channel_uuid=channel_uuid,
+            message_uuid=str(uuid4()),
+            nick="agent",
+            timestamp="20260512T121314.159Z",
+        )
+
+        with FakeIRCEnvelopeServer(envelope) as server:
+            receiver = IRCEnvelopeReceiver("127.0.0.1", server.port, "user", timeout=2.0)
+            try:
+                target = receiver.join(channel_uuid)
+                received = receiver.wait_for_envelope(channel_uuid, timeout=2.0)
+            finally:
+                receiver.close()
+
+        self.assertEqual(target, irc_channel_name(channel_uuid))
+        self.assertEqual(received.envelope, envelope)
+        self.assertEqual(received.target, irc_channel_name(channel_uuid))
+        self.assertIn("PRIVMSG", received.raw_line)
+        self.assertIn(f"JOIN {irc_channel_name(channel_uuid)}", server.commands)
+
     def test_local_ergo_config_uses_loopback_port_and_runtime_paths(self):
         template = """network:
     name: ErgoTest
@@ -279,6 +304,62 @@ class FakeIRCServer:
                         nick = command.split(" ", 1)[1]
                     elif command.startswith("USER "):
                         connection.sendall(f":fake 001 {nick} :welcome\r\n".encode("utf-8"))
+                    elif command.startswith("QUIT "):
+                        return
+
+
+class FakeIRCEnvelopeServer:
+    def __init__(self, envelope: IRCMessageEnvelope) -> None:
+        self.envelope = envelope
+        self.commands: list[str] = []
+        self._ready = threading.Event()
+        self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self._socket.bind(("127.0.0.1", 0))
+        self._socket.listen(1)
+        self.port = self._socket.getsockname()[1]
+        self._thread = threading.Thread(target=self._serve, daemon=True)
+
+    def __enter__(self) -> "FakeIRCEnvelopeServer":
+        self._thread.start()
+        self._ready.wait(timeout=2.0)
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        self._socket.close()
+        self._thread.join(timeout=2.0)
+
+    def _serve(self) -> None:
+        self._ready.set()
+        try:
+            connection, _ = self._socket.accept()
+        except OSError:
+            return
+        nick = "user"
+        with connection:
+            connection.settimeout(2.0)
+            buffer = b""
+            while True:
+                try:
+                    chunk = connection.recv(4096)
+                except OSError:
+                    return
+                if not chunk:
+                    return
+                buffer += chunk
+                while b"\r\n" in buffer:
+                    raw, buffer = buffer.split(b"\r\n", 1)
+                    command = raw.decode("utf-8")
+                    self.commands.append(command)
+                    if command.startswith("NICK "):
+                        nick = command.split(" ", 1)[1]
+                    elif command.startswith("USER "):
+                        connection.sendall(f":fake 001 {nick} :welcome\r\n".encode("utf-8"))
+                    elif command.startswith("JOIN "):
+                        target = command.split(" ", 1)[1]
+                        connection.sendall(f":{nick}!user@localhost JOIN {target}\r\n".encode("utf-8"))
+                        connection.sendall(
+                            f":agent!agent@localhost PRIVMSG {target} :{self.envelope.to_line()}\r\n".encode("utf-8")
+                        )
                     elif command.startswith("QUIT "):
                         return
 

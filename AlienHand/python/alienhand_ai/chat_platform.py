@@ -99,6 +99,13 @@ class PublishedMessage:
     history_event: JsonDict
 
 
+@dataclass(frozen=True)
+class ReceivedIRCEnvelope:
+    envelope: IRCMessageEnvelope
+    target: str
+    raw_line: str
+
+
 class PayloadStore:
     def __init__(self, root: str | Path) -> None:
         self.root = Path(root)
@@ -277,6 +284,138 @@ class IRCNetworkPublisher:
         return line.rstrip("\r\n")
 
 
+class IRCEnvelopeReceiver:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        nick: str,
+        *,
+        username: str = "alienhanduser",
+        realname: str = "AlienHand User",
+        timeout: float = 5.0,
+    ) -> None:
+        self.host = host
+        self.port = port
+        self.nick = nick
+        self.username = username
+        self.realname = realname
+        self.timeout = timeout
+        self._socket: socket.socket | None = None
+        self._file = None
+
+    def connect(self) -> None:
+        if self._socket is not None:
+            return
+        sock = socket.create_connection((self.host, self.port), timeout=self.timeout)
+        sock.settimeout(self.timeout)
+        self._socket = sock
+        self._file = sock.makefile("r", encoding="utf-8", newline="\r\n")
+        self._send_raw(f"NICK {self.nick}")
+        self._send_raw(f"USER {self.username} 0 * :{self.realname}")
+        self._wait_for_registration()
+
+    def join(self, channel_uuid: str) -> str:
+        self.connect()
+        target = irc_channel_name(channel_uuid)
+        self._send_raw(f"JOIN {target}")
+        self._wait_for_join(target)
+        return target
+
+    def wait_for_envelope(self, channel_uuid: str, *, timeout: float | None = None) -> ReceivedIRCEnvelope:
+        self.connect()
+        target = irc_channel_name(channel_uuid)
+        deadline = time() + (timeout if timeout is not None else self.timeout)
+        while time() < deadline:
+            self._set_socket_timeout(deadline)
+            try:
+                line = self._read_raw()
+            except TimeoutError:
+                break
+            if self._handle_ping(line):
+                continue
+            privmsg = _parse_irc_privmsg(line)
+            if privmsg is None or privmsg["target"].lower() != target.lower():
+                continue
+            try:
+                envelope = IRCMessageEnvelope.from_line(privmsg["message"])
+            except ValueError:
+                continue
+            if envelope.channel_uuid == normalize_channel_uuid(channel_uuid):
+                return ReceivedIRCEnvelope(envelope=envelope, target=privmsg["target"], raw_line=line)
+        raise TimeoutError(f"Timed out waiting for AH1 envelope on {target}")
+
+    def close(self) -> None:
+        try:
+            if self._socket is not None:
+                self._send_raw("QUIT :AlienHand user client shutdown")
+        except OSError:
+            pass
+        if self._file is not None:
+            self._file.close()
+        if self._socket is not None:
+            self._socket.close()
+        self._file = None
+        self._socket = None
+
+    def __enter__(self) -> "IRCEnvelopeReceiver":
+        self.connect()
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        self.close()
+
+    def _wait_for_registration(self) -> None:
+        while True:
+            line = self._read_raw()
+            parts = line.split()
+            if len(parts) > 1 and parts[1] == "001":
+                return
+            self._handle_ping(line)
+
+    def _wait_for_join(self, target: str) -> None:
+        deadline = time() + self.timeout
+        while time() < deadline:
+            self._set_socket_timeout(deadline)
+            try:
+                line = self._read_raw()
+            except TimeoutError:
+                break
+            if self._handle_ping(line):
+                continue
+            if _line_confirms_join(line, target):
+                return
+        raise TimeoutError(f"Timed out waiting to join {target}")
+
+    def _handle_ping(self, line: str) -> bool:
+        parts = line.split()
+        if parts and parts[0] == "PING":
+            token = parts[1] if len(parts) > 1 else ""
+            self._send_raw(f"PONG {token}")
+            return True
+        return False
+
+    def _set_socket_timeout(self, deadline: float) -> None:
+        if self._socket is not None:
+            self._socket.settimeout(max(0.1, deadline - time()))
+
+    def _send_raw(self, line: str) -> None:
+        if self._socket is None:
+            raise RuntimeError("IRC receiver is not connected")
+        self._socket.sendall(f"{line}\r\n".encode("utf-8"))
+
+    def _read_raw(self) -> str:
+        if self._file is None:
+            raise RuntimeError("IRC receiver is not connected")
+        try:
+            line = self._file.readline()
+        except socket.timeout as error:
+            raise TimeoutError("timed out waiting for IRC receiver line") from error
+        if not line:
+            raise ConnectionError("IRC server closed connection")
+        return line.rstrip("\r\n")
+
+
 class AlienHandChatService:
     def __init__(
         self,
@@ -428,6 +567,66 @@ def run_app_lifecycle_proof(
         "binary_path": str(binary_path.resolve()) if binary_path else None,
         "app_lifecycle_started": process_started,
         "app_lifecycle_stopped": True,
+        "history_events": len(replayed),
+        "resolved_payloads": len(resolved_payloads),
+        "cold_replay_ok": len(resolved_payloads) == 1,
+        "root": str(chat_root.resolve()),
+    }
+
+
+def run_user_client_proof(
+    root: str | Path,
+    *,
+    ergo_root: str | Path | None = None,
+    app_id: int = 1,
+    agent_nick: str = "alienhandagent",
+    user_nick: str = "alienhanduser",
+    text: str = "hello user client",
+    port: int | None = None,
+    timeout: float = 30.0,
+) -> JsonDict:
+    chat_root = Path(root)
+    channel_uuid = uuid4().hex
+    received: ReceivedIRCEnvelope | None = None
+    with AlienHandChatService(
+        chat_root,
+        ergo_root=ergo_root,
+        app_id=app_id,
+        nick=agent_nick,
+        port=port,
+        startup_timeout=timeout,
+        build_timeout=timeout,
+    ) as service:
+        process_started = service.process is not None and service.process.poll() is None
+        receiver = IRCEnvelopeReceiver("127.0.0.1", service.port or 0, user_nick, timeout=5.0)
+        try:
+            receiver.join(channel_uuid)
+            published = service.publish_text(text, channel_uuid=channel_uuid, metadata={"proof": "user_client"})
+            received = receiver.wait_for_envelope(channel_uuid, timeout=timeout)
+            resolved_payload = service.resolver.resolve_render_model(received.envelope.message_uuid)
+        finally:
+            receiver.close()
+        running_port = service.port
+
+    replayed = replay_channel(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
+    resolved_payloads = [row for row in replayed if row["payload"].get("event_type") != "payload_error"]
+    received_line = received.envelope.to_line() if received else ""
+    return {
+        "app_id": app_id,
+        "channel_uuid": channel_uuid,
+        "irc_channel": irc_channel_name(channel_uuid),
+        "message_uuid": published.envelope.message_uuid,
+        "published_envelope": published.envelope.to_line(),
+        "received_envelope": received_line,
+        "received_raw_line": received.raw_line if received else "",
+        "received_matches_published": received_line == published.envelope.to_line(),
+        "payload_resolved": resolved_payload.get("message_uuid") == published.envelope.message_uuid,
+        "payload_text": resolved_payload.get("content", {}).get("text"),
+        "ergo_root": str((Path(ergo_root) if ergo_root else default_ergo_root()).resolve()),
+        "ergo_port": running_port,
+        "app_lifecycle_started": process_started,
+        "app_lifecycle_stopped": True,
+        "user_client_received": received is not None,
         "history_events": len(replayed),
         "resolved_payloads": len(resolved_payloads),
         "cold_replay_ok": len(resolved_payloads) == 1,
@@ -788,6 +987,34 @@ def _require_wire_token(key: str, value: str) -> None:
         raise ValueError(f"empty envelope field: {key}")
     if any(character.isspace() for character in value):
         raise ValueError(f"envelope field contains whitespace: {key}")
+
+
+def _line_confirms_join(line: str, target: str) -> bool:
+    parts = line.split()
+    normalized_target = target.lower()
+    if len(parts) >= 3 and parts[1].upper() == "JOIN":
+        return parts[2].lstrip(":").lower() == normalized_target
+    if len(parts) >= 4 and parts[1] == "366":
+        return any(part.lstrip(":").lower() == normalized_target for part in parts[3:])
+    return False
+
+
+def _parse_irc_privmsg(line: str) -> JsonDict | None:
+    rest = line
+    prefix = ""
+    if rest.startswith(":"):
+        if " " not in rest:
+            return None
+        prefix, rest = rest[1:].split(" ", 1)
+    if " :" in rest:
+        before, message = rest.split(" :", 1)
+    else:
+        before = rest
+        message = ""
+    parts = before.split()
+    if len(parts) < 2 or parts[0].upper() != "PRIVMSG":
+        return None
+    return {"prefix": prefix, "target": parts[1], "message": message}
 
 
 def _yaml_path(path: str | Path) -> str:

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 import ctypes
 import json
 from pathlib import Path
+from time import time
 from typing import Any, Iterable
 
 
@@ -709,6 +710,33 @@ class RecordingLegacyInjectionBackend:
         return {"actions": [action.to_dict() for action in self.actions]}
 
 
+class MultiMouseEventJournal:
+    def __init__(self, path: str | Path) -> None:
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+
+    def append(self, event_type: str, payload: JsonDict) -> None:
+        record = {
+            "event_type": event_type,
+            "recorded_at": time(),
+            "payload": payload,
+        }
+        with self.path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+    def read_all(self) -> list[JsonDict]:
+        if not self.path.exists():
+            return []
+        records: list[JsonDict] = []
+        for line in self.path.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                value = json.loads(line)
+                if not isinstance(value, dict):
+                    raise ValueError("journal line must decode to an object")
+                records.append(value)
+        return records
+
+
 def legacy_injection_actions(event: RoutedPointerEvent) -> list[LegacyInjectionAction]:
     if event.channel != CHANNEL_LEGACY:
         return []
@@ -1035,6 +1063,14 @@ def run_multi_mouse_pipeline_proof(root: str | Path) -> JsonDict:
     routed_events = router.route_many(normalized_events)
     legacy_backend = RecordingLegacyInjectionBackend()
     legacy_actions = legacy_backend.inject_many(routed_events)
+    journal = MultiMouseEventJournal(root_path / "multi-mouse-pipeline.jsonl")
+    for event in normalized_events:
+        journal.append("normalized_pointer_event", event.to_dict())
+    for event in routed_events:
+        journal.append("routed_pointer_event", event.to_dict())
+    for action in legacy_actions:
+        journal.append("legacy_injection_action", action.to_dict())
+    journal_records = journal.read_all()
     summary = summarize_routed_events(routed_events)
     pipeline_ok = (
         len(normalized_events) == len(packets)
@@ -1042,6 +1078,7 @@ def run_multi_mouse_pipeline_proof(root: str | Path) -> JsonDict:
         and summary["channels"][CHANNEL_ALIENHAND] == 3
         and summary["channels"][CHANNEL_LEGACY] == 3
         and len(legacy_actions) == 5
+        and len(journal_records) == 19
         and tracker.state_snapshot()["states"]["mouse-b"]["x"] == 550
         and tracker.state_snapshot()["states"]["mouse-b"]["y"] == 360
     )
@@ -1054,6 +1091,10 @@ def run_multi_mouse_pipeline_proof(root: str | Path) -> JsonDict:
         "normalized_events": [event.to_dict() for event in normalized_events],
         "routed_events": [event.to_dict() for event in routed_events],
         "legacy_injection_actions": [action.to_dict() for action in legacy_actions],
+        "journal": {
+            "path": str(journal.path.resolve()),
+            "records": len(journal_records),
+        },
         "summary": summary,
         "pipeline_ok": pipeline_ok,
     }

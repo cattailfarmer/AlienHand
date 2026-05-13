@@ -19,6 +19,7 @@ from alienhand_ai.multi_mouse import (
     MODE_INDEPENDENT,
     MODE_INTEGRATED,
     MouseDeviceAssignment,
+    MultiMouseEventJournal,
     PointerDeltaPacket,
     PointerInputEvent,
     RawInputDevice,
@@ -222,6 +223,16 @@ class MultiMouseRoutingTests(unittest.TestCase):
         self.assertEqual([action.button for action in actions], ["", "left", "", "left"])
         self.assertEqual(backend.to_dict()["actions"][0]["pointer_id"], "alienhand:mouse-b")
 
+    def test_event_journal_writes_jsonl_records(self):
+        with tempfile.TemporaryDirectory() as temp:
+            journal = MultiMouseEventJournal(Path(temp) / "events.jsonl")
+            journal.append("routed_pointer_event", {"channel": CHANNEL_LEGACY})
+            journal.append("legacy_injection_action", {"action": "button_down"})
+            records = journal.read_all()
+
+        self.assertEqual([record["event_type"] for record in records], ["routed_pointer_event", "legacy_injection_action"])
+        self.assertEqual(records[0]["payload"]["channel"], CHANNEL_LEGACY)
+
     def test_non_legacy_events_do_not_create_injection_actions(self):
         target = TargetIdentity("alienhand-workbench", "AlienHand.exe", supports_independent_pointers=True)
         policies = TargetPolicyTable()
@@ -254,6 +265,7 @@ class MultiMouseRoutingTests(unittest.TestCase):
         self.assertEqual(result["summary"]["channels"][CHANNEL_ALIENHAND], 3)
         self.assertEqual(result["summary"]["channels"][CHANNEL_LEGACY], 3)
         self.assertEqual(len(result["legacy_injection_actions"]), 5)
+        self.assertEqual(result["journal"]["records"], 19)
 
 
 if __name__ == "__main__":

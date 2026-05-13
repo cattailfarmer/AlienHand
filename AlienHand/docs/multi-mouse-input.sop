@@ -95,6 +95,7 @@ Description: This specification defines the dual-pointer input substrate for Ali
   + [motion_normalization] is VirtualPointerTracker, ScreenBounds, and PointerDeltaPacket
   + [capture_backend_status] is UnavailableCaptureBackend, SimulatedCaptureBackend, and CaptureBackendStatus
   + [legacy_injection_plan] is RecordingLegacyInjectionBackend and legacy_injection_actions
+  + [event_journal] is MultiMouseEventJournal JSONL records for normalized events, routed events, and planned legacy actions
 
   = must: simulate [mouse_a] as the Windows pointer
   = must: simulate [mouse_b] as a captured AlienHand pointer
@@ -106,6 +107,7 @@ Description: This specification defines the dual-pointer input substrate for Ali
   = must: prove relative delta normalization into clamped absolute virtual pointer events
   = must: prove capture backend availability is explicit and cannot be assumed
   = must: prove assignment, motion normalization, routing, and injection planning compose as one pipeline
+  = must: write replayable JSONL event records for pipeline proofs
   = must: prove legacy injection action planning without moving the real cursor
   = must: preserve inspectable routed event records
   = must: avoid moving the real cursor or blocking real hardware during simulation
@@ -131,12 +133,14 @@ Description: This specification defines the dual-pointer input substrate for Ali
   + [implementation] is AlienHand/python/alienhand_ai/multi_mouse.py run_multi_mouse_pipeline_proof
   + [proof_command] is multi-mouse-pipeline-proof
   + [flow] is assignment -> delta normalization -> target policy routing -> legacy injection planning
+  + [journal] is multi-mouse-pipeline.jsonl
 
   = must: normalize raw-mouse-a and raw-mouse-b packets into logical pointer events
   = must: pass mouse-a through windows_passthrough
   = must: pass mouse-b into alienhand_independent for AlienHand-aware targets
   = must: pass mouse-b into legacy_injected for integrated legacy targets
   = must: emit legacy injection actions only for legacy routed events
+  = must: preserve normalized, routed, and planned injection records in JSONL
   = verify: pipeline_ok is true
 
 & [MultiMouseDeviceScanProof] is the non-invasive hardware visibility check

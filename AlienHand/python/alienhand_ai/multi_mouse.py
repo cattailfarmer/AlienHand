@@ -979,6 +979,90 @@ def run_multi_mouse_virtualization_proof(root: str | Path) -> JsonDict:
     return result
 
 
+def run_multi_mouse_pipeline_proof(root: str | Path) -> JsonDict:
+    root_path = Path(root)
+    root_path.mkdir(parents=True, exist_ok=True)
+    legacy_target = TargetIdentity(
+        target_id="legacy-editor",
+        process_name="notepad.exe",
+        window_title="Legacy editor",
+        supports_independent_pointers=False,
+    )
+    alienhand_target = TargetIdentity(
+        target_id="alienhand-workbench",
+        process_name="AlienHand.exe",
+        window_title="AlienHand Workbench",
+        surface_id="chat",
+        supports_independent_pointers=True,
+    )
+    assignments = DeviceAssignmentTable(
+        [
+            MouseDeviceAssignment("raw-mouse-a", "mouse-a", ROLE_WINDOWS_POINTER),
+            MouseDeviceAssignment("raw-mouse-b", "mouse-b", ROLE_ALIENHAND_POINTER),
+        ]
+    )
+    policies = TargetPolicyTable()
+    policies.add_rule(
+        TargetPolicyRule(
+            rule_id="legacy-editors",
+            process_name="notepad.exe",
+            policy=TargetPointerPolicy(MODE_INTEGRATED),
+        )
+    )
+    policies.add_rule(
+        TargetPolicyRule(
+            rule_id="alienhand-chat",
+            process_name="AlienHand.exe",
+            surface_id="chat",
+            policy=TargetPointerPolicy(MODE_INDEPENDENT),
+        )
+    )
+    tracker = VirtualPointerTracker(
+        ScreenBounds(left=0, top=0, right=800, bottom=600),
+        initial_positions={"mouse-a": (100, 100), "mouse-b": (400, 300)},
+    )
+    router = VirtualPointerRouter(captured_device_ids=assignments.captured_device_ids(), policy_table=policies)
+    packets = [
+        PointerDeltaPacket("raw-mouse-a", "move", 10, 0, legacy_target, 1),
+        PointerDeltaPacket("raw-mouse-b", "move", 50, 10, alienhand_target, 2),
+        PointerDeltaPacket("raw-mouse-b", "left_down", 0, 0, alienhand_target, 3),
+        PointerDeltaPacket("raw-mouse-b", "left_up", 0, 0, alienhand_target, 4),
+        PointerDeltaPacket("raw-mouse-b", "move", 100, 50, legacy_target, 5),
+        PointerDeltaPacket("raw-mouse-b", "left_down", 0, 0, legacy_target, 6),
+        PointerDeltaPacket("raw-mouse-b", "left_up", 0, 0, legacy_target, 7),
+    ]
+    normalized_events = [event for packet in packets if (event := tracker.normalize(packet, assignments)) is not None]
+    routed_events = router.route_many(normalized_events)
+    legacy_backend = RecordingLegacyInjectionBackend()
+    legacy_actions = legacy_backend.inject_many(routed_events)
+    summary = summarize_routed_events(routed_events)
+    pipeline_ok = (
+        len(normalized_events) == len(packets)
+        and summary["channels"][CHANNEL_WINDOWS] == 1
+        and summary["channels"][CHANNEL_ALIENHAND] == 3
+        and summary["channels"][CHANNEL_LEGACY] == 3
+        and len(legacy_actions) == 5
+        and tracker.state_snapshot()["states"]["mouse-b"]["x"] == 550
+        and tracker.state_snapshot()["states"]["mouse-b"]["y"] == 360
+    )
+    result = {
+        "root": str(root_path.resolve()),
+        "hardware_free": True,
+        "assignments": assignments.to_dict(),
+        "policies": policies.to_dict(),
+        "tracker_state": tracker.state_snapshot(),
+        "normalized_events": [event.to_dict() for event in normalized_events],
+        "routed_events": [event.to_dict() for event in routed_events],
+        "legacy_injection_actions": [action.to_dict() for action in legacy_actions],
+        "summary": summary,
+        "pipeline_ok": pipeline_ok,
+    }
+    output = root_path / "multi-mouse-pipeline-proof.json"
+    output.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    result["output"] = str(output.resolve())
+    return result
+
+
 def _raw_input_kind(kind: int) -> str:
     if kind == RIM_TYPEMOUSE:
         return "mouse"

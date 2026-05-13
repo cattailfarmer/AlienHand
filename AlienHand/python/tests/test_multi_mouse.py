@@ -36,6 +36,7 @@ from alienhand_ai.multi_mouse import (
     read_policy_table,
     read_device_assignment_table,
     run_multi_mouse_virtualization_proof,
+    run_multi_mouse_pipeline_proof,
     suggest_mouse_device_assignments,
     write_device_assignment_table,
     write_policy_table,
@@ -242,6 +243,17 @@ class MultiMouseRoutingTests(unittest.TestCase):
         self.assertEqual(result["summary"]["channels"][CHANNEL_BLOCKED], 1)
         self.assertEqual(result["summary"]["channels"][CHANNEL_ALIENHAND], 3)
         self.assertEqual(result["summary"]["channels"][CHANNEL_LEGACY], 4)
+
+    def test_pipeline_proof_connects_assignment_tracking_routing_and_injection(self):
+        with tempfile.TemporaryDirectory() as temp:
+            result = run_multi_mouse_pipeline_proof(Path(temp))
+
+        self.assertTrue(result["hardware_free"])
+        self.assertTrue(result["pipeline_ok"])
+        self.assertEqual(result["summary"]["channels"][CHANNEL_WINDOWS], 1)
+        self.assertEqual(result["summary"]["channels"][CHANNEL_ALIENHAND], 3)
+        self.assertEqual(result["summary"]["channels"][CHANNEL_LEGACY], 3)
+        self.assertEqual(len(result["legacy_injection_actions"]), 5)
 
 
 if __name__ == "__main__":

@@ -86,6 +86,7 @@ Description: This specification defines the dual-pointer input substrate for Ali
   + [implementation] is AlienHand/python/alienhand_ai/multi_mouse.py
   + [tests] are AlienHand/python/tests/test_multi_mouse.py
   + [proof_command] is multi-mouse-routing-proof
+  + [pipeline_proof_command] is multi-mouse-pipeline-proof
   + [device_scan_command] is multi-mouse-device-scan
   + [assignment_suggestion_command] is multi-mouse-assignment-suggestion
   + [capture_preflight_command] is multi-mouse-capture-preflight
@@ -104,6 +105,7 @@ Description: This specification defines the dual-pointer input substrate for Ali
   = must: prove assignment table JSON round trip without hardware
   = must: prove relative delta normalization into clamped absolute virtual pointer events
   = must: prove capture backend availability is explicit and cannot be assumed
+  = must: prove assignment, motion normalization, routing, and injection planning compose as one pipeline
   = must: prove legacy injection action planning without moving the real cursor
   = must: preserve inspectable routed event records
   = must: avoid moving the real cursor or blocking real hardware during simulation
@@ -124,6 +126,18 @@ Description: This specification defines the dual-pointer input substrate for Ali
   = must: route independent [mouse_b] events for a legacy target through legacy_fallback
   = must: leave the Windows pointer state controlled only by [mouse_a]
   = verify: routing_modes_ok is true
+
+& [MultiMousePipelineProof] is the hardware-free end-to-end proof for the current input substrate
+  + [implementation] is AlienHand/python/alienhand_ai/multi_mouse.py run_multi_mouse_pipeline_proof
+  + [proof_command] is multi-mouse-pipeline-proof
+  + [flow] is assignment -> delta normalization -> target policy routing -> legacy injection planning
+
+  = must: normalize raw-mouse-a and raw-mouse-b packets into logical pointer events
+  = must: pass mouse-a through windows_passthrough
+  = must: pass mouse-b into alienhand_independent for AlienHand-aware targets
+  = must: pass mouse-b into legacy_injected for integrated legacy targets
+  = must: emit legacy injection actions only for legacy routed events
+  = verify: pipeline_ok is true
 
 & [MultiMouseDeviceScanProof] is the non-invasive hardware visibility check
   + [implementation] is AlienHand/python/alienhand_ai/multi_mouse.py enumerate_windows_raw_input_devices

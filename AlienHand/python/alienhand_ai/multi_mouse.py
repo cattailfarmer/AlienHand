@@ -294,6 +294,42 @@ class PointerInputEvent:
         }
 
 
+@dataclass(frozen=True)
+class ScreenBounds:
+    left: int
+    top: int
+    right: int
+    bottom: int
+
+    def clamp(self, x: int, y: int) -> tuple[int, int]:
+        return min(max(x, self.left), self.right), min(max(y, self.top), self.bottom)
+
+    def to_dict(self) -> JsonDict:
+        return {"left": self.left, "top": self.top, "right": self.right, "bottom": self.bottom}
+
+
+@dataclass(frozen=True)
+class PointerDeltaPacket:
+    raw_input_name: str
+    action: str
+    dx: int
+    dy: int
+    target: TargetIdentity
+    timestamp_ms: int
+    wheel_delta: int = 0
+
+    def to_dict(self) -> JsonDict:
+        return {
+            "raw_input_name": self.raw_input_name,
+            "action": self.action,
+            "dx": self.dx,
+            "dy": self.dy,
+            "target": self.target.to_dict(),
+            "timestamp_ms": self.timestamp_ms,
+            "wheel_delta": self.wheel_delta,
+        }
+
+
 @dataclass
 class PointerState:
     pointer_id: str
@@ -319,6 +355,39 @@ class PointerState:
             "x": self.x,
             "y": self.y,
             "pressed_buttons": sorted(self.pressed_buttons),
+        }
+
+
+class VirtualPointerTracker:
+    def __init__(self, bounds: ScreenBounds, initial_positions: dict[str, tuple[int, int]] | None = None) -> None:
+        self.bounds = bounds
+        self.states: dict[str, PointerState] = {}
+        for device_id, (x, y) in (initial_positions or {}).items():
+            clamped_x, clamped_y = self.bounds.clamp(x, y)
+            self.states[device_id] = PointerState(device_id, clamped_x, clamped_y)
+
+    def normalize(self, packet: PointerDeltaPacket, assignments: DeviceAssignmentTable) -> PointerInputEvent | None:
+        assignment = assignments.resolve_raw_name(packet.raw_input_name)
+        if assignment is None:
+            return None
+        state = self.states.setdefault(assignment.logical_device_id, PointerState(assignment.logical_device_id))
+        x, y = self.bounds.clamp(state.x + packet.dx, state.y + packet.dy)
+        event = PointerInputEvent(
+            device_id=assignment.logical_device_id,
+            action=packet.action,
+            x=x,
+            y=y,
+            target=packet.target,
+            timestamp_ms=packet.timestamp_ms,
+            wheel_delta=packet.wheel_delta,
+        )
+        state.apply(event)
+        return event
+
+    def state_snapshot(self) -> JsonDict:
+        return {
+            "bounds": self.bounds.to_dict(),
+            "states": {device_id: state.to_dict() for device_id, state in sorted(self.states.items())},
         }
 
 

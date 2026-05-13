@@ -43,10 +43,14 @@ Description: This specification defines the dual-pointer input substrate for Ali
 & [TwoPointerHybridInput] is the working model for real operation
   + [windows_pointer] follows [mouse_a]
   + [alienhand_pointer] follows [mouse_b]
+  + [relative_motion] is Raw Input mouse movement expressed as dx and dy
+  + [absolute_virtual_position] is the clamped AlienHand pointer location derived from [relative_motion]
   + [alienhand_surface] receives [alienhand_pointer] as independent source-aware events
   + [legacy_surface] receives [alienhand_pointer] through [LegacyMouseMultiplexing] when policy is integrated
 
   = must: update [virtual_pointer_b] even when delivery is blocked
+  = must: normalize relative motion into absolute virtual coordinates before routing
+  = must: clamp virtual pointer coordinates to the active screen or surface bounds
   = must: render or expose [virtual_pointer_b] state independently from the Windows pointer
   = should: hide, restore, or mask cursor jumps when integrated legacy injection is used
 
@@ -84,6 +88,7 @@ Description: This specification defines the dual-pointer input substrate for Ali
   + [assignment_suggestion_command] is multi-mouse-assignment-suggestion
   + [policy_persistence] is read_policy_table and write_policy_table
   + [assignment_persistence] is read_device_assignment_table and write_device_assignment_table
+  + [motion_normalization] is VirtualPointerTracker, ScreenBounds, and PointerDeltaPacket
   + [legacy_injection_plan] is RecordingLegacyInjectionBackend and legacy_injection_actions
 
   = must: simulate [mouse_a] as the Windows pointer
@@ -93,6 +98,7 @@ Description: This specification defines the dual-pointer input substrate for Ali
   = must: prove policy table JSON round trip without hardware
   = must: prove suggested physical-device assignment without activating capture
   = must: prove assignment table JSON round trip without hardware
+  = must: prove relative delta normalization into clamped absolute virtual pointer events
   = must: prove legacy injection action planning without moving the real cursor
   = must: preserve inspectable routed event records
   = must: avoid moving the real cursor or blocking real hardware during simulation

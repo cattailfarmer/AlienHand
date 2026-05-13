@@ -19,13 +19,16 @@ from alienhand_ai.multi_mouse import (
     MODE_INDEPENDENT,
     MODE_INTEGRATED,
     MouseDeviceAssignment,
+    PointerDeltaPacket,
     PointerInputEvent,
     RawInputDevice,
+    ScreenBounds,
     RecordingLegacyInjectionBackend,
     TargetIdentity,
     TargetPointerPolicy,
     TargetPolicyRule,
     TargetPolicyTable,
+    VirtualPointerTracker,
     VirtualPointerRouter,
     effective_target_mode,
     legacy_injection_actions,
@@ -161,6 +164,25 @@ class MultiMouseRoutingTests(unittest.TestCase):
 
         self.assertEqual(loaded.resolve_raw_name("mouse-device-a").logical_device_id, "mouse-a")
         self.assertEqual(loaded.captured_device_ids(), {"mouse-b"})
+
+    def test_virtual_pointer_tracker_normalizes_relative_packets(self):
+        target = TargetIdentity("alienhand-workbench", "AlienHand.exe", supports_independent_pointers=True)
+        assignments = DeviceAssignmentTable(
+            [MouseDeviceAssignment("raw-mouse-b", "mouse-b", ROLE_ALIENHAND_POINTER)]
+        )
+        tracker = VirtualPointerTracker(
+            ScreenBounds(left=0, top=0, right=100, bottom=80),
+            initial_positions={"mouse-b": (50, 40)},
+        )
+
+        moved = tracker.normalize(PointerDeltaPacket("raw-mouse-b", "move", 10, -15, target, 1), assignments)
+        clamped = tracker.normalize(PointerDeltaPacket("raw-mouse-b", "left_down", 500, 500, target, 2), assignments)
+        unknown = tracker.normalize(PointerDeltaPacket("unknown", "move", 1, 1, target, 3), assignments)
+
+        self.assertEqual((moved.x, moved.y), (60, 25))
+        self.assertEqual((clamped.x, clamped.y), (100, 80))
+        self.assertIsNone(unknown)
+        self.assertEqual(tracker.state_snapshot()["states"]["mouse-b"]["pressed_buttons"], ["left"])
 
     def test_legacy_injection_actions_are_recorded_without_real_input(self):
         target = TargetIdentity("legacy-editor", "notepad.exe")

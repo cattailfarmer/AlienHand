@@ -13,6 +13,7 @@ __all__ = [
     "learning",
     "novelty",
     "payload_http",
+    "refinement_storage",
     "replay",
     "resources",
     "runner",

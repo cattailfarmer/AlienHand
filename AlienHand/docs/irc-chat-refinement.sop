@@ -339,6 +339,19 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: support a table of contents for the edit layer
   = should: keep derivable views linked by stable IDs rather than by duplicated content
 
+& [ConversationSQLiteStorageV1] is the first implemented SQLite storage contract for refinement data
+  + [implementation] is AlienHand/python/alienhand_ai/refinement_storage.py
+  + [proof_command] is chat-refinement-storage-proof
+  + [schema_version] is 1
+  + [migration_table] is schema_migrations
+  + [serialized_json_fields] are tuple, reference, metadata, provenance, source scope, and diff content fields stored as canonical JSON text
+
+  = must: migrate deterministically to [schema_version]
+  = must: persist blocks, cuts, chapters, bookmarks, stickies, quotes, edits, edit diffs, TOC entries, and search terms
+  = must: keep search terms mapped back to source block IDs
+  = must: support user-driven block-to-cut-to-chapter-to-edit proof flow
+  = should: treat future storage revisions as additive migrations
+
 & [ConversationEditDiffArtifact] is the change record for an editorial edit
   + [diff_id] is the stable identifier
   + [edit_id] is the parent edit identifier

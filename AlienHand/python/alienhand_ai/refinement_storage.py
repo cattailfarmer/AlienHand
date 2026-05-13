@@ -1,0 +1,838 @@
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime
+import json
+from pathlib import Path
+import re
+import sqlite3
+from typing import Any, Iterable
+from uuid import uuid4
+
+
+JsonDict = dict[str, Any]
+SCHEMA_VERSION = 1
+TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
+
+
+@dataclass(frozen=True)
+class ConversationBlock:
+    block_id: str
+    channel_uuid: str
+    message_uuid: str
+    sender: str
+    sender_type: str
+    created_at: str
+    payload_kind: str
+    presentation: str
+    raw_refs: tuple[JsonDict, ...] = ()
+    metadata: JsonDict = field(default_factory=dict)
+
+    def to_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ConversationCut:
+    cut_id: str
+    source_block_id: str
+    position: int
+    status: str = "active"
+    annotations: tuple[str, ...] = ()
+
+    def to_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ConversationChapter:
+    chapter_id: str
+    title: str
+    summary: str
+    member_cut_ids: tuple[str, ...]
+    member_block_ids: tuple[str, ...]
+    bookmarks: tuple[str, ...] = ()
+    quotes: tuple[str, ...] = ()
+    edit_chain: tuple[str, ...] = ()
+
+    def to_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ConversationBookmark:
+    bookmark_id: str
+    target_type: str
+    target_id: str
+    scope: str = "both"
+    label: str = ""
+    note: str = ""
+    persistence: str = "durable_channel"
+    promotion_state: str = "mirrored"
+
+    def to_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ConversationSticky:
+    sticky_id: str
+    target_type: str
+    target_id: str
+    visibility: str = "visible"
+    retention: str = "session"
+    clear_state: str = "active"
+
+    def to_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ConversationQuote:
+    quote_id: str
+    source_type: str
+    source_id: str
+    excerpt: str
+    provenance: JsonDict
+    display_mode: str = "inline"
+
+    def to_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ConversationEdit:
+    edit_id: str
+    input_ref: JsonDict
+    output_ref: JsonDict
+    edit_type: str
+    reason: str
+    author: str
+    diff_id: str
+
+    def to_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ConversationEditDiff:
+    diff_id: str
+    edit_id: str
+    source_ref: JsonDict
+    diff_format: str
+    diff_uri: str
+    content: JsonDict
+
+    def to_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class SearchHit:
+    term: str
+    block_id: str
+    offset: int
+    chapter_id: str | None = None
+    cut_id: str | None = None
+
+    def to_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+class ConversationRefinementStore:
+    def __init__(self, path: str | Path) -> None:
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.connection = sqlite3.connect(self.path)
+        self.connection.row_factory = sqlite3.Row
+        self.connection.execute("PRAGMA foreign_keys = ON")
+        self.migrate()
+
+    def close(self) -> None:
+        self.connection.close()
+
+    def __enter__(self) -> "ConversationRefinementStore":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
+
+    def migrate(self) -> None:
+        self.connection.executescript(SCHEMA_SQL)
+        version = self.schema_version()
+        if version > SCHEMA_VERSION:
+            raise RuntimeError(f"unsupported refinement schema version: {version}")
+        if version < SCHEMA_VERSION:
+            self.connection.execute(
+                "INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)",
+                (SCHEMA_VERSION, utc_timestamp()),
+            )
+        self.connection.commit()
+
+    def schema_version(self) -> int:
+        row = self.connection.execute("SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations").fetchone()
+        return int(row["version"])
+
+    def add_block(self, block: ConversationBlock) -> ConversationBlock:
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO conversation_blocks(
+                    block_id, channel_uuid, message_uuid, sender, sender_type,
+                    created_at, payload_kind, presentation, raw_refs_json, metadata_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    block.block_id,
+                    block.channel_uuid,
+                    block.message_uuid,
+                    block.sender,
+                    block.sender_type,
+                    block.created_at,
+                    block.payload_kind,
+                    block.presentation,
+                    dumps(block.raw_refs),
+                    dumps(block.metadata),
+                ),
+            )
+            self._index_block(block)
+        return block
+
+    def get_block(self, block_id: str) -> ConversationBlock:
+        row = self._required_row("SELECT * FROM conversation_blocks WHERE block_id = ?", (block_id,))
+        return block_from_row(row)
+
+    def create_cut(self, source_block_id: str, *, position: int | None = None, cut_id: str | None = None) -> ConversationCut:
+        self.get_block(source_block_id)
+        if position is None:
+            position = self.next_cut_position()
+        cut = ConversationCut(cut_id=cut_id or str(uuid4()), source_block_id=source_block_id, position=position)
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO conversation_cuts(cut_id, source_block_id, position, status, annotations_json)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (cut.cut_id, cut.source_block_id, cut.position, cut.status, dumps(cut.annotations)),
+            )
+        return cut
+
+    def remove_cut(self, cut_id: str) -> ConversationCut:
+        with self.connection:
+            self.connection.execute("UPDATE conversation_cuts SET status = 'removed' WHERE cut_id = ?", (cut_id,))
+        return self.get_cut(cut_id)
+
+    def get_cut(self, cut_id: str) -> ConversationCut:
+        row = self._required_row("SELECT * FROM conversation_cuts WHERE cut_id = ?", (cut_id,))
+        return cut_from_row(row)
+
+    def list_cuts(self, *, status: str | None = None) -> list[ConversationCut]:
+        if status is None:
+            rows = self.connection.execute("SELECT * FROM conversation_cuts ORDER BY position, cut_id").fetchall()
+        else:
+            rows = self.connection.execute(
+                "SELECT * FROM conversation_cuts WHERE status = ? ORDER BY position, cut_id",
+                (status,),
+            ).fetchall()
+        return [cut_from_row(row) for row in rows]
+
+    def next_cut_position(self) -> int:
+        row = self.connection.execute("SELECT COALESCE(MAX(position), -1) + 1 AS next_position FROM conversation_cuts").fetchone()
+        return int(row["next_position"])
+
+    def create_chapter(
+        self,
+        *,
+        title: str,
+        summary: str,
+        cut_ids: Iterable[str],
+        chapter_id: str | None = None,
+    ) -> ConversationChapter:
+        cut_tuple = tuple(cut_ids)
+        if not cut_tuple:
+            raise ValueError("chapter requires at least one cut")
+        cuts = [self.get_cut(cut_id) for cut_id in cut_tuple]
+        block_ids = tuple(cut.source_block_id for cut in cuts)
+        chapter = ConversationChapter(
+            chapter_id=chapter_id or str(uuid4()),
+            title=title,
+            summary=summary,
+            member_cut_ids=cut_tuple,
+            member_block_ids=block_ids,
+        )
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO conversation_chapters(
+                    chapter_id, title, summary, member_cut_ids_json, member_block_ids_json,
+                    bookmarks_json, quotes_json, edit_chain_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    chapter.chapter_id,
+                    chapter.title,
+                    chapter.summary,
+                    dumps(chapter.member_cut_ids),
+                    dumps(chapter.member_block_ids),
+                    dumps(chapter.bookmarks),
+                    dumps(chapter.quotes),
+                    dumps(chapter.edit_chain),
+                ),
+            )
+        return chapter
+
+    def get_chapter(self, chapter_id: str) -> ConversationChapter:
+        row = self._required_row("SELECT * FROM conversation_chapters WHERE chapter_id = ?", (chapter_id,))
+        return chapter_from_row(row)
+
+    def create_bookmark(
+        self,
+        *,
+        target_type: str,
+        target_id: str,
+        label: str = "",
+        note: str = "",
+        scope: str = "both",
+        persistence: str = "durable_channel",
+        promotion_state: str = "mirrored",
+        bookmark_id: str | None = None,
+    ) -> ConversationBookmark:
+        bookmark = ConversationBookmark(
+            bookmark_id=bookmark_id or str(uuid4()),
+            target_type=target_type,
+            target_id=target_id,
+            scope=scope,
+            label=label,
+            note=note,
+            persistence=persistence,
+            promotion_state=promotion_state,
+        )
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO conversation_bookmarks(
+                    bookmark_id, target_type, target_id, scope, label, note, persistence, promotion_state
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    bookmark.bookmark_id,
+                    bookmark.target_type,
+                    bookmark.target_id,
+                    bookmark.scope,
+                    bookmark.label,
+                    bookmark.note,
+                    bookmark.persistence,
+                    bookmark.promotion_state,
+                ),
+            )
+        return bookmark
+
+    def get_bookmark(self, bookmark_id: str) -> ConversationBookmark:
+        row = self._required_row("SELECT * FROM conversation_bookmarks WHERE bookmark_id = ?", (bookmark_id,))
+        return bookmark_from_row(row)
+
+    def create_sticky(
+        self,
+        *,
+        target_type: str,
+        target_id: str,
+        visibility: str = "visible",
+        retention: str = "session",
+        clear_state: str = "active",
+        sticky_id: str | None = None,
+    ) -> ConversationSticky:
+        sticky = ConversationSticky(
+            sticky_id=sticky_id or str(uuid4()),
+            target_type=target_type,
+            target_id=target_id,
+            visibility=visibility,
+            retention=retention,
+            clear_state=clear_state,
+        )
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO conversation_stickies(sticky_id, target_type, target_id, visibility, retention, clear_state)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (sticky.sticky_id, sticky.target_type, sticky.target_id, sticky.visibility, sticky.retention, sticky.clear_state),
+            )
+        return sticky
+
+    def create_quote(
+        self,
+        *,
+        source_type: str,
+        source_id: str,
+        excerpt: str,
+        provenance: JsonDict,
+        display_mode: str = "inline",
+        quote_id: str | None = None,
+    ) -> ConversationQuote:
+        quote = ConversationQuote(
+            quote_id=quote_id or str(uuid4()),
+            source_type=source_type,
+            source_id=source_id,
+            excerpt=excerpt,
+            provenance=provenance,
+            display_mode=display_mode,
+        )
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO conversation_quotes(quote_id, source_type, source_id, excerpt, provenance_json, display_mode)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (quote.quote_id, quote.source_type, quote.source_id, quote.excerpt, dumps(quote.provenance), quote.display_mode),
+            )
+        return quote
+
+    def apply_edit(
+        self,
+        *,
+        input_ref: JsonDict,
+        output_ref: JsonDict,
+        edit_type: str,
+        reason: str,
+        author: str,
+        diff_content: JsonDict,
+        source_ref: JsonDict | None = None,
+        diff_format: str = "jsondiff",
+        diff_uri: str | None = None,
+        edit_id: str | None = None,
+        diff_id: str | None = None,
+    ) -> tuple[ConversationEdit, ConversationEditDiff]:
+        resolved_edit_id = edit_id or str(uuid4())
+        resolved_diff_id = diff_id or str(uuid4())
+        diff = ConversationEditDiff(
+            diff_id=resolved_diff_id,
+            edit_id=resolved_edit_id,
+            source_ref=source_ref or input_ref,
+            diff_format=diff_format,
+            diff_uri=diff_uri or f"sqlite://conversation_edit_diffs/{resolved_diff_id}",
+            content=diff_content,
+        )
+        edit = ConversationEdit(
+            edit_id=resolved_edit_id,
+            input_ref=input_ref,
+            output_ref=output_ref,
+            edit_type=edit_type,
+            reason=reason,
+            author=author,
+            diff_id=resolved_diff_id,
+        )
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO conversation_edits(edit_id, input_ref_json, output_ref_json, edit_type, reason, author, diff_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    edit.edit_id,
+                    dumps(edit.input_ref),
+                    dumps(edit.output_ref),
+                    edit.edit_type,
+                    edit.reason,
+                    edit.author,
+                    edit.diff_id,
+                ),
+            )
+            self.connection.execute(
+                """
+                INSERT INTO conversation_edit_diffs(diff_id, edit_id, source_ref_json, diff_format, diff_uri, content_json)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    diff.diff_id,
+                    diff.edit_id,
+                    dumps(diff.source_ref),
+                    diff.diff_format,
+                    diff.diff_uri,
+                    dumps(diff.content),
+                ),
+            )
+        return edit, diff
+
+    def add_toc_entry(
+        self,
+        *,
+        toc_id: str,
+        ordinal: int,
+        entry_type: str,
+        target_id: str,
+        title: str,
+        source_scope: JsonDict | None = None,
+    ) -> None:
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO conversation_toc_entries(toc_id, ordinal, entry_type, target_id, title, source_scope_json)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (toc_id, ordinal, entry_type, target_id, title, dumps(source_scope or {})),
+            )
+
+    def list_toc_entries(self, toc_id: str) -> list[JsonDict]:
+        rows = self.connection.execute(
+            "SELECT * FROM conversation_toc_entries WHERE toc_id = ? ORDER BY ordinal",
+            (toc_id,),
+        ).fetchall()
+        return [
+            {
+                "toc_id": row["toc_id"],
+                "ordinal": row["ordinal"],
+                "entry_type": row["entry_type"],
+                "target_id": row["target_id"],
+                "title": row["title"],
+                "source_scope": loads(row["source_scope_json"], {}),
+            }
+            for row in rows
+        ]
+
+    def search(self, term: str) -> list[SearchHit]:
+        normalized = normalize_search_term(term)
+        if not normalized:
+            return []
+        rows = self.connection.execute(
+            """
+            SELECT term, block_id, token_offset, chapter_id, cut_id
+            FROM conversation_search_terms
+            WHERE term = ?
+            ORDER BY block_id, token_offset
+            """,
+            (normalized,),
+        ).fetchall()
+        return [
+            SearchHit(
+                term=row["term"],
+                block_id=row["block_id"],
+                offset=row["token_offset"],
+                chapter_id=row["chapter_id"],
+                cut_id=row["cut_id"],
+            )
+            for row in rows
+        ]
+
+    def count(self, table: str) -> int:
+        if table not in TABLE_NAMES:
+            raise ValueError(f"unsupported table: {table}")
+        row = self.connection.execute(f"SELECT COUNT(*) AS count FROM {table}").fetchone()
+        return int(row["count"])
+
+    def _index_block(self, block: ConversationBlock) -> None:
+        self.connection.execute("DELETE FROM conversation_search_terms WHERE block_id = ?", (block.block_id,))
+        rows = [
+            (term, block.block_id, offset, None, None)
+            for offset, term in enumerate(tokenize_terms(block.presentation))
+        ]
+        self.connection.executemany(
+            """
+            INSERT OR IGNORE INTO conversation_search_terms(term, block_id, token_offset, chapter_id, cut_id)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+
+    def _required_row(self, query: str, params: tuple[Any, ...]) -> sqlite3.Row:
+        row = self.connection.execute(query, params).fetchone()
+        if row is None:
+            raise KeyError(params[0])
+        return row
+
+
+def run_refinement_storage_proof(root: str | Path) -> JsonDict:
+    proof_root = Path(root)
+    proof_root.mkdir(parents=True, exist_ok=True)
+    db_path = proof_root / "refinement.sqlite3"
+    channel_uuid = uuid4().hex
+    first_block = ConversationBlock(
+        block_id=str(uuid4()),
+        channel_uuid=channel_uuid,
+        message_uuid=str(uuid4()),
+        sender="user",
+        sender_type="user",
+        created_at=utc_timestamp(),
+        payload_kind="text",
+        presentation="AlienHand should keep raw conversation searchable.",
+        raw_refs=({"kind": "payload", "message_uuid": str(uuid4())},),
+    )
+    second_block = ConversationBlock(
+        block_id=str(uuid4()),
+        channel_uuid=channel_uuid,
+        message_uuid=str(uuid4()),
+        sender="agent",
+        sender_type="ai_agent",
+        created_at=utc_timestamp(),
+        payload_kind="text",
+        presentation="The cuts pane assembles refined chapters.",
+        raw_refs=({"kind": "payload", "message_uuid": str(uuid4())},),
+    )
+    with ConversationRefinementStore(db_path) as store:
+        store.add_block(first_block)
+        store.add_block(second_block)
+        cut = store.create_cut(first_block.block_id)
+        bookmark = store.create_bookmark(
+            target_type="block",
+            target_id=first_block.block_id,
+            label="Searchable source",
+            note="Bookmark note echoes into refined views.",
+        )
+        sticky = store.create_sticky(target_type="bookmark", target_id=bookmark.bookmark_id)
+        quote = store.create_quote(
+            source_type="block",
+            source_id=first_block.block_id,
+            excerpt="raw conversation searchable",
+            provenance={"block_id": first_block.block_id, "sender": first_block.sender},
+        )
+        chapter = store.create_chapter(title="Searchable Raw Context", summary="First refinement storage proof.", cut_ids=(cut.cut_id,))
+        edit, diff = store.apply_edit(
+            input_ref={"type": "chapter", "id": chapter.chapter_id},
+            output_ref={"type": "chapter", "id": chapter.chapter_id, "revision": 1},
+            edit_type="annotate",
+            reason="Record first editorial diff artifact.",
+            author="alienhand",
+            diff_content={"add": [{"path": "/summary", "value": "First refinement storage proof."}]},
+        )
+        store.add_toc_entry(
+            toc_id="main",
+            ordinal=0,
+            entry_type="chapter",
+            target_id=chapter.chapter_id,
+            title=chapter.title,
+            source_scope={"block_ids": [first_block.block_id], "cut_ids": [cut.cut_id]},
+        )
+        hits = store.search("AlienHand")
+        toc_entries = store.list_toc_entries("main")
+        removed_cut = store.remove_cut(cut.cut_id)
+        result = {
+            "root": str(proof_root.resolve()),
+            "database": str(db_path.resolve()),
+            "schema_version": store.schema_version(),
+            "blocks": store.count("conversation_blocks"),
+            "cuts": store.count("conversation_cuts"),
+            "chapters": store.count("conversation_chapters"),
+            "bookmarks": store.count("conversation_bookmarks"),
+            "stickies": store.count("conversation_stickies"),
+            "quotes": store.count("conversation_quotes"),
+            "edits": store.count("conversation_edits"),
+            "diffs": store.count("conversation_edit_diffs"),
+            "search_hits": len(hits),
+            "toc_entries": len(toc_entries),
+            "bookmark_note": bookmark.note,
+            "sticky_state": sticky.clear_state,
+            "quote_excerpt": quote.excerpt,
+            "edit_diff_uri": diff.diff_uri,
+            "removed_cut_status": removed_cut.status,
+            "storage_proof_ok": all(
+                [
+                    store.schema_version() == SCHEMA_VERSION,
+                    store.count("conversation_blocks") == 2,
+                    len(hits) == 1,
+                    len(toc_entries) == 1,
+                    bookmark.promotion_state == "mirrored",
+                    diff.edit_id == edit.edit_id,
+                    removed_cut.status == "removed",
+                ]
+            ),
+        }
+    return result
+
+
+def tokenize_terms(text: str) -> list[str]:
+    return [match.group(0).lower() for match in TOKEN_PATTERN.finditer(text)]
+
+
+def normalize_search_term(term: str) -> str:
+    tokens = tokenize_terms(term)
+    return tokens[0] if tokens else ""
+
+
+def utc_timestamp() -> str:
+    return datetime.now(UTC).strftime("%Y%m%dT%H%M%S.%f")[:19] + "Z"
+
+
+def dumps(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def loads(value: str | None, default: Any) -> Any:
+    if value in (None, ""):
+        return default
+    return json.loads(value)
+
+
+def block_from_row(row: sqlite3.Row) -> ConversationBlock:
+    return ConversationBlock(
+        block_id=row["block_id"],
+        channel_uuid=row["channel_uuid"],
+        message_uuid=row["message_uuid"],
+        sender=row["sender"],
+        sender_type=row["sender_type"],
+        created_at=row["created_at"],
+        payload_kind=row["payload_kind"],
+        presentation=row["presentation"],
+        raw_refs=tuple(loads(row["raw_refs_json"], [])),
+        metadata=loads(row["metadata_json"], {}),
+    )
+
+
+def cut_from_row(row: sqlite3.Row) -> ConversationCut:
+    return ConversationCut(
+        cut_id=row["cut_id"],
+        source_block_id=row["source_block_id"],
+        position=row["position"],
+        status=row["status"],
+        annotations=tuple(loads(row["annotations_json"], [])),
+    )
+
+
+def chapter_from_row(row: sqlite3.Row) -> ConversationChapter:
+    return ConversationChapter(
+        chapter_id=row["chapter_id"],
+        title=row["title"],
+        summary=row["summary"],
+        member_cut_ids=tuple(loads(row["member_cut_ids_json"], [])),
+        member_block_ids=tuple(loads(row["member_block_ids_json"], [])),
+        bookmarks=tuple(loads(row["bookmarks_json"], [])),
+        quotes=tuple(loads(row["quotes_json"], [])),
+        edit_chain=tuple(loads(row["edit_chain_json"], [])),
+    )
+
+
+def bookmark_from_row(row: sqlite3.Row) -> ConversationBookmark:
+    return ConversationBookmark(
+        bookmark_id=row["bookmark_id"],
+        target_type=row["target_type"],
+        target_id=row["target_id"],
+        scope=row["scope"],
+        label=row["label"],
+        note=row["note"],
+        persistence=row["persistence"],
+        promotion_state=row["promotion_state"],
+    )
+
+
+TABLE_NAMES = {
+    "conversation_blocks",
+    "conversation_cuts",
+    "conversation_chapters",
+    "conversation_bookmarks",
+    "conversation_stickies",
+    "conversation_quotes",
+    "conversation_edits",
+    "conversation_edit_diffs",
+    "conversation_toc_entries",
+    "conversation_search_terms",
+}
+
+
+SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS schema_migrations (
+    version INTEGER PRIMARY KEY,
+    applied_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS conversation_blocks (
+    block_id TEXT PRIMARY KEY,
+    channel_uuid TEXT NOT NULL,
+    message_uuid TEXT NOT NULL,
+    sender TEXT NOT NULL,
+    sender_type TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    payload_kind TEXT NOT NULL,
+    presentation TEXT NOT NULL,
+    raw_refs_json TEXT NOT NULL DEFAULT '[]',
+    metadata_json TEXT NOT NULL DEFAULT '{}'
+);
+
+CREATE TABLE IF NOT EXISTS conversation_cuts (
+    cut_id TEXT PRIMARY KEY,
+    source_block_id TEXT NOT NULL REFERENCES conversation_blocks(block_id),
+    position INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    annotations_json TEXT NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE IF NOT EXISTS conversation_chapters (
+    chapter_id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    member_cut_ids_json TEXT NOT NULL DEFAULT '[]',
+    member_block_ids_json TEXT NOT NULL DEFAULT '[]',
+    bookmarks_json TEXT NOT NULL DEFAULT '[]',
+    quotes_json TEXT NOT NULL DEFAULT '[]',
+    edit_chain_json TEXT NOT NULL DEFAULT '[]'
+);
+
+CREATE TABLE IF NOT EXISTS conversation_bookmarks (
+    bookmark_id TEXT PRIMARY KEY,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    scope TEXT NOT NULL,
+    label TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    persistence TEXT NOT NULL,
+    promotion_state TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS conversation_stickies (
+    sticky_id TEXT PRIMARY KEY,
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    visibility TEXT NOT NULL,
+    retention TEXT NOT NULL,
+    clear_state TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS conversation_quotes (
+    quote_id TEXT PRIMARY KEY,
+    source_type TEXT NOT NULL,
+    source_id TEXT NOT NULL,
+    excerpt TEXT NOT NULL,
+    provenance_json TEXT NOT NULL DEFAULT '{}',
+    display_mode TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS conversation_edits (
+    edit_id TEXT PRIMARY KEY,
+    input_ref_json TEXT NOT NULL,
+    output_ref_json TEXT NOT NULL,
+    edit_type TEXT NOT NULL,
+    reason TEXT NOT NULL DEFAULT '',
+    author TEXT NOT NULL,
+    diff_id TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS conversation_edit_diffs (
+    diff_id TEXT PRIMARY KEY,
+    edit_id TEXT NOT NULL REFERENCES conversation_edits(edit_id),
+    source_ref_json TEXT NOT NULL,
+    diff_format TEXT NOT NULL,
+    diff_uri TEXT NOT NULL,
+    content_json TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS conversation_toc_entries (
+    toc_id TEXT NOT NULL,
+    ordinal INTEGER NOT NULL,
+    entry_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    source_scope_json TEXT NOT NULL DEFAULT '{}',
+    PRIMARY KEY (toc_id, ordinal)
+);
+
+CREATE TABLE IF NOT EXISTS conversation_search_terms (
+    term TEXT NOT NULL,
+    block_id TEXT NOT NULL REFERENCES conversation_blocks(block_id),
+    token_offset INTEGER NOT NULL,
+    chapter_id TEXT,
+    cut_id TEXT,
+    PRIMARY KEY (term, block_id, token_offset)
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_blocks_channel ON conversation_blocks(channel_uuid);
+CREATE INDEX IF NOT EXISTS idx_conversation_cuts_position ON conversation_cuts(position);
+CREATE INDEX IF NOT EXISTS idx_conversation_bookmarks_target ON conversation_bookmarks(target_type, target_id);
+CREATE INDEX IF NOT EXISTS idx_conversation_search_terms_term ON conversation_search_terms(term);
+"""

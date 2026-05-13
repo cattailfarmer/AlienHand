@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup, the first runtime substrate proof, and the separate chat conversation refinement specification
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but live history presentation and production authentication hardening are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but live history presentation, refinement workbench UI, and production authentication hardening are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -149,7 +149,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-refinement.sop
   + [verification_result] is the refinement spec now defines serializable schema objects for blocks, cuts, chapters, edits, bookmarks, stickies, and quotes with references, state, and provenance fields
   + [status] is justified
-  + [uncertainty] is concrete code-level schema serialization and persistence implementation remain future work
+  + [uncertainty] is first code-level SQLite serialization is implemented in [RefinementSQLiteStorageProof], while live UI serialization remains future work
 
 & [JustificationEntry: RefinementStorageAndWorkflowSpecification] is justified
   + [work_type] is protocol
@@ -158,7 +158,21 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-refinement.sop
   + [verification_result] is the refinement spec now names SQLite as the canonical local store, defines edit diff artifacts, search index mappings, chapter/edit TOC, explicit state transitions, mirrored bookmarks, and note echo behavior
   + [status] is justified
-  + [uncertainty] is database schema DDL, index implementation, and runtime UI wiring remain future work
+  + [uncertainty] is first database schema DDL and index implementation are covered by [RefinementSQLiteStorageProof], while runtime UI wiring remains future work
+
+& [JustificationEntry: RefinementSQLiteStorageProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [ConversationStorageModel], [ConversationSQLiteStorageV1], [ConversationSearchIndexSchema], [ConversationTableOfContentsSchema], [ConversationRefinementState], and [ConversationAnnotationSemantics]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/refinement_storage.py
+  + [implemented_artifact] is AlienHand/python/tests/test_refinement_storage.py
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-refinement-storage-proof command
+  + [implemented_artifact] is AlienHand/README.md proof command reference
+  + [evidence_anchor] is python -m unittest tests.test_refinement_storage
+  + [evidence_anchor] is python -m unittest discover -s tests
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-refinement-storage-proof --output runs --name chat-refinement-storage-proof
+  + [verification_result] is SQLite schema version 1 migrated, 2 blocks persisted and indexed, 1 cut created and removed, 1 chapter created, 1 mirrored bookmark with note persisted, 1 sticky persisted, 1 quote persisted, 1 edit and diff artifact persisted, 1 TOC entry persisted, search for AlienHand returned 1 source block hit, storage_proof_ok returned true, and full test discovery passed with 75 tests
+  + [status] is justified
+  + [uncertainty] is live workbench UI, production migration policy beyond version 1, and integration with The Lounge presentation remain future work
 
 & [JustificationEntry: ChatRuntimeTruthTestCore] is partially_justified
   + [work_type] is runtime_code

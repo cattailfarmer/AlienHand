@@ -27,6 +27,7 @@ from .payload_http import (
     run_app_thelounge_runtime_group_proof,
     run_payload_resolver_http_proof,
 )
+from .refinement_storage import run_refinement_storage_proof
 from .runner import ProcessRunConfig, record_process
 from .sop import compile_sop_file, compile_sop_text, write_sop_packets
 from .telemetry import TelemetryRecorder, summarize_run, write_html_report
@@ -181,6 +182,10 @@ def main() -> None:
     chat_runtime_group.add_argument("--text", default="hello app-owned thelounge")
     chat_runtime_group.add_argument("--output", default="runs")
     chat_runtime_group.add_argument("--name", default="chat-runtime-group-proof")
+
+    chat_refinement_storage = sub.add_parser("chat-refinement-storage-proof")
+    chat_refinement_storage.add_argument("--output", default="runs")
+    chat_refinement_storage.add_argument("--name", default="chat-refinement-storage-proof")
 
     args = parser.parse_args()
     if args.command == "record-process":
@@ -354,6 +359,9 @@ def main() -> None:
             port=args.port,
             thelounge_port=args.thelounge_port,
         )
+        print(json.dumps(result, indent=2))
+    elif args.command == "chat-refinement-storage-proof":
+        result = run_refinement_storage_proof(Path(args.output) / args.name)
         print(json.dumps(result, indent=2))
 
 

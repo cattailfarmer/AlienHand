@@ -38,6 +38,7 @@ AlienHand now carries the chat-platform prototype under `AlienHand/`.
 - `AlienHand/BizHawk/`: emulator dependency kept nested under `AlienHand/BizHawk`.
 - `AlienHand/python/alienhand_ai/chat_platform.py`: AH1 envelope, payload store, JSONL history, replay, and Ergo lifecycle proofs.
 - `AlienHand/python/alienhand_ai/payload_http.py`: loopback payload resolver that serves render rows by message UUID.
+- `AlienHand/python/alienhand_ai/refinement_storage.py`: SQLite storage for raw blocks, cuts, chapters, bookmarks, stickies, quotes, edits, TOC entries, and search terms.
 
 The Lounge discovers the payload resolver from `alienhand.payloadResolverBaseUrl`
 or the `ALIENHAND_PAYLOAD_RESOLVER` environment variable. It also receives the
@@ -53,6 +54,7 @@ the app-owned The Lounge runtime group:
 cd C:\Project\Codex_Projects\ReasoningFramework\AlienHand\AlienHand\python
 $env:PYTHONPATH="."
 python -m alienhand_ai.cli chat-history-proof --output runs --name chat-history-proof
+python -m alienhand_ai.cli chat-refinement-storage-proof --output runs --name chat-refinement-storage-proof
 python -m alienhand_ai.cli chat-payload-resolver-proof --output runs --name chat-payload-resolver-proof
 python -m alienhand_ai.cli chat-app-resolver-proof --output runs --name chat-app-resolver-proof
 python -m alienhand_ai.cli chat-runtime-group-proof --output runs --name chat-runtime-group-proof

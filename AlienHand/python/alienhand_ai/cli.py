@@ -22,7 +22,7 @@ from .interface_probe import probe_godot_interfaces, summarize_interface_map
 from .interaction_trace import summarize_interaction_trace, write_interaction_trace
 from .learning_memory import ingest_learning_digest, summarize_learning_memory
 from .learning_packets import summarize_learning_packets, write_learning_packets
-from .payload_http import run_payload_resolver_http_proof
+from .payload_http import run_app_payload_resolver_lifecycle_proof, run_payload_resolver_http_proof
 from .runner import ProcessRunConfig, record_process
 from .sop import compile_sop_file, compile_sop_text, write_sop_packets
 from .telemetry import TelemetryRecorder, summarize_run, write_html_report
@@ -156,6 +156,15 @@ def main() -> None:
     chat_payload_http.add_argument("--app-id", type=int, default=1)
     chat_payload_http.add_argument("--output", default="runs")
     chat_payload_http.add_argument("--name", default="chat-payload-resolver-proof")
+
+    chat_app_resolver = sub.add_parser("chat-app-resolver-proof")
+    chat_app_resolver.add_argument("--ergo-root")
+    chat_app_resolver.add_argument("--port", type=int)
+    chat_app_resolver.add_argument("--nick", default="alienhandagent")
+    chat_app_resolver.add_argument("--app-id", type=int, default=1)
+    chat_app_resolver.add_argument("--text", default="hello app-owned payload resolver")
+    chat_app_resolver.add_argument("--output", default="runs")
+    chat_app_resolver.add_argument("--name", default="chat-app-resolver-proof")
 
     args = parser.parse_args()
     if args.command == "record-process":
@@ -306,6 +315,16 @@ def main() -> None:
         print(json.dumps(result, indent=2))
     elif args.command == "chat-payload-resolver-proof":
         result = run_payload_resolver_http_proof(Path(args.output) / args.name, app_id=args.app_id)
+        print(json.dumps(result, indent=2))
+    elif args.command == "chat-app-resolver-proof":
+        result = run_app_payload_resolver_lifecycle_proof(
+            Path(args.output) / args.name,
+            ergo_root=args.ergo_root,
+            app_id=args.app_id,
+            nick=args.nick,
+            text=args.text,
+            port=args.port,
+        )
         print(json.dumps(result, indent=2))
 
 

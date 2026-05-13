@@ -139,9 +139,9 @@ The prototype succeeds only if it can publish an `AHIRC/1` envelope, resolve the
 
 The current runtime slice implements the durable substrate core in `alienhand_ai.chat_platform`.
 
-It verifies compact `AH1` envelope round-trip, 32-character channel UUID hex normalization, payload write-before-history-before-publication ordering, JSONL channel append, cold replay from disk, explicit `payload_error` records for missing payloads, socket-level IRC `JOIN`/`PRIVMSG` publication against a fake server, real local Ergo startup/publication/shutdown through `chat-ergo-proof`, AlienHand-owned service lifecycle startup/publication/shutdown through `chat-app-lifecycle-proof`, minimal user IRC client receive plus payload resolution through `chat-user-client-proof`, chunked payload replay plus payload-backed `history_request` recording through `chat-history-proof`, render-model conversion for left/right/system rows plus code/image frames through `chat-render-proof`, thelounge fork rendering support through `chat-thelounge-adapter-proof`, and HTTP payload resolver fetch through `chat-payload-resolver-proof`.
+It verifies compact `AH1` envelope round-trip, 32-character channel UUID hex normalization, payload write-before-history-before-publication ordering, JSONL channel append, cold replay from disk, explicit `payload_error` records for missing payloads, socket-level IRC `JOIN`/`PRIVMSG` publication against a fake server, real local Ergo startup/publication/shutdown through `chat-ergo-proof`, AlienHand-owned service lifecycle startup/publication/shutdown through `chat-app-lifecycle-proof`, app-owned payload resolver startup/fetch/shutdown through `chat-app-resolver-proof`, minimal user IRC client receive plus payload resolution through `chat-user-client-proof`, chunked payload replay plus payload-backed `history_request` recording through `chat-history-proof`, render-model conversion for left/right/system rows plus code/image frames through `chat-render-proof`, thelounge fork rendering support through `chat-thelounge-adapter-proof`, and standalone HTTP payload resolver fetch through `chat-payload-resolver-proof`.
 
-The remaining truth-test work is to run the resolver as part of the app-owned chat lifecycle, settle service discovery/access control, and settle the final user command syntax for history requests.
+The remaining truth-test work is to settle resolver discovery/access control and the final user command syntax for history requests.
 
 ## thelounge Fork Wiring
 
@@ -160,4 +160,11 @@ The proof command is:
 ```powershell
 cd C:\Project\Codex_Projects\ReasoningFramework\AlienHand\AlienHand\python
 python -m alienhand_ai.cli chat-payload-resolver-proof --output runs --name chat-payload-resolver-proof
+```
+
+The app-lifecycle proof command is:
+
+```powershell
+cd C:\Project\Codex_Projects\ReasoningFramework\AlienHand\AlienHand\python
+python -m alienhand_ai.cli chat-app-resolver-proof --output runs --name chat-app-resolver-proof
 ```

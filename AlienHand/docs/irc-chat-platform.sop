@@ -314,7 +314,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
 & [ChatPlatformIntegration] is the current feasibility and path assessment
   + [concept] is [AlienHandIRCChatPlatform]
   + [available_support] is Ergo submodule, thelounge submodule, AlienHand Python AI layer, existing JSONL run artifacts, and current docs
-  + [missing_support] is resolver lifecycle integration, resolver discovery/access control, final history command syntax, and production lifecycle hardening
+  + [missing_support] is resolver discovery/access control, final history command syntax, and production lifecycle hardening
   + [hidden_constraints] are IRC framing limits, authentication, service discovery, client extension strategy, concurrent writes, payload immutability, and cross-app isolation
   + [feasibility_gradient] is prototypeable
   + [next_step] is [ChatPlatformProtocolReview] followed by [AlienHandIRCTruthTest]
@@ -360,7 +360,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [irc_publisher_node] is verified_against_fake_server
   + [payload_store_node] is verified
   + [payload_resolver_node] is verified
-  + [payload_resolver_http_node] is verified_loopback_fetch
+  + [payload_resolver_http_node] is verified_app_lifecycle_fetch
   + [commit_order_node] is verified
   + [history_node] is verified_chunked_replay
   + [history_request_node] is verified_payload_backed
@@ -368,7 +368,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [truth_test_core_node] is verified
   + [truth_test_node] is verified_minimal_user_client
   + [lifecycle_node] is verified_local_ergo
-  + [app_lifecycle_node] is verified_app_service_proof
+  + [app_lifecycle_node] is verified_app_service_with_payload_resolver
   + [user_client_probe_node] is verified_real_ergo
   + [render_model_node] is verified
   + [thelounge_adapter_node] is verified_fork_branch
@@ -393,11 +393,12 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [cli_entry] is "python -m alienhand_ai.cli chat-render-proof --output runs --name chat-render-proof"
   + [cli_entry] is "python -m alienhand_ai.cli chat-thelounge-adapter-proof --output runs --name chat-thelounge-adapter-proof"
   + [cli_entry] is "python -m alienhand_ai.cli chat-payload-resolver-proof --output runs --name chat-payload-resolver-proof"
-  + [verified_behavior] is AH1 envelope round-trip, 32-character channel UUID hex normalization, payload durability, JSONL append, blocked publication on history failure, cold replay, payload_error on missing payload, socket-level IRC JOIN/PRIVMSG publication against a fake server, real local Ergo startup/publication/shutdown, AlienHand-owned service lifecycle startup/publication/shutdown, minimal user IRC client receive plus payload resolution through real local Ergo, payload-backed history_request recording, recent-first chunked replay of full resolved payloads, render-model conversion for user-left, AI-right, system rows, code frames, and image frames, thelounge adapter preview for left/right/system bubbles plus code/image/link frames, thelounge fork branch rendering support for message.alienhand rows, loopback HTTP render-row lookup by message UUID, browser CORS support for the resolver proof, and thelounge AH1-to-payload-fetch helper compilation
-  + [remaining_truth_test] is resolver lifecycle integration, resolver discovery/access control, and final history command syntax
+  + [cli_entry] is "python -m alienhand_ai.cli chat-app-resolver-proof --output runs --name chat-app-resolver-proof"
+  + [verified_behavior] is AH1 envelope round-trip, 32-character channel UUID hex normalization, payload durability, JSONL append, blocked publication on history failure, cold replay, payload_error on missing payload, socket-level IRC JOIN/PRIVMSG publication against a fake server, real local Ergo startup/publication/shutdown, AlienHand-owned service lifecycle startup/publication/shutdown, app-owned payload resolver startup/fetch/shutdown, minimal user IRC client receive plus payload resolution through real local Ergo, payload-backed history_request recording, recent-first chunked replay of full resolved payloads, render-model conversion for user-left, AI-right, system rows, code frames, and image frames, thelounge adapter preview for left/right/system bubbles plus code/image/link frames, thelounge fork branch rendering support for message.alienhand rows, loopback HTTP render-row lookup by message UUID, browser CORS support for the resolver proof, and thelounge AH1-to-payload-fetch helper compilation
+  + [remaining_truth_test] is resolver discovery/access control and final history command syntax
 
   = must: treat this as verified local proof, not as complete user-facing chat integration
-  = must: use this slice as the base for the next app-lifecycle resolver and history-command steps
+  = must: use this slice as the base for the next resolver-discovery and history-command steps
 
 ## Dual-Hemisphere Settlement
 

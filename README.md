@@ -39,12 +39,13 @@ AlienHand now carries the chat-platform prototype under `AlienHand/`.
 - `AlienHand/python/alienhand_ai/chat_platform.py`: AH1 envelope, payload store, JSONL history, replay, and Ergo lifecycle proofs.
 - `AlienHand/python/alienhand_ai/payload_http.py`: loopback payload resolver that serves render rows by message UUID.
 
-Current proof command for live payload lookup:
+Current proof commands for live payload lookup and app-owned resolver lifecycle:
 
 ```powershell
 cd C:\Project\Codex_Projects\ReasoningFramework\AlienHand\AlienHand\python
 $env:PYTHONPATH="."
 python -m alienhand_ai.cli chat-payload-resolver-proof --output runs --name chat-payload-resolver-proof
+python -m alienhand_ai.cli chat-app-resolver-proof --output runs --name chat-app-resolver-proof
 ```
 
 ## Godot Integration

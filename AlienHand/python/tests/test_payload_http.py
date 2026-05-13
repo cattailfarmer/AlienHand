@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from alienhand_ai.chat_platform import (
+    AlienHandChatService,
     ChannelJSONLHistory,
     EnvelopeOutbox,
     PayloadStore,
@@ -82,6 +83,22 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(result["frame_kinds"], ["code", "link"])
             self.assertEqual(result["missing_status"], "payload_error")
             self.assertTrue(result["cors_ok"])
+
+    def test_chat_service_owns_payload_resolver_lifecycle(self):
+        with tempfile.TemporaryDirectory() as temp:
+            service = AlienHandChatService(Path(temp) / "service")
+            service._start_payload_http_server()
+            try:
+                self.assertIsNotNone(service.payload_resolver_base_url)
+                self.assertIsNotNone(service.payload_http_server)
+                row, _, status = fetch_json(service.payload_http_server.render_url(str(uuid4())))
+            finally:
+                service.stop()
+
+            self.assertEqual(status, 200)
+            self.assertEqual(row["status"], "payload_error")
+            self.assertIsNone(service.payload_resolver_base_url)
+            self.assertIsNone(service.payload_http_server)
 
 
 def fetch_json(url: str):

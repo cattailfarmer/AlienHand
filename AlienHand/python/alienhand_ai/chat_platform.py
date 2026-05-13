@@ -427,6 +427,9 @@ class AlienHandChatService:
         app_id: int = 1,
         nick: str = "alienhandagent",
         port: int | None = None,
+        payload_resolver_host: str = "127.0.0.1",
+        payload_resolver_port: int | None = None,
+        start_payload_resolver: bool = True,
         startup_timeout: float = 30.0,
         build_timeout: float = 120.0,
     ) -> None:
@@ -435,6 +438,9 @@ class AlienHandChatService:
         self.app_id = app_id
         self.nick = nick
         self.port = port
+        self.payload_resolver_host = payload_resolver_host
+        self.payload_resolver_port = payload_resolver_port
+        self.start_payload_resolver = start_payload_resolver
         self.startup_timeout = startup_timeout
         self.build_timeout = build_timeout
         self.runtime_dir = self.root / "ergo-runtime"
@@ -442,6 +448,7 @@ class AlienHandChatService:
         self.history = ChannelJSONLHistory(self.root)
         self.resolver = PayloadResolver(self.store)
         self.publisher: IRCNetworkPublisher | None = None
+        self.payload_http_server: Any | None = None
         self.process: subprocess.Popen | None = None
         self.config_path: Path | None = None
         self.binary_path: Path | None = None
@@ -452,6 +459,8 @@ class AlienHandChatService:
 
     def start(self) -> "AlienHandChatService":
         if self.process is not None and self.process.poll() is None:
+            if self.start_payload_resolver and self.payload_http_server is None:
+                self._start_payload_http_server()
             return self
         if self.process is not None:
             self.stop()
@@ -473,10 +482,18 @@ class AlienHandChatService:
             wait_for_tcp("127.0.0.1", resolved_port, timeout=self.startup_timeout)
             self.publisher = IRCNetworkPublisher("127.0.0.1", resolved_port, self.nick, timeout=5.0)
             self.publisher.connect()
+            if self.start_payload_resolver:
+                self._start_payload_http_server()
         except Exception:
             self.stop()
             raise
         return self
+
+    @property
+    def payload_resolver_base_url(self) -> str | None:
+        if self.payload_http_server is None:
+            return None
+        return str(self.payload_http_server.base_url)
 
     def publish_text(
         self,
@@ -508,6 +525,9 @@ class AlienHandChatService:
         return replay_channel(self.history, self.resolver, channel_uuid)
 
     def stop(self) -> None:
+        if self.payload_http_server is not None:
+            self.payload_http_server.stop()
+            self.payload_http_server = None
         if self.publisher is not None:
             self.publisher.close()
             self.publisher = None
@@ -526,6 +546,18 @@ class AlienHandChatService:
 
     def __exit__(self, exc_type, exc, traceback) -> None:
         self.stop()
+
+    def _start_payload_http_server(self) -> None:
+        if self.payload_http_server is not None:
+            return
+        from .payload_http import PayloadResolverHTTPServer
+
+        self.payload_http_server = PayloadResolverHTTPServer(
+            self.root,
+            host=self.payload_resolver_host,
+            port=self.payload_resolver_port,
+        ).start()
+        self.payload_resolver_port = int(self.payload_http_server.port)
 
 
 def run_app_lifecycle_proof(
@@ -551,9 +583,12 @@ def run_app_lifecycle_proof(
     ) as service:
         published = service.publish_text(text, channel_uuid=channel_uuid, metadata={"proof": "app_lifecycle"})
         running_port = service.port
+        payload_resolver_base_url = service.payload_resolver_base_url
+        payload_resolver_port = service.payload_resolver_port
         config_path = service.config_path
         binary_path = service.binary_path
         process_started = service.process is not None and service.process.poll() is None
+        payload_resolver_started = service.payload_http_server is not None
 
     replayed = replay_channel(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
     resolved_payloads = [row for row in replayed if row["payload"].get("event_type") != "payload_error"]
@@ -565,13 +600,17 @@ def run_app_lifecycle_proof(
         "envelope": published.envelope.to_line(),
         "ergo_root": str((Path(ergo_root) if ergo_root else default_ergo_root()).resolve()),
         "ergo_port": running_port,
+        "payload_resolver_base_url": payload_resolver_base_url,
+        "payload_resolver_port": payload_resolver_port,
         "config_path": str(config_path.resolve()) if config_path else None,
         "binary_path": str(binary_path.resolve()) if binary_path else None,
         "app_lifecycle_started": process_started,
+        "payload_resolver_started": payload_resolver_started,
         "app_lifecycle_stopped": True,
+        "payload_resolver_stopped": service.payload_http_server is None,
         "history_events": len(replayed),
         "resolved_payloads": len(resolved_payloads),
-        "cold_replay_ok": len(resolved_payloads) == 1,
+        "cold_replay_ok": len(resolved_payloads) == 1 and payload_resolver_started and service.payload_http_server is None,
         "root": str(chat_root.resolve()),
     }
 

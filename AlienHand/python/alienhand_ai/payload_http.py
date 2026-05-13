@@ -11,13 +11,17 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from .chat_platform import (
+    AlienHandChatService,
     ChannelJSONLHistory,
     EnvelopeOutbox,
     JsonDict,
     PayloadResolver,
     PayloadStore,
     commit_message,
+    default_ergo_root,
+    irc_channel_name,
     payload_to_render_model,
+    replay_channel,
 )
 
 
@@ -171,6 +175,78 @@ def run_payload_resolver_http_proof(root: str | Path, *, app_id: int = 1) -> Jso
         and frame_kinds == ["code", "link"]
         and missing_row.get("status") == "payload_error"
         and cors_ok,
+        "root": str(chat_root.resolve()),
+    }
+
+
+def run_app_payload_resolver_lifecycle_proof(
+    root: str | Path,
+    *,
+    ergo_root: str | Path | None = None,
+    app_id: int = 1,
+    nick: str = "alienhandagent",
+    text: str = "hello app-owned payload resolver",
+    port: int | None = None,
+    timeout: float = 30.0,
+) -> JsonDict:
+    chat_root = Path(root)
+    channel_uuid = uuid4().hex
+
+    with AlienHandChatService(
+        chat_root,
+        ergo_root=ergo_root,
+        app_id=app_id,
+        nick=nick,
+        port=port,
+        startup_timeout=timeout,
+        build_timeout=timeout,
+    ) as service:
+        published = service.publish_text(
+            text,
+            channel_uuid=channel_uuid,
+            metadata={"proof": "app_payload_resolver_lifecycle"},
+        )
+        process_started = service.process is not None and service.process.poll() is None
+        resolver_started = service.payload_http_server is not None
+        resolver_base_url = service.payload_resolver_base_url
+        resolver_port = service.payload_resolver_port
+        ergo_port = service.port
+        render_url = service.payload_http_server.render_url(published.envelope.message_uuid)
+        render_response = _http_json(render_url)
+
+    replayed = replay_channel(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
+    resolved_payloads = [row for row in replayed if row["payload"].get("event_type") != "payload_error"]
+    render_row = render_response["json"]
+    fetch_ok = (
+        render_response["status"] == 200
+        and render_row.get("status") == "resolved"
+        and render_row.get("message_uuid") == published.envelope.message_uuid
+        and render_row.get("content", {}).get("text") == text
+    )
+    return {
+        "resolver_version": PAYLOAD_RESOLVER_VERSION,
+        "app_id": app_id,
+        "channel_uuid": channel_uuid,
+        "irc_channel": irc_channel_name(channel_uuid),
+        "message_uuid": published.envelope.message_uuid,
+        "envelope": published.envelope.to_line(),
+        "ergo_root": str((Path(ergo_root) if ergo_root else default_ergo_root()).resolve()),
+        "ergo_port": ergo_port,
+        "resolver_base_url": resolver_base_url,
+        "resolver_port": resolver_port,
+        "render_url": render_url,
+        "app_lifecycle_started": process_started,
+        "payload_resolver_started": resolver_started,
+        "payload_resolver_fetch_ok": fetch_ok,
+        "payload_resolver_stopped": service.payload_http_server is None,
+        "history_events": len(replayed),
+        "resolved_payloads": len(resolved_payloads),
+        "cold_replay_ok": len(resolved_payloads) == 1,
+        "app_payload_resolver_lifecycle_ok": process_started
+        and resolver_started
+        and fetch_ok
+        and service.payload_http_server is None
+        and len(resolved_payloads) == 1,
         "root": str(chat_root.resolve()),
     }
 

@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup and the first runtime substrate proof
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, minimal user-client receive proof, chunked history replay, render-model conversion, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but resolver lifecycle integration, resolver discovery/access control, and final history command syntax are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned payload resolver lifecycle proof, minimal user-client receive proof, chunked history replay, render-model conversion, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but resolver discovery/access control and final history command syntax are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -74,7 +74,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is git submodule status 90f99286 AlienHand/thelounge
   + [verification_result] is thelounge exists under AlienHand/thelounge from the pushable AlienHand fork and provides the planned human client dependency
   + [status] is justified
-  + [uncertainty] is resolver lifecycle integration and user command syntax remain unfinished
+  + [uncertainty] is resolver discovery/access control and user command syntax remain unfinished
 
 & [JustificationEntry: ChatFoundationDocument] is justified
   + [work_type] is documentation
@@ -92,7 +92,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-platform.sop
   + [verification_result] is SOP spec defines envelope, payload store, payload resolver, commit order, replay, protocol review, truth test, and progress graph
   + [status] is justified
-  + [uncertainty] is live payload resolver fetch and final history command syntax remain unfinished
+  + [uncertainty] is resolver discovery/access control and final history command syntax remain unfinished
 
 & [JustificationEntry: WorkJustificationLayer] is justified
   + [work_type] is documentation
@@ -157,7 +157,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [implemented_artifact] is AlienHand/python/tests/test_chat_platform.py test_app_chat_service_requires_start_before_publish
   + [evidence_anchor] is python -m unittest tests.test_chat_platform
   + [evidence_anchor] is python -m alienhand_ai.cli chat-app-lifecycle-proof --output runs --name chat-app-lifecycle-proof
-  + [verification_result] is AlienHandChatService started real local Ergo on loopback port 60091, connected an AI IRC publisher, published one AH1 envelope to a 33-character IRC channel, stopped the server, and cold replay returned true with 1 resolved payload
+  + [verification_result] is AlienHandChatService starts real local Ergo, starts the app-owned payload resolver by default, connects an AI IRC publisher, publishes one AH1 envelope to a 33-character IRC channel, stops the server and resolver, and cold replay returns true with 1 resolved payload
   + [status] is justified
   + [uncertainty] is this is a Python app-service boundary proof; native C++ app process integration and production supervision remain future work
 
@@ -232,7 +232,21 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is git push cattailfarmer alienhand/chat-render-adapter commit 90f99286
   + [verification_result] is payload resolver proof served render row for message a2df7b41-c57d-409e-95d8-fde309c880ec at /alienhand/payloads/<message_uuid>/render, returned right-oriented resolved text "live payload resolver proof" with code/link frames, returned payload_error for a missing UUID, set cors_ok true, and the thelounge client helper compiled and linted
   + [status] is justified
-  + [uncertainty] is resolver startup is not yet part of AlienHandChatService app lifecycle, resolver base URL discovery is currently prototype configuration through window.__ALIENHAND_PAYLOAD_RESOLVER__ or localStorage.alienhandPayloadResolver, and access control is not implemented
+  + [uncertainty] is standalone resolver fetch is verified here; app-owned resolver lifecycle is covered by [AppOwnedPayloadResolverLifecycleProof], while resolver base URL discovery remains prototype configuration through window.__ALIENHAND_PAYLOAD_RESOLVER__ or localStorage.alienhandPayloadResolver and access control is not implemented
+
+& [JustificationEntry: AppOwnedPayloadResolverLifecycleProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [AlienHandIRCChatPlatform.irc_server], [PayloadResolverHTTP], [app_lifecycle_node], [payload_resolver_http_node], and [RuntimePrototypeSlice]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/chat_platform.py AlienHandChatService payload_resolver lifecycle fields and start/stop ownership
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/payload_http.py run_app_payload_resolver_lifecycle_proof
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-app-resolver-proof command
+  + [implemented_artifact] is AlienHand/python/tests/test_payload_http.py test_chat_service_owns_payload_resolver_lifecycle
+  + [evidence_anchor] is python -m unittest tests.test_payload_http
+  + [evidence_anchor] is python -m unittest tests.test_chat_platform
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-app-resolver-proof --output runs --name chat-app-resolver-proof
+  + [verification_result] is app-owned proof started real Ergo on loopback port 59935 and payload resolver on loopback port 59981, published AH1 envelope for message 35f9aedf-ffe8-4b2d-a491-17fa227b7335 to channel #743e8440d15f4d3fabeda983468aefde, fetched the render row from /alienhand/payloads/<message_uuid>/render, returned payload_resolver_fetch_ok true, stopped the resolver, and cold replay returned true with 1 resolved payload
+  + [status] is justified
+  + [uncertainty] is resolver base URL discovery is still prototype configuration through window.__ALIENHAND_PAYLOAD_RESOLVER__ or localStorage.alienhandPayloadResolver, access control is not implemented, and native app process integration remains future work
 
 ## Future Work Behavior
 

@@ -66,6 +66,7 @@ python -m alienhand_ai.cli chat-refinement-http-proof --output runs --name chat-
 python -m alienhand_ai.cli chat-payload-resolver-proof --output runs --name chat-payload-resolver-proof
 python -m alienhand_ai.cli chat-app-resolver-proof --output runs --name chat-app-resolver-proof
 python -m alienhand_ai.cli chat-runtime-group-proof --output runs --name chat-runtime-group-proof
+python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-runtime-proof
 ```
 
 The prototype channel history command is `!ah history [all|<messages>] [chunk

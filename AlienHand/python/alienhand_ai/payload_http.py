@@ -611,6 +611,181 @@ def run_app_thelounge_runtime_group_proof(
     }
 
 
+def run_app_thelounge_refinement_workbench_proof(
+    root: str | Path,
+    *,
+    ergo_root: str | Path | None = None,
+    thelounge_root: str | Path | None = None,
+    app_id: int = 1,
+    nick: str = "alienhandagent",
+    text: str = "hello app-owned refinement workbench",
+    port: int | None = None,
+    thelounge_port: int | None = None,
+    timeout: float = 30.0,
+) -> JsonDict:
+    chat_root = Path(root)
+    channel_uuid = uuid4().hex
+
+    with AlienHandChatService(
+        chat_root,
+        ergo_root=ergo_root,
+        thelounge_root=thelounge_root,
+        app_id=app_id,
+        nick=nick,
+        port=port,
+        thelounge_port=thelounge_port,
+        start_thelounge=True,
+        startup_timeout=timeout,
+        build_timeout=timeout,
+    ) as service:
+        published = service.publish_text(
+            text,
+            channel_uuid=channel_uuid,
+            metadata={"proof": "app_thelounge_refinement_workbench"},
+        )
+        process_started = service.process is not None and service.process.poll() is None
+        resolver_started = service.payload_http_server is not None
+        thelounge_started = service.thelounge_process is not None and service.thelounge_process.poll() is None
+        resolver_base_url = service.payload_resolver_base_url
+        thelounge_base_url = service.thelounge_base_url
+        if resolver_base_url is None or service.payload_http_server is None or thelounge_base_url is None:
+            raise RuntimeError("workbench proof requires payload resolver and The Lounge to be running")
+
+        access_token = service.payload_resolver_token
+        blocks_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/blocks?channel={channel_uuid}",
+            access_token=access_token,
+        )
+        search_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/search?q=workbench",
+            access_token=access_token,
+        )
+        blocks = blocks_response["json"].get("blocks", [])
+        block_id = blocks[0].get("block_id") if blocks else ""
+        cut_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/cuts",
+            {"source_block_id": block_id},
+            access_token=access_token,
+        )
+        cut_id = cut_response["json"].get("cut", {}).get("cut_id")
+        chapter_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/chapters",
+            {
+                "cut_ids": [cut_id],
+                "summary": "Runtime workbench proof chapter.",
+                "title": "Workbench Runtime",
+            },
+            access_token=access_token,
+        )
+        remove_response = _http_delete_json(
+            f"{resolver_base_url}/alienhand/refinement/cuts/{cut_id}",
+            access_token=access_token,
+        )
+        cuts_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/cuts?channel={channel_uuid}",
+            access_token=access_token,
+        )
+        active_cuts_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/cuts?channel={channel_uuid}&status=active",
+            access_token=access_token,
+        )
+        chapters_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/chapters?channel={channel_uuid}",
+            access_token=access_token,
+        )
+        render_response = _http_json(
+            service.payload_http_server.render_url(published.envelope.message_uuid),
+            access_token=access_token,
+        )
+        index_response = _http_text(f"{thelounge_base_url}/")
+        bundle_response = _http_text(f"{thelounge_base_url}/js/bundle.js")
+        style_response = _http_text(f"{thelounge_base_url}/css/style.css")
+        ergo_port = service.port
+        resolved_thelounge_port = service.thelounge_port
+
+    replayed = replay_channel(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
+    resolved_payloads = [row for row in replayed if row["payload"].get("event_type") != "payload_error"]
+    render_row = render_response["json"]
+    search_hits = search_response["json"].get("hits", [])
+    cuts = cuts_response["json"].get("cuts", [])
+    active_cuts = active_cuts_response["json"].get("cuts", [])
+    chapters = chapters_response["json"].get("chapters", [])
+    index_html = index_response["text"]
+    bundle_js = bundle_response["text"]
+    style_css = style_response["text"]
+    resolver_data_attribute = f'data-alienhand-payload-resolver="{resolver_base_url}"'
+    workbench_bundle_ok = (
+        "AlienHand refinement" in bundle_js
+        and "Inject into cuts" in bundle_js
+        and "alienhand-workbench" in bundle_js
+    )
+    workbench_style_ok = "alienhand-workbench" in style_css
+    refinement_api_ok = (
+        blocks_response["status"] == 200
+        and len(blocks) == 1
+        and blocks[0].get("message_uuid") == published.envelope.message_uuid
+        and search_response["status"] == 200
+        and [hit.get("block_id") for hit in search_hits] == [block_id]
+        and cut_response["status"] == 201
+        and chapter_response["status"] == 201
+        and remove_response["status"] == 200
+        and remove_response["json"].get("cut", {}).get("status") == "removed"
+        and len(cuts) == 1
+        and len(active_cuts) == 0
+        and len(chapters) == 1
+    )
+    render_fetch_ok = (
+        render_response["status"] == 200
+        and render_row.get("status") == "resolved"
+        and render_row.get("message_uuid") == published.envelope.message_uuid
+    )
+    workbench_runtime_ok = (
+        process_started
+        and resolver_started
+        and thelounge_started
+        and resolver_data_attribute in index_html
+        and workbench_bundle_ok
+        and workbench_style_ok
+        and refinement_api_ok
+        and render_fetch_ok
+        and service.payload_http_server is None
+        and service.thelounge_process is None
+        and len(resolved_payloads) == 1
+    )
+    return {
+        "resolver_version": PAYLOAD_RESOLVER_VERSION,
+        "app_id": app_id,
+        "channel_uuid": channel_uuid,
+        "irc_channel": irc_channel_name(channel_uuid),
+        "message_uuid": published.envelope.message_uuid,
+        "ergo_port": ergo_port,
+        "resolver_base_url": resolver_base_url,
+        "thelounge_base_url": thelounge_base_url,
+        "thelounge_port": resolved_thelounge_port,
+        "app_lifecycle_started": process_started,
+        "payload_resolver_started": resolver_started,
+        "thelounge_started": thelounge_started,
+        "render_fetch_ok": render_fetch_ok,
+        "listed_blocks": len(blocks),
+        "search_hits": len(search_hits),
+        "created_cut_id": cut_id,
+        "removed_cut_status": remove_response["json"].get("cut", {}).get("status"),
+        "listed_cuts": len(cuts),
+        "active_cuts_after_remove": len(active_cuts),
+        "listed_chapters": len(chapters),
+        "workbench_bundle_ok": workbench_bundle_ok,
+        "workbench_style_ok": workbench_style_ok,
+        "refinement_api_ok": refinement_api_ok,
+        "payload_resolver_stopped": service.payload_http_server is None,
+        "thelounge_stopped": service.thelounge_process is None,
+        "history_events": len(replayed),
+        "resolved_payloads": len(resolved_payloads),
+        "cold_replay_ok": len(resolved_payloads) == 1,
+        "workbench_runtime_ok": workbench_runtime_ok,
+        "root": str(chat_root.resolve()),
+    }
+
+
 def _message_uuid_from_render_path(path: str) -> str | None:
     parsed = urlparse(path)
     parts = [unquote(part) for part in parsed.path.split("/") if part]

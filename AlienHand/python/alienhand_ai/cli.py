@@ -25,6 +25,7 @@ from .learning_memory import ingest_learning_digest, summarize_learning_memory
 from .learning_packets import summarize_learning_packets, write_learning_packets
 from .payload_http import (
     run_app_payload_resolver_lifecycle_proof,
+    run_app_thelounge_refinement_workbench_proof,
     run_app_thelounge_runtime_group_proof,
     run_payload_resolver_http_proof,
     run_refinement_http_api_proof,
@@ -190,6 +191,17 @@ def main() -> None:
     chat_runtime_group.add_argument("--text", default="hello app-owned thelounge")
     chat_runtime_group.add_argument("--output", default="runs")
     chat_runtime_group.add_argument("--name", default="chat-runtime-group-proof")
+
+    chat_workbench_runtime = sub.add_parser("chat-workbench-runtime-proof")
+    chat_workbench_runtime.add_argument("--ergo-root")
+    chat_workbench_runtime.add_argument("--thelounge-root")
+    chat_workbench_runtime.add_argument("--port", type=int)
+    chat_workbench_runtime.add_argument("--thelounge-port", type=int)
+    chat_workbench_runtime.add_argument("--nick", default="alienhandagent")
+    chat_workbench_runtime.add_argument("--app-id", type=int, default=1)
+    chat_workbench_runtime.add_argument("--text", default="hello app-owned refinement workbench")
+    chat_workbench_runtime.add_argument("--output", default="runs")
+    chat_workbench_runtime.add_argument("--name", default="chat-workbench-runtime-proof")
 
     chat_refinement_storage = sub.add_parser("chat-refinement-storage-proof")
     chat_refinement_storage.add_argument("--output", default="runs")
@@ -375,6 +387,18 @@ def main() -> None:
         print(json.dumps(result, indent=2))
     elif args.command == "chat-runtime-group-proof":
         result = run_app_thelounge_runtime_group_proof(
+            Path(args.output) / args.name,
+            ergo_root=args.ergo_root,
+            thelounge_root=args.thelounge_root,
+            app_id=args.app_id,
+            nick=args.nick,
+            text=args.text,
+            port=args.port,
+            thelounge_port=args.thelounge_port,
+        )
+        print(json.dumps(result, indent=2))
+    elif args.command == "chat-workbench-runtime-proof":
+        result = run_app_thelounge_refinement_workbench_proof(
             Path(args.output) / args.name,
             ergo_root=args.ergo_root,
             thelounge_root=args.thelounge_root,

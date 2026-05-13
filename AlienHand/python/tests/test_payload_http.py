@@ -111,6 +111,37 @@ class PayloadHTTPTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 service.thelounge_environment()
 
+    def test_chat_service_builds_thelounge_command_for_app_owned_ergo(self):
+        with tempfile.TemporaryDirectory() as temp:
+            service = AlienHandChatService(Path(temp) / "service", start_thelounge=True)
+            service.port = 16667
+            service.thelounge_port = 19000
+
+            command = service._thelounge_command()
+
+            self.assertEqual(command[:2], ["node", "index.js"])
+            self.assertEqual(command[-1], "start")
+            self.assertIn("host=127.0.0.1", command)
+            self.assertIn("port=19000", command)
+            self.assertIn("public=true", command)
+            self.assertIn("lockNetwork=true", command)
+            self.assertIn("defaults.name=AlienHand", command)
+            self.assertIn("defaults.host=127.0.0.1", command)
+            self.assertIn("defaults.port=16667", command)
+            self.assertIn("defaults.tls=false", command)
+            self.assertIn("defaults.nick=alienhanduser%%", command)
+
+    def test_chat_service_reports_missing_thelounge_build_before_launch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            service = AlienHandChatService(
+                Path(temp) / "service",
+                thelounge_root=Path(temp) / "missing-build",
+                start_thelounge=True,
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "The Lounge build is missing"):
+                service._require_thelounge_build()
+
 
 def fetch_json(url: str):
     request = Request(url, headers={"Accept": "application/json", "Origin": "http://localhost"})

@@ -253,6 +253,100 @@ def run_app_payload_resolver_lifecycle_proof(
     }
 
 
+def run_app_thelounge_runtime_group_proof(
+    root: str | Path,
+    *,
+    ergo_root: str | Path | None = None,
+    thelounge_root: str | Path | None = None,
+    app_id: int = 1,
+    nick: str = "alienhandagent",
+    text: str = "hello app-owned thelounge",
+    port: int | None = None,
+    thelounge_port: int | None = None,
+    timeout: float = 30.0,
+) -> JsonDict:
+    chat_root = Path(root)
+    channel_uuid = uuid4().hex
+
+    with AlienHandChatService(
+        chat_root,
+        ergo_root=ergo_root,
+        thelounge_root=thelounge_root,
+        app_id=app_id,
+        nick=nick,
+        port=port,
+        thelounge_port=thelounge_port,
+        start_thelounge=True,
+        startup_timeout=timeout,
+        build_timeout=timeout,
+    ) as service:
+        published = service.publish_text(
+            text,
+            channel_uuid=channel_uuid,
+            metadata={"proof": "app_thelounge_runtime_group"},
+        )
+        process_started = service.process is not None and service.process.poll() is None
+        resolver_started = service.payload_http_server is not None
+        thelounge_started = service.thelounge_process is not None and service.thelounge_process.poll() is None
+        resolver_base_url = service.payload_resolver_base_url
+        thelounge_base_url = service.thelounge_base_url
+        thelounge_environment = service.thelounge_environment()
+        ergo_port = service.port
+        resolved_thelounge_port = service.thelounge_port
+        if service.payload_http_server is None or thelounge_base_url is None:
+            raise RuntimeError("runtime group proof requires payload resolver and The Lounge to be running")
+        render_url = service.payload_http_server.render_url(published.envelope.message_uuid)
+        render_response = _http_json(render_url)
+        index_response = _http_text(f"{thelounge_base_url}/")
+
+    replayed = replay_channel(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
+    resolved_payloads = [row for row in replayed if row["payload"].get("event_type") != "payload_error"]
+    index_html = index_response["text"]
+    render_row = render_response["json"]
+    resolver_data_attribute = f'data-alienhand-payload-resolver="{resolver_base_url}"'
+    thelounge_html_has_resolver = resolver_data_attribute in index_html
+    fetch_ok = (
+        render_response["status"] == 200
+        and render_row.get("status") == "resolved"
+        and render_row.get("message_uuid") == published.envelope.message_uuid
+        and render_row.get("content", {}).get("text") == text
+    )
+    return {
+        "resolver_version": PAYLOAD_RESOLVER_VERSION,
+        "app_id": app_id,
+        "channel_uuid": channel_uuid,
+        "irc_channel": irc_channel_name(channel_uuid),
+        "message_uuid": published.envelope.message_uuid,
+        "envelope": published.envelope.to_line(),
+        "ergo_root": str((Path(ergo_root) if ergo_root else default_ergo_root()).resolve()),
+        "ergo_port": ergo_port,
+        "resolver_base_url": resolver_base_url,
+        "thelounge_base_url": thelounge_base_url,
+        "thelounge_port": resolved_thelounge_port,
+        "thelounge_payload_resolver_env": thelounge_environment["ALIENHAND_PAYLOAD_RESOLVER"],
+        "render_url": render_url,
+        "app_lifecycle_started": process_started,
+        "payload_resolver_started": resolver_started,
+        "thelounge_started": thelounge_started,
+        "payload_resolver_fetch_ok": fetch_ok,
+        "thelounge_html_has_resolver": thelounge_html_has_resolver,
+        "payload_resolver_stopped": service.payload_http_server is None,
+        "thelounge_stopped": service.thelounge_process is None,
+        "history_events": len(replayed),
+        "resolved_payloads": len(resolved_payloads),
+        "cold_replay_ok": len(resolved_payloads) == 1,
+        "runtime_group_ok": process_started
+        and resolver_started
+        and thelounge_started
+        and fetch_ok
+        and thelounge_html_has_resolver
+        and service.payload_http_server is None
+        and service.thelounge_process is None
+        and len(resolved_payloads) == 1,
+        "root": str(chat_root.resolve()),
+    }
+
+
 def _message_uuid_from_render_path(path: str) -> str | None:
     parsed = urlparse(path)
     parts = [unquote(part) for part in parsed.path.split("/") if part]
@@ -273,3 +367,9 @@ def _http_options(url: str) -> JsonDict:
     with urlopen(request, timeout=5.0) as response:
         response.read()
         return {"headers": dict(response.headers), "status": response.status}
+
+
+def _http_text(url: str) -> JsonDict:
+    request = Request(url)
+    with urlopen(request, timeout=5.0) as response:
+        return {"text": response.read().decode("utf-8"), "headers": dict(response.headers), "status": response.status}

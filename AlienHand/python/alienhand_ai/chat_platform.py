@@ -430,6 +430,10 @@ class AlienHandChatService:
         payload_resolver_host: str = "127.0.0.1",
         payload_resolver_port: int | None = None,
         start_payload_resolver: bool = True,
+        thelounge_root: str | Path | None = None,
+        thelounge_host: str = "127.0.0.1",
+        thelounge_port: int | None = None,
+        start_thelounge: bool = False,
         startup_timeout: float = 30.0,
         build_timeout: float = 120.0,
     ) -> None:
@@ -441,26 +445,38 @@ class AlienHandChatService:
         self.payload_resolver_host = payload_resolver_host
         self.payload_resolver_port = payload_resolver_port
         self.start_payload_resolver = start_payload_resolver
+        self.thelounge_root = Path(thelounge_root) if thelounge_root else default_thelounge_root()
+        self.thelounge_host = thelounge_host
+        self.thelounge_port = thelounge_port
+        self.start_thelounge = start_thelounge
         self.startup_timeout = startup_timeout
         self.build_timeout = build_timeout
         self.runtime_dir = self.root / "ergo-runtime"
+        self.thelounge_runtime_dir = self.root / "thelounge-runtime"
         self.store = PayloadStore(self.root)
         self.history = ChannelJSONLHistory(self.root)
         self.resolver = PayloadResolver(self.store)
         self.publisher: IRCNetworkPublisher | None = None
         self.payload_http_server: Any | None = None
+        self.thelounge_process: subprocess.Popen | None = None
         self.process: subprocess.Popen | None = None
         self.config_path: Path | None = None
         self.binary_path: Path | None = None
         self.stdout_path = self.runtime_dir / "ergo.stdout.log"
         self.stderr_path = self.runtime_dir / "ergo.stderr.log"
+        self.thelounge_stdout_path = self.thelounge_runtime_dir / "thelounge.stdout.log"
+        self.thelounge_stderr_path = self.thelounge_runtime_dir / "thelounge.stderr.log"
         self._stdout_file = None
         self._stderr_file = None
+        self._thelounge_stdout_file = None
+        self._thelounge_stderr_file = None
 
     def start(self) -> "AlienHandChatService":
         if self.process is not None and self.process.poll() is None:
             if self.start_payload_resolver and self.payload_http_server is None:
                 self._start_payload_http_server()
+            if self.start_thelounge and self.thelounge_process is None:
+                self._start_thelounge_process()
             return self
         if self.process is not None:
             self.stop()
@@ -484,6 +500,8 @@ class AlienHandChatService:
             self.publisher.connect()
             if self.start_payload_resolver:
                 self._start_payload_http_server()
+            if self.start_thelounge:
+                self._start_thelounge_process()
         except Exception:
             self.stop()
             raise
@@ -530,7 +548,22 @@ class AlienHandChatService:
             raise RuntimeError("payload resolver must be started before exporting thelounge environment")
         return {"ALIENHAND_PAYLOAD_RESOLVER": base_url}
 
+    @property
+    def thelounge_base_url(self) -> str | None:
+        if self.thelounge_process is None:
+            return None
+        return f"http://{self.thelounge_host}:{self.thelounge_port}"
+
     def stop(self) -> None:
+        if self.thelounge_process is not None:
+            stop_process(self.thelounge_process, timeout=5.0)
+            self.thelounge_process = None
+        if self._thelounge_stdout_file is not None:
+            self._thelounge_stdout_file.close()
+            self._thelounge_stdout_file = None
+        if self._thelounge_stderr_file is not None:
+            self._thelounge_stderr_file.close()
+            self._thelounge_stderr_file = None
         if self.payload_http_server is not None:
             self.payload_http_server.stop()
             self.payload_http_server = None
@@ -564,6 +597,64 @@ class AlienHandChatService:
             port=self.payload_resolver_port,
         ).start()
         self.payload_resolver_port = int(self.payload_http_server.port)
+
+    def _start_thelounge_process(self) -> None:
+        if self.thelounge_process is not None and self.thelounge_process.poll() is None:
+            return
+        if self.port is None:
+            raise RuntimeError("Ergo must be started before The Lounge")
+        self._require_thelounge_build()
+        env = os.environ.copy()
+        env.update(self.thelounge_environment())
+        env["THELOUNGE_HOME"] = str((self.thelounge_runtime_dir / "home").resolve())
+        self.thelounge_runtime_dir.mkdir(parents=True, exist_ok=True)
+        resolved_port = self.thelounge_port or find_free_port()
+        self.thelounge_port = resolved_port
+        self._thelounge_stdout_file = self.thelounge_stdout_path.open("w", encoding="utf-8")
+        self._thelounge_stderr_file = self.thelounge_stderr_path.open("w", encoding="utf-8")
+        self.thelounge_process = subprocess.Popen(
+            self._thelounge_command(),
+            cwd=self.thelounge_root,
+            stdout=self._thelounge_stdout_file,
+            stderr=self._thelounge_stderr_file,
+            env=env,
+            text=True,
+        )
+        wait_for_tcp(self.thelounge_host, resolved_port, timeout=self.startup_timeout)
+
+    def _require_thelounge_build(self) -> None:
+        server_entry = self.thelounge_root / "dist" / "server" / "index.js"
+        if not server_entry.exists():
+            raise RuntimeError(f"The Lounge build is missing at {server_entry}; run `yarn build` in {self.thelounge_root}")
+
+    def _thelounge_command(self) -> list[str]:
+        if self.port is None or self.thelounge_port is None:
+            raise RuntimeError("Ergo and The Lounge ports must be assigned before building command")
+        return [
+            "node",
+            "index.js",
+            "-c",
+            f"host={self.thelounge_host}",
+            "-c",
+            f"port={self.thelounge_port}",
+            "-c",
+            "public=true",
+            "-c",
+            "lockNetwork=true",
+            "-c",
+            "defaults.name=AlienHand",
+            "-c",
+            "defaults.host=127.0.0.1",
+            "-c",
+            f"defaults.port={self.port}",
+            "-c",
+            "defaults.tls=false",
+            "-c",
+            "defaults.rejectUnauthorized=false",
+            "-c",
+            "defaults.nick=alienhanduser%%",
+            "start",
+        ]
 
 
 def run_app_lifecycle_proof(
@@ -1138,6 +1229,10 @@ def run_render_model_proof(root: str | Path, *, app_id: int = 1) -> JsonDict:
 
 def default_ergo_root() -> Path:
     return Path(__file__).resolve().parents[2] / "Ergo"
+
+
+def default_thelounge_root() -> Path:
+    return Path(__file__).resolve().parents[2] / "thelounge"
 
 
 def find_free_port() -> int:

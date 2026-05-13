@@ -344,6 +344,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [user_client_probe_node] is minimal user IRC client receive and payload resolution
   + [render_model_node] is payload-to-client render model conversion
   + [thelounge_adapter_node] is AlienHand-owned thelounge fork render-row integration and preview proof
+  + [thelounge_runtime_group_node] is AlienHand-owned thelounge process startup, resolver discovery, and shutdown
   + [client_node] is thelounge bubble and frame rendering
   + [ai_node] is one AI connection per agent plus context replay
   + [pm_node] is ephemeral private-message context
@@ -360,7 +361,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [irc_publisher_node] is verified_against_fake_server
   + [payload_store_node] is verified
   + [payload_resolver_node] is verified
-  + [payload_resolver_http_node] is verified_app_lifecycle_fetch
+  + [payload_resolver_http_node] is verified_app_runtime_group_fetch
   + [commit_order_node] is verified
   + [history_node] is verified_chunked_replay
   + [history_request_node] is verified_payload_backed
@@ -368,11 +369,12 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [truth_test_core_node] is verified
   + [truth_test_node] is verified_minimal_user_client
   + [lifecycle_node] is verified_local_ergo
-  + [app_lifecycle_node] is verified_app_service_with_payload_resolver
+  + [app_lifecycle_node] is verified_app_service_with_payload_resolver_and_thelounge
   + [user_client_probe_node] is verified_real_ergo
   + [render_model_node] is verified
   + [thelounge_adapter_node] is verified_fork_branch
-  + [client_node] is wired_to_payload_fetch_and_server_discovery
+  + [thelounge_runtime_group_node] is verified_app_owned_startup
+  + [client_node] is verified_server_discovery_in_runtime_group
   + [ai_node] is not_started
   + [pm_node] is specified
   + [security_node] is deferred
@@ -394,7 +396,8 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [cli_entry] is "python -m alienhand_ai.cli chat-thelounge-adapter-proof --output runs --name chat-thelounge-adapter-proof"
   + [cli_entry] is "python -m alienhand_ai.cli chat-payload-resolver-proof --output runs --name chat-payload-resolver-proof"
   + [cli_entry] is "python -m alienhand_ai.cli chat-app-resolver-proof --output runs --name chat-app-resolver-proof"
-  + [verified_behavior] is AH1 envelope round-trip, 32-character channel UUID hex normalization, payload durability, JSONL append, blocked publication on history failure, cold replay, payload_error on missing payload, socket-level IRC JOIN/PRIVMSG publication against a fake server, real local Ergo startup/publication/shutdown, AlienHand-owned service lifecycle startup/publication/shutdown, app-owned payload resolver startup/fetch/shutdown, thelounge environment export for the app-owned resolver URL, minimal user IRC client receive plus payload resolution through real local Ergo, payload-backed history_request recording, recent-first chunked replay of full resolved payloads, render-model conversion for user-left, AI-right, system rows, code frames, and image frames, thelounge adapter preview for left/right/system bubbles plus code/image/link frames, thelounge fork branch rendering support for message.alienhand rows, thelounge server/client resolver discovery through alienhand.payloadResolverBaseUrl and ALIENHAND_PAYLOAD_RESOLVER, loopback HTTP render-row lookup by message UUID, browser CORS support for the resolver proof, and thelounge AH1-to-payload-fetch helper compilation
+  + [cli_entry] is "python -m alienhand_ai.cli chat-runtime-group-proof --output runs --name chat-runtime-group-proof"
+  + [verified_behavior] is AH1 envelope round-trip, 32-character channel UUID hex normalization, payload durability, JSONL append, blocked publication on history failure, cold replay, payload_error on missing payload, socket-level IRC JOIN/PRIVMSG publication against a fake server, real local Ergo startup/publication/shutdown, AlienHand-owned service lifecycle startup/publication/shutdown, app-owned payload resolver startup/fetch/shutdown, thelounge environment export for the app-owned resolver URL, app-owned The Lounge startup/config/shutdown pointed at app-owned Ergo, The Lounge served HTML resolver discovery in the runtime group, minimal user IRC client receive plus payload resolution through real local Ergo, payload-backed history_request recording, recent-first chunked replay of full resolved payloads, render-model conversion for user-left, AI-right, system rows, code frames, and image frames, thelounge adapter preview for left/right/system bubbles plus code/image/link frames, thelounge fork branch rendering support for message.alienhand rows, thelounge server/client resolver discovery through alienhand.payloadResolverBaseUrl and ALIENHAND_PAYLOAD_RESOLVER, loopback HTTP render-row lookup by message UUID, browser CORS support for the resolver proof, and thelounge AH1-to-payload-fetch helper compilation
   + [remaining_truth_test] is resolver access control and final history command syntax
 
   = must: treat this as verified local proof, not as complete user-facing chat integration

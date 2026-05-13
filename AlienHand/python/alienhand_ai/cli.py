@@ -22,7 +22,11 @@ from .interface_probe import probe_godot_interfaces, summarize_interface_map
 from .interaction_trace import summarize_interaction_trace, write_interaction_trace
 from .learning_memory import ingest_learning_digest, summarize_learning_memory
 from .learning_packets import summarize_learning_packets, write_learning_packets
-from .payload_http import run_app_payload_resolver_lifecycle_proof, run_payload_resolver_http_proof
+from .payload_http import (
+    run_app_payload_resolver_lifecycle_proof,
+    run_app_thelounge_runtime_group_proof,
+    run_payload_resolver_http_proof,
+)
 from .runner import ProcessRunConfig, record_process
 from .sop import compile_sop_file, compile_sop_text, write_sop_packets
 from .telemetry import TelemetryRecorder, summarize_run, write_html_report
@@ -165,6 +169,17 @@ def main() -> None:
     chat_app_resolver.add_argument("--text", default="hello app-owned payload resolver")
     chat_app_resolver.add_argument("--output", default="runs")
     chat_app_resolver.add_argument("--name", default="chat-app-resolver-proof")
+
+    chat_runtime_group = sub.add_parser("chat-runtime-group-proof")
+    chat_runtime_group.add_argument("--ergo-root")
+    chat_runtime_group.add_argument("--thelounge-root")
+    chat_runtime_group.add_argument("--port", type=int)
+    chat_runtime_group.add_argument("--thelounge-port", type=int)
+    chat_runtime_group.add_argument("--nick", default="alienhandagent")
+    chat_runtime_group.add_argument("--app-id", type=int, default=1)
+    chat_runtime_group.add_argument("--text", default="hello app-owned thelounge")
+    chat_runtime_group.add_argument("--output", default="runs")
+    chat_runtime_group.add_argument("--name", default="chat-runtime-group-proof")
 
     args = parser.parse_args()
     if args.command == "record-process":
@@ -324,6 +339,18 @@ def main() -> None:
             nick=args.nick,
             text=args.text,
             port=args.port,
+        )
+        print(json.dumps(result, indent=2))
+    elif args.command == "chat-runtime-group-proof":
+        result = run_app_thelounge_runtime_group_proof(
+            Path(args.output) / args.name,
+            ergo_root=args.ergo_root,
+            thelounge_root=args.thelounge_root,
+            app_id=args.app_id,
+            nick=args.nick,
+            text=args.text,
+            port=args.port,
+            thelounge_port=args.thelounge_port,
         )
         print(json.dumps(result, indent=2))
 

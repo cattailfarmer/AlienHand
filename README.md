@@ -42,16 +42,24 @@ AlienHand now carries the chat-platform prototype under `AlienHand/`.
 The Lounge discovers the payload resolver from `alienhand.payloadResolverBaseUrl`
 or the `ALIENHAND_PAYLOAD_RESOLVER` environment variable. `AlienHandChatService`
 exports that environment value with `thelounge_environment()` after the resolver
-starts.
+starts, and can launch the nested The Lounge fork as part of the app-owned chat
+runtime group.
 
-Current proof commands for live payload lookup and app-owned resolver lifecycle:
+Current proof commands for live payload lookup, app-owned resolver lifecycle, and
+the app-owned The Lounge runtime group:
 
 ```powershell
 cd C:\Project\Codex_Projects\ReasoningFramework\AlienHand\AlienHand\python
 $env:PYTHONPATH="."
 python -m alienhand_ai.cli chat-payload-resolver-proof --output runs --name chat-payload-resolver-proof
 python -m alienhand_ai.cli chat-app-resolver-proof --output runs --name chat-app-resolver-proof
+python -m alienhand_ai.cli chat-runtime-group-proof --output runs --name chat-runtime-group-proof
 ```
+
+`chat-runtime-group-proof` expects the nested The Lounge fork to have a built
+`dist/server/index.js`. If that build output is absent, run `yarn build` in
+`C:\Project\Codex_Projects\ReasoningFramework\AlienHand\AlienHand\thelounge`
+before launching the proof.
 
 ## Godot Integration
 

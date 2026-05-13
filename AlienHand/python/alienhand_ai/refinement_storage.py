@@ -472,14 +472,21 @@ class ConversationRefinementStore:
         *,
         channel_uuid: str | None = None,
         target_type: str | None = None,
+        clear_state: str | None = None,
     ) -> list[ConversationSticky]:
         if target_type is not None and target_type not in STICKY_TARGET_TYPES:
             raise ValueError(f"unsupported sticky target_type: {target_type}")
         params: list[Any] = []
         query = "SELECT * FROM conversation_stickies"
+        clauses: list[str] = []
         if target_type is not None:
-            query += " WHERE target_type = ?"
+            clauses.append("target_type = ?")
             params.append(target_type)
+        if clear_state is not None:
+            clauses.append("clear_state = ?")
+            params.append(clear_state)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
         query += " ORDER BY target_type, target_id, sticky_id"
         rows = self.connection.execute(query, tuple(params)).fetchall()
         stickies = [sticky_from_row(row) for row in rows]
@@ -491,6 +498,18 @@ class ConversationRefinementStore:
             for sticky in stickies
             if sticky.target_id in target_ids.get(sticky.target_type, set())
         ]
+
+    def clear_sticky(self, sticky_id: str, *, clear_state: str = "dismissed") -> ConversationSticky:
+        with self.connection:
+            self.connection.execute(
+                "UPDATE conversation_stickies SET clear_state = ? WHERE sticky_id = ?",
+                (clear_state, sticky_id),
+            )
+        return self.get_sticky(sticky_id)
+
+    def get_sticky(self, sticky_id: str) -> ConversationSticky:
+        row = self._required_row("SELECT * FROM conversation_stickies WHERE sticky_id = ?", (sticky_id,))
+        return sticky_from_row(row)
 
     def create_quote(
         self,

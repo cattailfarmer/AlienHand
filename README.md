@@ -58,7 +58,7 @@ and displaying those notes. The same API layer now exposes target-validated quot
 capture so selected excerpts can keep explicit source provenance, plus sticky
 references for session-scoped working reminders. The workbench can now create and
 display rough quote excerpts and sticky pins for raw blocks, cuts, chapters, and
-bookmark anchors.
+bookmark anchors, and can unpin stickies while preserving their durable record.
 
 Current proof commands for live payload lookup, app-owned resolver lifecycle, and
 the app-owned The Lounge runtime group:

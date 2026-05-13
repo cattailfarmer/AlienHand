@@ -224,11 +224,23 @@ class PayloadHTTPTests(unittest.TestCase):
                     token="secret",
                 )
                 stickies, _, stickies_status = fetch_json(
-                    f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}",
+                    f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}&clear_state=active",
                     token="secret",
                 )
                 bookmark_stickies, _, bookmark_stickies_status = fetch_json(
-                    f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}&target_type=bookmark",
+                    f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}&target_type=bookmark&clear_state=active",
+                    token="secret",
+                )
+                cleared_sticky, _, cleared_sticky_status = delete_json(
+                    f"{server.base_url}/alienhand/refinement/stickies/{sticky['sticky']['sticky_id']}",
+                    token="secret",
+                )
+                active_stickies_after_clear, _, active_stickies_after_clear_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}&clear_state=active",
+                    token="secret",
+                )
+                dismissed_stickies, _, dismissed_stickies_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}&clear_state=dismissed",
                     token="secret",
                 )
 
@@ -281,6 +293,15 @@ class PayloadHTTPTests(unittest.TestCase):
                 [row["sticky_id"] for row in bookmark_stickies["stickies"]],
                 [sticky["sticky"]["sticky_id"]],
             )
+            self.assertEqual(cleared_sticky_status, 200)
+            self.assertEqual(cleared_sticky["sticky"]["clear_state"], "dismissed")
+            self.assertEqual(active_stickies_after_clear_status, 200)
+            self.assertEqual(active_stickies_after_clear["stickies"], [])
+            self.assertEqual(dismissed_stickies_status, 200)
+            self.assertEqual(
+                [row["sticky_id"] for row in dismissed_stickies["stickies"]],
+                [sticky["sticky"]["sticky_id"]],
+            )
 
     def test_refinement_http_api_proof_exercises_workbench_contract(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -298,6 +319,8 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(result["quote_excerpt"], "searchable workbench source")
             self.assertEqual(result["listed_stickies"], 1)
             self.assertEqual(result["sticky_target_type"], "bookmark")
+            self.assertEqual(result["cleared_sticky_state"], "dismissed")
+            self.assertEqual(result["active_stickies_after_clear"], 0)
             self.assertEqual(result["removed_cut_status"], "removed")
             self.assertEqual(result["unauthorized_status"], 401)
 

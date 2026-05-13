@@ -187,6 +187,7 @@ class PayloadResolverHTTPServer:
                             stickies = store.list_stickies(
                                 channel_uuid=query.get("channel"),
                                 target_type=query.get("target_type"),
+                                clear_state=query.get("clear_state"),
                             )
                     except ValueError as error:
                         self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
@@ -356,6 +357,16 @@ class PayloadResolverHTTPServer:
                         self._send_json({"error": "cut_not_found"}, HTTPStatus.NOT_FOUND)
                         return True
                     self._send_json({"cut": cut.to_dict()}, HTTPStatus.OK)
+                    return True
+                if len(parts) == 4 and tuple(parts[:3]) == (*REFINEMENT_PATH_PREFIX, "stickies"):
+                    sticky_id = parts[3]
+                    try:
+                        with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            sticky = store.clear_sticky(sticky_id)
+                    except KeyError:
+                        self._send_json({"error": "sticky_not_found"}, HTTPStatus.NOT_FOUND)
+                        return True
+                    self._send_json({"sticky": sticky.to_dict()}, HTTPStatus.OK)
                     return True
                 return False
 
@@ -566,7 +577,15 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
             access_token=access_token,
         )
         stickies_response = _http_json(
-            f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}",
+            f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}&clear_state=active",
+            access_token=access_token,
+        )
+        clear_sticky_response = _http_delete_json(
+            f"{server.base_url}/alienhand/refinement/stickies/{sticky_response['json'].get('sticky', {}).get('sticky_id')}",
+            access_token=access_token,
+        )
+        active_stickies_after_clear_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}&clear_state=active",
             access_token=access_token,
         )
         base_url = server.base_url
@@ -578,6 +597,7 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
     bookmarks = bookmarks_response["json"].get("bookmarks", [])
     quotes = quotes_response["json"].get("quotes", [])
     stickies = stickies_response["json"].get("stickies", [])
+    active_stickies_after_clear = active_stickies_after_clear_response["json"].get("stickies", [])
     refinement_http_ok = (
         blocks_response["status"] == 200
         and len(blocks) == 1
@@ -603,6 +623,9 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         and len(quotes) == 1
         and quotes[0].get("source_id") == imported_blocks[0].block_id
         and len(stickies) == 1
+        and clear_sticky_response["status"] == 200
+        and clear_sticky_response["json"].get("sticky", {}).get("clear_state") == "dismissed"
+        and active_stickies_after_clear == []
     )
     return {
         "resolver_version": PAYLOAD_RESOLVER_VERSION,
@@ -621,12 +644,14 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         "quote_excerpt": quote_response["json"].get("quote", {}).get("excerpt"),
         "created_sticky_id": sticky_response["json"].get("sticky", {}).get("sticky_id"),
         "sticky_target_type": sticky_response["json"].get("sticky", {}).get("target_type"),
+        "cleared_sticky_state": clear_sticky_response["json"].get("sticky", {}).get("clear_state"),
         "removed_cut_status": remove_response["json"].get("cut", {}).get("status"),
         "listed_cuts": len(cuts),
         "listed_chapters": len(chapters),
         "listed_bookmarks": len(bookmarks),
         "listed_quotes": len(quotes),
         "listed_stickies": len(stickies),
+        "active_stickies_after_clear": len(active_stickies_after_clear),
         "unauthorized_status": unauthorized_response["status"],
         "refinement_http_ok": refinement_http_ok,
         "root": str(chat_root.resolve()),
@@ -917,6 +942,7 @@ def run_app_thelounge_refinement_workbench_proof(
         and "Bookmark:" in bundle_js
         and "Quote excerpt" in bundle_js
         and "Pinned reminder" in bundle_js
+        and "Unpin" in bundle_js
         and "alienhand-workbench" in bundle_js
     )
     workbench_style_ok = (

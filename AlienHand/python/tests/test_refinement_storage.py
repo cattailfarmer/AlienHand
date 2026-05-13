@@ -243,8 +243,21 @@ class RefinementStorageTests(unittest.TestCase):
                     [bookmark_sticky.sticky_id],
                 )
                 self.assertEqual(first_channel_bookmark_stickies[0].clear_state, "active")
+                cleared = store.clear_sticky(bookmark_sticky.sticky_id)
+
+                self.assertEqual(cleared.clear_state, "dismissed")
+                self.assertEqual(
+                    [sticky.sticky_id for sticky in store.list_stickies(channel_uuid=first.channel_uuid, clear_state="active")],
+                    [block_sticky.sticky_id],
+                )
+                self.assertEqual(
+                    [sticky.sticky_id for sticky in store.list_stickies(channel_uuid=first.channel_uuid, clear_state="dismissed")],
+                    [bookmark_sticky.sticky_id],
+                )
                 with self.assertRaises(KeyError):
                     store.create_sticky(target_type="bookmark", target_id="missing-bookmark")
+                with self.assertRaises(KeyError):
+                    store.clear_sticky("missing-sticky")
                 with self.assertRaises(ValueError):
                     store.list_stickies(target_type="unsupported")
 

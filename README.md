@@ -29,6 +29,24 @@ build is preferred when working on shared AlienHand framework code.
 - `BurgerBlaster/`: Turbo Pascal game port using AlienHand.
 - `Minesweeper-AI/`: first desktop game-agent consumer of `alienhand_ai`.
 
+## IRC Chat Substrate
+
+AlienHand now carries the chat-platform prototype under `AlienHand/`.
+
+- `AlienHand/Ergo/`: app-owned IRC server dependency.
+- `AlienHand/thelounge/`: AlienHand fork of the human IRC client surface.
+- `AlienHand/BizHawk/`: emulator dependency kept nested under `AlienHand/BizHawk`.
+- `AlienHand/python/alienhand_ai/chat_platform.py`: AH1 envelope, payload store, JSONL history, replay, and Ergo lifecycle proofs.
+- `AlienHand/python/alienhand_ai/payload_http.py`: loopback payload resolver that serves render rows by message UUID.
+
+Current proof command for live payload lookup:
+
+```powershell
+cd C:\Project\Codex_Projects\ReasoningFramework\AlienHand\AlienHand\python
+$env:PYTHONPATH="."
+python -m alienhand_ai.cli chat-payload-resolver-proof --output runs --name chat-payload-resolver-proof
+```
+
 ## Godot Integration
 
 The sibling repo `C:\Project\Codex_Projects\LLMOS-Compiler` contains a Godot

@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup and the first runtime substrate proof
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, minimal user-client receive proof, chunked history replay, render-model conversion, and thelounge fork rendering support are implemented and verified, but live payload resolver fetch and final history command syntax are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, minimal user-client receive proof, chunked history replay, render-model conversion, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but resolver lifecycle integration, resolver discovery/access control, and final history command syntax are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -71,10 +71,10 @@ Description: SOP description of the justification step, called "jusitification" 
   + [work_type] is dependency
   + [requirement_anchor] is [AlienHandIRCChatPlatform.human_client] and [RichChatClientSurface]
   + [implemented_artifact] is AlienHand/thelounge
-  + [evidence_anchor] is git submodule status 66385ee4 AlienHand/thelounge
+  + [evidence_anchor] is git submodule status 90f99286 AlienHand/thelounge
   + [verification_result] is thelounge exists under AlienHand/thelounge from the pushable AlienHand fork and provides the planned human client dependency
   + [status] is justified
-  + [uncertainty] is live payload resolver fetch and user command syntax remain unfinished
+  + [uncertainty] is resolver lifecycle integration and user command syntax remain unfinished
 
 & [JustificationEntry: ChatFoundationDocument] is justified
   + [work_type] is documentation
@@ -212,9 +212,27 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is python -m alienhand_ai.cli chat-thelounge-adapter-proof --output runs --name chat-thelounge-adapter-proof
   + [evidence_anchor] is yarn build:client in AlienHand/thelounge
   + [evidence_anchor] is git push cattailfarmer alienhand/chat-render-adapter
-  + [verification_result] is thelounge fork commit 66385ee4 builds successfully, renders message.alienhand rows through AlienHandMessage, imports alienhand-chat.css, and adapter version AH-THELOUNGE/1 writes preview data with left/right/system rows, code/image/link frames, 1 payload_error row, and adapter_ok true
+  + [verification_result] is thelounge fork commit 90f99286 builds successfully, renders message.alienhand rows through AlienHandMessage, imports alienhand-chat.css, and adapter version AH-THELOUNGE/1 writes preview data with left/right/system rows, code/image/link frames, 1 payload_error row, and adapter_ok true
   + [status] is justified
-  + [uncertainty] is the live payload resolver fetch path still needs to populate message.alienhand at runtime
+  + [uncertainty] is this entry covers the static render branch and preview proof; runtime payload fetch is covered by [PayloadResolverHTTPFetchProof]
+
+& [JustificationEntry: PayloadResolverHTTPFetchProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [PayloadResolver], [PayloadResolverHTTP], [RichChatClientSurface], [payload_resolver_http_node], [client_node], and [RuntimePrototypeSlice]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/payload_http.py
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-payload-resolver-proof command
+  + [implemented_artifact] is AlienHand/python/tests/test_payload_http.py
+  + [implemented_artifact] is AlienHand/thelounge/client/js/helpers/alienhand.ts
+  + [implemented_artifact] is AlienHand/thelounge/client/js/socket-events/msg.ts AH1 resolver hook
+  + [evidence_anchor] is python -m unittest tests.test_payload_http
+  + [evidence_anchor] is python -m unittest discover -s tests
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-payload-resolver-proof --output runs --name chat-payload-resolver-proof
+  + [evidence_anchor] is npx eslint client/js/helpers/alienhand.ts client/js/socket-events/msg.ts --color
+  + [evidence_anchor] is npx tsc -b server/tsconfig.json --force followed by yarn build:client in AlienHand/thelounge
+  + [evidence_anchor] is git push cattailfarmer alienhand/chat-render-adapter commit 90f99286
+  + [verification_result] is payload resolver proof served render row for message a2df7b41-c57d-409e-95d8-fde309c880ec at /alienhand/payloads/<message_uuid>/render, returned right-oriented resolved text "live payload resolver proof" with code/link frames, returned payload_error for a missing UUID, set cors_ok true, and the thelounge client helper compiled and linted
+  + [status] is justified
+  + [uncertainty] is resolver startup is not yet part of AlienHandChatService app lifecycle, resolver base URL discovery is currently prototype configuration through window.__ALIENHAND_PAYLOAD_RESOLVER__ or localStorage.alienhandPayloadResolver, and access control is not implemented
 
 ## Future Work Behavior
 

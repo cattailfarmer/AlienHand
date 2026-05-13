@@ -22,6 +22,7 @@ from .interface_probe import probe_godot_interfaces, summarize_interface_map
 from .interaction_trace import summarize_interaction_trace, write_interaction_trace
 from .learning_memory import ingest_learning_digest, summarize_learning_memory
 from .learning_packets import summarize_learning_packets, write_learning_packets
+from .payload_http import run_payload_resolver_http_proof
 from .runner import ProcessRunConfig, record_process
 from .sop import compile_sop_file, compile_sop_text, write_sop_packets
 from .telemetry import TelemetryRecorder, summarize_run, write_html_report
@@ -150,6 +151,11 @@ def main() -> None:
     chat_thelounge.add_argument("--app-id", type=int, default=1)
     chat_thelounge.add_argument("--output", default="runs")
     chat_thelounge.add_argument("--name", default="chat-thelounge-adapter-proof")
+
+    chat_payload_http = sub.add_parser("chat-payload-resolver-proof")
+    chat_payload_http.add_argument("--app-id", type=int, default=1)
+    chat_payload_http.add_argument("--output", default="runs")
+    chat_payload_http.add_argument("--name", default="chat-payload-resolver-proof")
 
     args = parser.parse_args()
     if args.command == "record-process":
@@ -297,6 +303,9 @@ def main() -> None:
         print(json.dumps(result, indent=2))
     elif args.command == "chat-thelounge-adapter-proof":
         result = run_thelounge_adapter_proof(Path(args.output) / args.name, app_id=args.app_id)
+        print(json.dumps(result, indent=2))
+    elif args.command == "chat-payload-resolver-proof":
+        result = run_payload_resolver_http_proof(Path(args.output) / args.name, app_id=args.app_id)
         print(json.dumps(result, indent=2))
 
 

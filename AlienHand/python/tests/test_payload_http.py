@@ -148,6 +148,21 @@ class PayloadHTTPTests(unittest.TestCase):
                     },
                     token="secret",
                 )
+                bookmark, _, bookmark_status = post_json(
+                    f"{server.base_url}/alienhand/refinement/bookmarks",
+                    {
+                        "target_type": "block",
+                        "target_id": blocks[0].block_id,
+                        "label": "Remember",
+                        "note": "Bookmark notes stay rooted in the raw source.",
+                    },
+                    token="secret",
+                )
+                missing_bookmark, _, missing_bookmark_status = post_json(
+                    f"{server.base_url}/alienhand/refinement/bookmarks",
+                    {"target_type": "block", "target_id": "missing-block"},
+                    token="secret",
+                )
                 removed, _, removed_status = delete_json(
                     f"{server.base_url}/alienhand/refinement/cuts/{cut['cut']['cut_id']}",
                     token="secret",
@@ -164,6 +179,14 @@ class PayloadHTTPTests(unittest.TestCase):
                     f"{server.base_url}/alienhand/refinement/chapters?channel={channel_uuid}",
                     token="secret",
                 )
+                bookmarks, _, bookmarks_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/bookmarks?channel={channel_uuid}",
+                    token="secret",
+                )
+                block_bookmarks, _, block_bookmarks_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/bookmarks?channel={channel_uuid}&target_type=block",
+                    token="secret",
+                )
 
             self.assertEqual(listed_status, 200)
             self.assertEqual(listed["blocks"][0]["block_id"], f"message:{published.envelope.message_uuid}")
@@ -175,6 +198,11 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(cut["cut"]["source_block_id"], blocks[0].block_id)
             self.assertEqual(chapter_status, 201)
             self.assertEqual(chapter["chapter"]["member_cut_ids"], [cut["cut"]["cut_id"]])
+            self.assertEqual(bookmark_status, 201)
+            self.assertEqual(bookmark["bookmark"]["target_id"], blocks[0].block_id)
+            self.assertEqual(bookmark["bookmark"]["note"], "Bookmark notes stay rooted in the raw source.")
+            self.assertEqual(missing_bookmark_status, 404)
+            self.assertEqual(missing_bookmark["error"], "bookmark_target_not_found")
             self.assertEqual(removed_status, 200)
             self.assertEqual(removed["cut"]["status"], "removed")
             self.assertEqual(cuts_status, 200)
@@ -184,6 +212,10 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(active_cuts["cuts"], [])
             self.assertEqual(chapters_status, 200)
             self.assertEqual(len(chapters["chapters"]), 1)
+            self.assertEqual(bookmarks_status, 200)
+            self.assertEqual([row["bookmark_id"] for row in bookmarks["bookmarks"]], [bookmark["bookmark"]["bookmark_id"]])
+            self.assertEqual(block_bookmarks_status, 200)
+            self.assertEqual([row["bookmark_id"] for row in block_bookmarks["bookmarks"]], [bookmark["bookmark"]["bookmark_id"]])
 
     def test_refinement_http_api_proof_exercises_workbench_contract(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -195,6 +227,8 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(result["search_hits"], 1)
             self.assertEqual(result["listed_cuts"], 1)
             self.assertEqual(result["listed_chapters"], 1)
+            self.assertEqual(result["listed_bookmarks"], 1)
+            self.assertEqual(result["bookmark_note"], "Bookmark note follows the source block.")
             self.assertEqual(result["removed_cut_status"], "removed")
             self.assertEqual(result["unauthorized_status"], 401)
 

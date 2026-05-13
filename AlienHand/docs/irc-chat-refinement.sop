@@ -67,6 +67,7 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [target] is a raw message, span, or chapter
   + [scope] is [BookmarkScope]
   + [label] is optional human-readable text
+  + [note] is optional annotation text attached to the bookmark anchor
   + [note_count] is the number of attached notes
 
   = must: be attachable to raw conversation items
@@ -201,6 +202,7 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [target] is a ConversationBlock, ConversationCut, or ConversationChapter
   + [scope] is raw_only, refined_only, or both
   + [label] is optional human-readable text
+  + [note] is optional hover, popup, or annotation text rooted in the same target
   + [persistence] is ephemeral_session or durable_channel
   + [promotion_rule] is how a raw bookmark becomes visible in the refined layer
 
@@ -291,6 +293,7 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [target_ref] is the raw block, cut, or chapter reference
   + [scope] is raw_only, refined_only, or both
   + [label] is optional display text
+  + [note] is optional annotation text that follows the bookmark across raw and refined layers
   + [persistence] is ephemeral_session or durable_channel
   + [promotion_state] is raw, promoted, mirrored, or retired
 
@@ -383,17 +386,33 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [proof_command] is chat-refinement-http-proof
   + [base_path] is /alienhand/refinement
   + [auth] is the prototype bearer token shared with [PayloadResolverHTTP]
-  + [read_endpoints] are blocks, search, cuts, and chapters
-  + [write_endpoints] are create cut, remove cut, and create chapter
+  + [read_endpoints] are blocks, search, cuts, chapters, and bookmarks
+  + [write_endpoints] are create cut, remove cut, create chapter, and create bookmark
 
   = must: expose channel-filtered conversation blocks for the raw pane
   = must: expose search hits that map terms back to source block IDs
   = must: expose channel-filtered cuts and chapters when a channel UUID is supplied
+  = must: expose channel-filtered bookmarks and bookmark notes when a channel UUID is supplied
   = must: allow explicit user-controlled creation of cuts from source blocks
   = must: allow explicit user-controlled soft-removal of cuts
   = must: allow explicit user-controlled chapter creation from selected cuts
+  = must: allow explicit user-controlled creation of bookmark notes against source blocks, cuts, or chapters
+  = must: reject bookmark creation when the requested target anchor does not exist
   = must: reject unauthenticated refinement reads and writes when a resolver token is configured
   = should: remain a narrow workbench contract until richer UI behavior is implemented
+
+& [ConversationBookmarkHTTPV1] is the first runtime contract for bookmark-attached notes
+  + [implementation] is AlienHand/python/alienhand_ai/refinement_storage.py create_bookmark and list_bookmarks
+  + [implementation] is AlienHand/python/alienhand_ai/payload_http.py /alienhand/refinement/bookmarks
+  + [target_types] are block, cut, and chapter
+  + [note_root] is the target conversation anchor
+  + [channel_filter] resolves bookmarks through the channel membership of the target block, cut source block, or chapter member blocks
+
+  = must: preserve the bookmark note as part of the bookmark object
+  = must: list bookmarks by channel so raw and refined panes can show the same anchor
+  = must: list bookmarks by target type when the UI only needs one layer
+  = must: validate that the target block, cut, or chapter exists before inserting the bookmark
+  = should: support later hover and popup note presentation without changing the storage object
 
 & [TheLoungeRefinementWorkbenchV1] is the first browser-facing refinement workbench in the AlienHand The Lounge fork
   + [implementation] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue

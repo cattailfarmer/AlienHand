@@ -89,6 +89,55 @@ class RefinementStorageTests(unittest.TestCase):
                     [first_chapter.chapter_id],
                 )
 
+    def test_bookmark_notes_can_be_listed_by_channel_and_target_type(self):
+        with tempfile.TemporaryDirectory() as temp:
+            first = sample_block("first channel bookmark source")
+            second = sample_block("second channel bookmark source")
+            with ConversationRefinementStore(Path(temp) / "refinement.sqlite3") as store:
+                store.add_block(first)
+                store.add_block(second)
+                first_cut = store.create_cut(first.block_id)
+                second_cut = store.create_cut(second.block_id)
+                first_chapter = store.create_chapter(
+                    title="First Bookmark Chapter",
+                    summary="Filtered bookmark chapter.",
+                    cut_ids=(first_cut.cut_id,),
+                )
+                store.create_chapter(
+                    title="Second Bookmark Chapter",
+                    summary="Filtered out.",
+                    cut_ids=(second_cut.cut_id,),
+                )
+                block_bookmark = store.create_bookmark(
+                    target_type="block",
+                    target_id=first.block_id,
+                    label="Raw anchor",
+                    note="This note should echo from the raw block.",
+                )
+                cut_bookmark = store.create_bookmark(target_type="cut", target_id=first_cut.cut_id)
+                chapter_bookmark = store.create_bookmark(target_type="chapter", target_id=first_chapter.chapter_id)
+                store.create_bookmark(target_type="block", target_id=second.block_id)
+
+                first_channel_ids = {
+                    bookmark.bookmark_id
+                    for bookmark in store.list_bookmarks(channel_uuid=first.channel_uuid)
+                }
+                first_channel_block_bookmarks = store.list_bookmarks(
+                    channel_uuid=first.channel_uuid,
+                    target_type="block",
+                )
+
+                self.assertEqual(
+                    first_channel_ids,
+                    {block_bookmark.bookmark_id, cut_bookmark.bookmark_id, chapter_bookmark.bookmark_id},
+                )
+                self.assertEqual([bookmark.bookmark_id for bookmark in first_channel_block_bookmarks], [block_bookmark.bookmark_id])
+                self.assertEqual(first_channel_block_bookmarks[0].note, "This note should echo from the raw block.")
+                with self.assertRaises(KeyError):
+                    store.create_bookmark(target_type="block", target_id="missing-block")
+                with self.assertRaises(ValueError):
+                    store.list_bookmarks(target_type="unsupported")
+
     def test_bookmark_note_sticky_quote_edit_and_toc_round_trip(self):
         with tempfile.TemporaryDirectory() as temp:
             block = sample_block("Bookmark this source and echo the note")

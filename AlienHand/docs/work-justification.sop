@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup, the first runtime substrate proof, and the separate chat conversation refinement specification
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, refinement HTTP workbench API proof, first The Lounge refinement workbench UI proof, app-owned workbench runtime proof, workbench live-review launcher, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but polished split-pane interaction, bookmark/quote/editorial controls, browser-click automation, and production authentication hardening are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, refinement HTTP workbench API proof, bookmark-note HTTP API proof, first The Lounge refinement workbench UI proof, app-owned workbench runtime proof, workbench live-review launcher, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but polished split-pane interaction, bookmark hover controls, quote/editorial controls, browser-click automation, and production authentication hardening are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -202,20 +202,35 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [JustificationEntry: RefinementHTTPWorkbenchAPIProof] is justified
   + [work_type] is runtime_code
-  + [requirement_anchor] is [ConversationRefinementHTTPV1], [ConversationStorageModel], [ConversationRefinementState], and [ConversationAnnotationSemantics]
+  + [requirement_anchor] is [ConversationRefinementHTTPV1], [ConversationBookmarkHTTPV1], [ConversationStorageModel], [ConversationRefinementState], and [ConversationAnnotationSemantics]
   + [implemented_artifact] is AlienHand/python/alienhand_ai/payload_http.py authenticated refinement HTTP routes
-  + [implemented_artifact] is AlienHand/python/alienhand_ai/refinement_storage.py list_blocks, channel-filtered list_cuts, and channel-filtered list_chapters query helpers
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/refinement_storage.py list_blocks, channel-filtered list_cuts, channel-filtered list_chapters, create_bookmark target validation, and channel-filtered list_bookmarks query helpers
   + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-refinement-http-proof command
   + [implemented_artifact] is AlienHand/python/tests/test_payload_http.py refinement HTTP API tests
-  + [implemented_artifact] is AlienHand/python/tests/test_refinement_storage.py channel-filtered cut and chapter tests
-  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop ConversationRefinementHTTPV1
+  + [implemented_artifact] is AlienHand/python/tests/test_refinement_storage.py channel-filtered cut, chapter, and bookmark tests
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop ConversationRefinementHTTPV1 and ConversationBookmarkHTTPV1
   + [implemented_artifact] is README.md proof command reference
   + [evidence_anchor] is python -m unittest tests.test_payload_http tests.test_refinement_storage
   + [evidence_anchor] is python -m unittest discover -s tests
   + [evidence_anchor] is python -m alienhand_ai.cli chat-refinement-http-proof --output runs --name chat-refinement-http-proof
-  + [verification_result] is one committed chat payload was imported into refinement.sqlite3, the HTTP API listed the channel-filtered source block, searched the term workbench back to the source block, rejected unauthenticated access with 401, created one cut from the block, created one chapter from the cut, soft-removed the cut with DELETE, listed one removed cut and one chapter scoped to the channel, returned refinement_http_ok true, and full test discovery passed with 82 tests
+  + [verification_result] is one committed chat payload was imported into refinement.sqlite3, the HTTP API listed the channel-filtered source block, searched the term workbench back to the source block, rejected unauthenticated access with 401, created one cut from the block, created one chapter from the cut, created one bookmark note against the source block, soft-removed the cut with DELETE, listed one removed cut, one chapter, and one bookmark scoped to the channel, returned refinement_http_ok true, and full test discovery passed with 83 tests
   + [status] is justified
   + [uncertainty] is this proves the browser-facing API contract; rough visual workbench wiring is covered by [TheLoungeRefinementWorkbenchProof], while polished split-pane interaction, drag pointer, bookmark hover UI, and production authorization policy remain future work
+
+& [JustificationEntry: BookmarkNoteHTTPAPIProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [ConversationBookmarkHTTPV1], [ConversationAnnotationSemantics], and [ConversationRefinementState]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/refinement_storage.py create_bookmark and list_bookmarks
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/payload_http.py /alienhand/refinement/bookmarks GET and POST routes
+  + [implemented_artifact] is AlienHand/python/tests/test_refinement_storage.py test_bookmark_notes_can_be_listed_by_channel_and_target_type
+  + [implemented_artifact] is AlienHand/python/tests/test_payload_http.py bookmark-note API assertions
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop ConversationBookmarkHTTPV1
+  + [evidence_anchor] is python -m unittest tests.test_payload_http tests.test_refinement_storage
+  + [evidence_anchor] is python -m unittest discover -s tests
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-refinement-http-proof --output runs --name chat-refinement-http-proof
+  + [verification_result] is bookmark creation validates that block, cut, or chapter targets exist, missing targets return bookmark_target_not_found through HTTP, a bookmark note rooted in a raw block is created with status 201, the note is preserved in the returned object, channel-filtered bookmark listing returns that bookmark, target_type filtering returns the same block bookmark, and the CLI proof returned listed_bookmarks 1 with refinement_http_ok true
+  + [status] is justified
+  + [uncertainty] is this proves bookmark-note persistence and API visibility; The Lounge hover/popup controls and refined-layer visual mirroring remain future work
 
 & [JustificationEntry: TheLoungeRefinementWorkbenchProof] is justified
   + [work_type] is runtime_code

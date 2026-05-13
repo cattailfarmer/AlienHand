@@ -51,6 +51,9 @@ In 32-character hexadecimal UUID channels, the nested The Lounge fork now shows
 an AlienHand `Cuts` control. The first rough workbench can fetch raw channel
 blocks, search them, inject blocks into the cuts pane, soft-remove cuts, create
 chapters from active cuts, and show a raw JSON debug view of the workbench state.
+The authenticated refinement API also supports bookmark-attached notes rooted in
+raw blocks, cuts, or chapters and listed back by channel for future hover/popup
+presentation.
 
 Current proof commands for live payload lookup, app-owned resolver lifecycle, and
 the app-owned The Lounge runtime group:

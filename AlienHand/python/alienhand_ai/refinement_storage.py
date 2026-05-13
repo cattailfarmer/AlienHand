@@ -13,6 +13,7 @@ from uuid import uuid4
 JsonDict = dict[str, Any]
 SCHEMA_VERSION = 1
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
+BOOKMARK_TARGET_TYPES = {"block", "cut", "chapter"}
 
 
 @dataclass(frozen=True)
@@ -375,6 +376,7 @@ class ConversationRefinementStore:
         promotion_state: str = "mirrored",
         bookmark_id: str | None = None,
     ) -> ConversationBookmark:
+        self._require_bookmark_target(target_type, target_id)
         bookmark = ConversationBookmark(
             bookmark_id=bookmark_id or str(uuid4()),
             target_type=target_type,
@@ -408,6 +410,31 @@ class ConversationRefinementStore:
     def get_bookmark(self, bookmark_id: str) -> ConversationBookmark:
         row = self._required_row("SELECT * FROM conversation_bookmarks WHERE bookmark_id = ?", (bookmark_id,))
         return bookmark_from_row(row)
+
+    def list_bookmarks(
+        self,
+        *,
+        channel_uuid: str | None = None,
+        target_type: str | None = None,
+    ) -> list[ConversationBookmark]:
+        if target_type is not None and target_type not in BOOKMARK_TARGET_TYPES:
+            raise ValueError(f"unsupported bookmark target_type: {target_type}")
+        params: list[Any] = []
+        query = "SELECT * FROM conversation_bookmarks"
+        if target_type is not None:
+            query += " WHERE target_type = ?"
+            params.append(target_type)
+        query += " ORDER BY target_type, target_id, bookmark_id"
+        rows = self.connection.execute(query, tuple(params)).fetchall()
+        bookmarks = [bookmark_from_row(row) for row in rows]
+        if channel_uuid is None:
+            return bookmarks
+        target_ids = self._bookmark_target_ids_for_channel(channel_uuid)
+        return [
+            bookmark
+            for bookmark in bookmarks
+            if bookmark.target_id in target_ids.get(bookmark.target_type, set())
+        ]
 
     def create_sticky(
         self,
@@ -616,6 +643,40 @@ class ConversationRefinementStore:
         if row is None:
             raise KeyError(params[0])
         return row
+
+    def _require_bookmark_target(self, target_type: str, target_id: str) -> None:
+        if target_type == "block":
+            self.get_block(target_id)
+        elif target_type == "cut":
+            self.get_cut(target_id)
+        elif target_type == "chapter":
+            self.get_chapter(target_id)
+        else:
+            raise ValueError(f"unsupported bookmark target_type: {target_type}")
+
+    def _bookmark_target_ids_for_channel(self, channel_uuid: str) -> dict[str, set[str]]:
+        block_rows = self.connection.execute(
+            "SELECT block_id FROM conversation_blocks WHERE channel_uuid = ?",
+            (channel_uuid,),
+        ).fetchall()
+        block_ids = {row["block_id"] for row in block_rows}
+        if not block_ids:
+            return {"block": set(), "cut": set(), "chapter": set()}
+        cut_rows = self.connection.execute(
+            """
+            SELECT conversation_cuts.cut_id
+            FROM conversation_cuts
+            JOIN conversation_blocks ON conversation_blocks.block_id = conversation_cuts.source_block_id
+            WHERE conversation_blocks.channel_uuid = ?
+            """,
+            (channel_uuid,),
+        ).fetchall()
+        cut_ids = {row["cut_id"] for row in cut_rows}
+        chapter_ids = {
+            chapter.chapter_id
+            for chapter in self.list_chapters(channel_uuid=channel_uuid)
+        }
+        return {"block": block_ids, "cut": cut_ids, "chapter": chapter_ids}
 
 
 def import_replay_rows(

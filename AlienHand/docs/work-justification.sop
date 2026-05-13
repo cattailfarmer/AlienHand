@@ -151,6 +151,15 @@ Description: SOP description of the justification step, called "jusitification" 
   + [status] is justified
   + [uncertainty] is concrete code-level schema serialization and persistence implementation remain future work
 
+& [JustificationEntry: RefinementStorageAndWorkflowSpecification] is justified
+  + [work_type] is protocol
+  + [requirement_anchor] is user request to add the storage backend, diff artifact, search index, edit TOC, bookmark-note behavior, and user-controlled state transitions to the refinement specification only
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop Storage Model, User Control State, and Annotation Semantics sections
+  + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-refinement.sop
+  + [verification_result] is the refinement spec now names SQLite as the canonical local store, defines edit diff artifacts, search index mappings, chapter/edit TOC, explicit state transitions, mirrored bookmarks, and note echo behavior
+  + [status] is justified
+  + [uncertainty] is database schema DDL, index implementation, and runtime UI wiring remain future work
+
 & [JustificationEntry: ChatRuntimeTruthTestCore] is partially_justified
   + [work_type] is runtime_code
   + [requirement_anchor] is [AlienHandIRCTruthTest], [MessageCommitOrder], [PayloadStore], [PayloadResolver], [ChannelJSONLHistory], and [ChannelContextReplay]

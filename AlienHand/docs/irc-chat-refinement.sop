@@ -319,3 +319,82 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: keep exact source traceability
   = must: remain a derivative view, not a content mutation
   = should: be easy to render in raw, chaptered, or editorial views
+
+## Storage Model
+
+& [ConversationStorageModel] is the durable local persistence contract for the refinement layer
+  + [database] is SQLite as the canonical local store for raw conversation, cuts, chapters, annotations, edits, and indexes
+  + [raw_table] stores raw conversation block schema rows
+  + [cut_table] stores selected cut rows and their ordering
+  + [chapter_table] stores chapter rows and chapter metadata
+  + [bookmark_table] stores bookmarks and mirrored bookmarks
+  + [sticky_table] stores sticky references
+  + [quote_table] stores quote records
+  + [edit_table] stores edit records or references to edit diff artifacts
+  + [toc_table] stores the chapter and edit table of contents
+  + [search_index_table] stores token and term-to-block mappings
+
+  = must: keep raw conversation, cuts, bookmarks, chapters, and edits queryable through one local database
+  = must: support search/indexing against terms that map back to the raw block that contains them
+  = must: support a table of contents for the edit layer
+  = should: keep derivable views linked by stable IDs rather than by duplicated content
+
+& [ConversationEditDiffArtifact] is the change record for an editorial edit
+  + [diff_id] is the stable identifier
+  + [edit_id] is the parent edit identifier
+  + [source_ref] is the raw, cut, or chapter object the diff applies to
+  + [diff_format] is a structured diff or patch representation
+  + [diff_uri] is the database or file reference to the diff artifact
+
+  = must: allow edits to be referenced through the database in the same way raw objects are referenced
+  = must: preserve the before and after relationship for review
+  = should: remain small enough to support audit and regeneration
+
+& [ConversationSearchIndexSchema] is the serializable object model for indexed search terms
+  + [term] is the normalized search token
+  + [block_id] is the raw block that contains the term
+  + [offset] is the token or character position when available
+  + [chapter_id] is the optional chapter reference when the term is surfaced in a refined view
+  + [cut_id] is the optional cut reference when the term is surfaced in the cuts view
+
+  = must: map terms back to the message block where the term is found
+  = must: support navigation from search result to source block
+  = should: support later expansion into chapter and edit search if needed
+
+& [ConversationTableOfContentsSchema] is the serializable object model for the refined layer navigation outline
+  + [toc_id] is the stable identifier
+  + [toc_type] is chapter, edit, or mixed
+  + [entries] are ordered references to chapters, edits, or both
+  + [source_scope] is the set of raw blocks or cuts covered by the entry
+
+  = must: provide navigation for the chapter layer and the edit layer
+  = must: preserve display order as an explicit object, not inferred UI state
+  = should: support collapse, expand, and jump navigation
+
+## User Control State
+
+& [ConversationRefinementState] is the user-driven state machine for moving raw conversation into refined products
+  + [raw_selected] is a raw block currently selected in the left pane
+  + [cut_selected] is a raw block copied into the cuts pane
+  + [chapter_composed] is a cut set organized into a chapter
+  + [bookmark_mirrored] is a bookmark visible in both source and refined layers
+  + [sticky_pinned] is a persistent reference remaining visible during the session
+  + [edit_applied] is an editorial transformation recorded against a chapter or cut set
+
+  = must: make state changes user-controlled through explicit buttons or direct UI actions
+  = must: support raw-selected to cut-selected, cut-selected to chapter-composed, and chapter-composed to edit-applied transitions
+  = must: keep bookmark mirroring visible on both source and refined layers
+  = must: allow notes to persist by being attached to the original anchor and echoed into derived views
+  = should: avoid implicit promotion when an explicit user action is the desired source of truth
+
+& [ConversationAnnotationSemantics] is the behavior contract for bookmark, note, sticky, and quote usage
+  + [bookmark] is the anchor
+  + [note] is the attached explanation, hover text, or annotation payload
+  + [sticky] is a bookmark-like annotation that remains visible until cleared
+  + [quote] is the exact preserved excerpt used for citation or comparison
+
+  = must: mirror bookmarks into refined views where the source remains relevant
+  = must: attach notes to the original conversation anchor and echo them into refined views
+  = must: allow hover or popup presentation of notes in the UI
+  = must: highlight bookmarked source blocks
+  = should: remove the need for a separate Notes feature by treating notes as bookmark-attached annotations

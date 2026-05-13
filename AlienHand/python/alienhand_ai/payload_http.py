@@ -915,9 +915,16 @@ def run_app_thelounge_refinement_workbench_proof(
         and "Inject into cuts" in bundle_js
         and "Bookmark note" in bundle_js
         and "Bookmark:" in bundle_js
+        and "Quote excerpt" in bundle_js
+        and "Pinned reminder" in bundle_js
         and "alienhand-workbench" in bundle_js
     )
-    workbench_style_ok = "alienhand-workbench" in style_css and "alienhand-workbench__bookmarks" in style_css
+    workbench_style_ok = (
+        "alienhand-workbench" in style_css
+        and "alienhand-workbench__bookmarks" in style_css
+        and "alienhand-workbench__quotes" in style_css
+        and "alienhand-workbench__stickies" in style_css
+    )
     refinement_api_ok = (
         blocks_response["status"] == 200
         and len(blocks) == 1

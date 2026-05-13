@@ -56,7 +56,9 @@ raw blocks, cuts, or chapters and listed back by channel for future hover/popup
 presentation, and the The Lounge workbench has first-pass controls for creating
 and displaying those notes. The same API layer now exposes target-validated quote
 capture so selected excerpts can keep explicit source provenance, plus sticky
-references for session-scoped working reminders.
+references for session-scoped working reminders. The workbench can now create and
+display rough quote excerpts and sticky pins for raw blocks, cuts, chapters, and
+bookmark anchors.
 
 Current proof commands for live payload lookup, app-owned resolver lifecycle, and
 the app-owned The Lounge runtime group:
@@ -72,7 +74,7 @@ python -m alienhand_ai.cli chat-refinement-http-proof --output runs --name chat-
 python -m alienhand_ai.cli chat-payload-resolver-proof --output runs --name chat-payload-resolver-proof
 python -m alienhand_ai.cli chat-app-resolver-proof --output runs --name chat-app-resolver-proof
 python -m alienhand_ai.cli chat-runtime-group-proof --output runs --name chat-runtime-group-proof
-python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-runtime-proof
+python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-runtime-proof --timeout 120
 ```
 
 For a live browser review, run:

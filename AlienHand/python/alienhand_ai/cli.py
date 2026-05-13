@@ -192,6 +192,7 @@ def main() -> None:
     chat_runtime_group.add_argument("--nick", default="alienhandagent")
     chat_runtime_group.add_argument("--app-id", type=int, default=1)
     chat_runtime_group.add_argument("--text", default="hello app-owned thelounge")
+    chat_runtime_group.add_argument("--timeout", type=float, default=30.0)
     chat_runtime_group.add_argument("--output", default="runs")
     chat_runtime_group.add_argument("--name", default="chat-runtime-group-proof")
 
@@ -203,6 +204,7 @@ def main() -> None:
     chat_workbench_runtime.add_argument("--nick", default="alienhandagent")
     chat_workbench_runtime.add_argument("--app-id", type=int, default=1)
     chat_workbench_runtime.add_argument("--text", default="hello app-owned refinement workbench")
+    chat_workbench_runtime.add_argument("--timeout", type=float, default=30.0)
     chat_workbench_runtime.add_argument("--output", default="runs")
     chat_workbench_runtime.add_argument("--name", default="chat-workbench-runtime-proof")
 
@@ -412,6 +414,7 @@ def main() -> None:
             text=args.text,
             port=args.port,
             thelounge_port=args.thelounge_port,
+            timeout=args.timeout,
         )
         print(json.dumps(result, indent=2))
     elif args.command == "chat-workbench-runtime-proof":
@@ -424,6 +427,7 @@ def main() -> None:
             text=args.text,
             port=args.port,
             thelounge_port=args.thelounge_port,
+            timeout=args.timeout,
         )
         print(json.dumps(result, indent=2))
     elif args.command == "chat-workbench-live":

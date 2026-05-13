@@ -565,6 +565,10 @@ class ConversationRefinementStore:
             if quote.source_id in source_ids.get(quote.source_type, set())
         ]
 
+    def get_quote(self, quote_id: str) -> ConversationQuote:
+        row = self._required_row("SELECT * FROM conversation_quotes WHERE quote_id = ?", (quote_id,))
+        return quote_from_row(row)
+
     def apply_edit(
         self,
         *,
@@ -629,7 +633,38 @@ class ConversationRefinementStore:
                     dumps(diff.content),
                 ),
             )
+            chapter_id = chapter_id_from_ref(input_ref) or chapter_id_from_ref(output_ref)
+            if chapter_id is not None:
+                self._append_chapter_edit(chapter_id, edit.edit_id)
         return edit, diff
+
+    def get_edit(self, edit_id: str) -> ConversationEdit:
+        row = self._required_row("SELECT * FROM conversation_edits WHERE edit_id = ?", (edit_id,))
+        return edit_from_row(row)
+
+    def list_edits(self, *, edit_type: str | None = None) -> list[ConversationEdit]:
+        params: list[Any] = []
+        query = "SELECT * FROM conversation_edits"
+        if edit_type is not None:
+            query += " WHERE edit_type = ?"
+            params.append(edit_type)
+        query += " ORDER BY edit_type, edit_id"
+        rows = self.connection.execute(query, tuple(params)).fetchall()
+        return [edit_from_row(row) for row in rows]
+
+    def get_edit_diff(self, diff_id: str) -> ConversationEditDiff:
+        row = self._required_row("SELECT * FROM conversation_edit_diffs WHERE diff_id = ?", (diff_id,))
+        return edit_diff_from_row(row)
+
+    def list_edit_diffs(self, *, edit_id: str | None = None) -> list[ConversationEditDiff]:
+        params: list[Any] = []
+        query = "SELECT * FROM conversation_edit_diffs"
+        if edit_id is not None:
+            query += " WHERE edit_id = ?"
+            params.append(edit_id)
+        query += " ORDER BY edit_id, diff_id"
+        rows = self.connection.execute(query, tuple(params)).fetchall()
+        return [edit_diff_from_row(row) for row in rows]
 
     def add_toc_entry(
         self,
@@ -640,15 +675,24 @@ class ConversationRefinementStore:
         target_id: str,
         title: str,
         source_scope: JsonDict | None = None,
-    ) -> None:
+    ) -> JsonDict:
+        entry = {
+            "toc_id": toc_id,
+            "ordinal": ordinal,
+            "entry_type": entry_type,
+            "target_id": target_id,
+            "title": title,
+            "source_scope": source_scope or {},
+        }
         with self.connection:
             self.connection.execute(
                 """
                 INSERT INTO conversation_toc_entries(toc_id, ordinal, entry_type, target_id, title, source_scope_json)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (toc_id, ordinal, entry_type, target_id, title, dumps(source_scope or {})),
+                (toc_id, ordinal, entry_type, target_id, title, dumps(entry["source_scope"])),
             )
+        return entry
 
     def list_toc_entries(self, toc_id: str) -> list[JsonDict]:
         rows = self.connection.execute(
@@ -716,6 +760,20 @@ class ConversationRefinementStore:
         if row is None:
             raise KeyError(params[0])
         return row
+
+    def _append_chapter_edit(self, chapter_id: str, edit_id: str) -> None:
+        row = self._required_row(
+            "SELECT edit_chain_json FROM conversation_chapters WHERE chapter_id = ?",
+            (chapter_id,),
+        )
+        edit_chain = list(loads(row["edit_chain_json"], []))
+        if edit_id in edit_chain:
+            return
+        edit_chain.append(edit_id)
+        self.connection.execute(
+            "UPDATE conversation_chapters SET edit_chain_json = ? WHERE chapter_id = ?",
+            (dumps(edit_chain), chapter_id),
+        )
 
     def _require_bookmark_target(self, target_type: str, target_id: str) -> None:
         self._require_refinement_target(target_type, target_id, "bookmark target_type")
@@ -1114,6 +1172,38 @@ def sticky_from_row(row: sqlite3.Row) -> ConversationSticky:
         retention=row["retention"],
         clear_state=row["clear_state"],
     )
+
+
+def edit_from_row(row: sqlite3.Row) -> ConversationEdit:
+    return ConversationEdit(
+        edit_id=row["edit_id"],
+        input_ref=loads(row["input_ref_json"], {}),
+        output_ref=loads(row["output_ref_json"], {}),
+        edit_type=row["edit_type"],
+        reason=row["reason"],
+        author=row["author"],
+        diff_id=row["diff_id"],
+    )
+
+
+def edit_diff_from_row(row: sqlite3.Row) -> ConversationEditDiff:
+    return ConversationEditDiff(
+        diff_id=row["diff_id"],
+        edit_id=row["edit_id"],
+        source_ref=loads(row["source_ref_json"], {}),
+        diff_format=row["diff_format"],
+        diff_uri=row["diff_uri"],
+        content=loads(row["content_json"], {}),
+    )
+
+
+def chapter_id_from_ref(ref: JsonDict) -> str | None:
+    if ref.get("type") != "chapter":
+        return None
+    chapter_id = ref.get("id")
+    if not isinstance(chapter_id, str) or not chapter_id:
+        return None
+    return chapter_id
 
 
 TABLE_NAMES = {

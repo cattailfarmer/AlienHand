@@ -386,8 +386,8 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [proof_command] is chat-refinement-http-proof
   + [base_path] is /alienhand/refinement
   + [auth] is the prototype bearer token shared with [PayloadResolverHTTP]
-  + [read_endpoints] are blocks, search, cuts, chapters, bookmarks, quotes, and stickies
-  + [write_endpoints] are create cut, remove cut, create chapter, create bookmark, create quote, and create sticky
+  + [read_endpoints] are blocks, search, cuts, chapters, bookmarks, quotes, stickies, edits, edit-diffs, and toc
+  + [write_endpoints] are create cut, remove cut, create chapter, create bookmark, create quote, create sticky, apply edit, and create toc entry
 
   = must: expose channel-filtered conversation blocks for the raw pane
   = must: expose search hits that map terms back to source block IDs
@@ -395,15 +395,19 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: expose channel-filtered bookmarks and bookmark notes when a channel UUID is supplied
   = must: expose channel-filtered quotes when a channel UUID is supplied
   = must: expose channel-filtered sticky references when a channel UUID is supplied
+  = must: expose editorial edits, edit diff artifacts, and table-of-contents entries for the refined layer
   = must: allow explicit user-controlled creation of cuts from source blocks
   = must: allow explicit user-controlled soft-removal of cuts
   = must: allow explicit user-controlled chapter creation from selected cuts
   = must: allow explicit user-controlled creation of bookmark notes against source blocks, cuts, or chapters
   = must: allow explicit user-controlled creation of provenance-preserving quotes against source blocks, cuts, or chapters
   = must: allow explicit user-controlled creation of sticky references against source blocks, cuts, chapters, or bookmarks
+  = must: allow explicit user-controlled application of editorial edits with diff evidence
+  = must: allow explicit user-controlled insertion of refined table-of-contents entries
   = must: reject bookmark creation when the requested target anchor does not exist
   = must: reject quote creation when the requested source anchor does not exist
   = must: reject sticky creation when the requested target anchor does not exist
+  = must: reject chapter-targeted edit creation when the chapter anchor does not exist
   = must: reject unauthenticated refinement reads and writes when a resolver token is configured
   = should: remain a narrow workbench contract until richer UI behavior is implemented
 
@@ -445,6 +449,24 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: list stickies by target type when the UI only needs one layer
   = must: validate that the target block, cut, chapter, or bookmark exists before inserting the sticky
   = should: support later pin/unpin UI without changing the storage object
+
+& [ConversationEditorialHTTPV1] is the first runtime contract for editorial edits, diff artifacts, and refined navigation
+  + [implementation] is AlienHand/python/alienhand_ai/refinement_storage.py apply_edit, list_edits, get_edit_diff, list_edit_diffs, add_toc_entry, and list_toc_entries
+  + [implementation] is AlienHand/python/alienhand_ai/payload_http.py /alienhand/refinement/edits, /alienhand/refinement/edit-diffs, and /alienhand/refinement/toc
+  + [edit_target] is usually a chapter for the first prototype
+  + [diff_artifact] is the durable evidence record attached to the edit
+  + [toc_entry] is the navigation row for the refined chapter or edit layer
+
+  = must: preserve input_ref, output_ref, edit_type, reason, author, and diff_id for every edit
+  = must: preserve source_ref, diff_format, diff_uri, and content for every diff artifact
+  = must: append chapter-targeted edits into the chapter edit_chain
+  = must: expose edit lists filtered by edit_type
+  = must: expose edit diff lists filtered by edit_id
+  = must: resolve one edit diff by diff_id
+  = must: expose table-of-contents entries by toc_id in explicit ordinal order
+  = must: create table-of-contents entries through an authenticated user-controlled write
+  = must: reject a chapter-targeted edit when the chapter does not exist
+  = should: remain UI-agnostic until the editorial pane is ready for interaction design review
 
 & [TheLoungeRefinementWorkbenchV1] is the first browser-facing refinement workbench in the AlienHand The Lounge fork
   + [implementation] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue

@@ -59,6 +59,9 @@ capture so selected excerpts can keep explicit source provenance, plus sticky
 references for session-scoped working reminders. The workbench can now create and
 display rough quote excerpts and sticky pins for raw blocks, cuts, chapters, and
 bookmark anchors, and can unpin stickies while preserving their durable record.
+The same local refinement API now exposes the first editorial substrate for
+chapter-targeted edit records, durable diff artifacts, and refined table-of-contents
+entries.
 
 Current proof commands for live payload lookup, app-owned resolver lifecycle, and
 the app-owned The Lounge runtime group:

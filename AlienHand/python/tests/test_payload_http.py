@@ -148,6 +148,42 @@ class PayloadHTTPTests(unittest.TestCase):
                     },
                     token="secret",
                 )
+                edit, _, edit_status = post_json(
+                    f"{server.base_url}/alienhand/refinement/edits",
+                    {
+                        "input_ref": {"type": "chapter", "id": chapter["chapter"]["chapter_id"]},
+                        "output_ref": {"type": "chapter", "id": chapter["chapter"]["chapter_id"], "revision": 1},
+                        "edit_type": "annotate",
+                        "reason": "Expose editorial edit through HTTP.",
+                        "author": "tester",
+                        "diff_content": {"add": [{"path": "/summary", "value": "HTTP edit proof"}]},
+                    },
+                    token="secret",
+                )
+                missing_edit, _, missing_edit_status = post_json(
+                    f"{server.base_url}/alienhand/refinement/edits",
+                    {
+                        "input_ref": {"type": "chapter", "id": "missing-chapter"},
+                        "output_ref": {"type": "chapter", "id": "missing-chapter", "revision": 1},
+                        "edit_type": "annotate",
+                        "reason": "Missing chapter should not commit.",
+                        "author": "tester",
+                        "diff_content": {"add": []},
+                    },
+                    token="secret",
+                )
+                toc_entry, _, toc_entry_status = post_json(
+                    f"{server.base_url}/alienhand/refinement/toc",
+                    {
+                        "toc_id": "edit-layer",
+                        "ordinal": 0,
+                        "entry_type": "chapter",
+                        "target_id": chapter["chapter"]["chapter_id"],
+                        "title": "Refinement API",
+                        "source_scope": {"block_ids": [blocks[0].block_id], "cut_ids": [cut["cut"]["cut_id"]]},
+                    },
+                    token="secret",
+                )
                 bookmark, _, bookmark_status = post_json(
                     f"{server.base_url}/alienhand/refinement/bookmarks",
                     {
@@ -207,6 +243,22 @@ class PayloadHTTPTests(unittest.TestCase):
                     f"{server.base_url}/alienhand/refinement/chapters?channel={channel_uuid}",
                     token="secret",
                 )
+                edits, _, edits_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/edits?edit_type=annotate",
+                    token="secret",
+                )
+                edit_diffs, _, edit_diffs_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/edit-diffs?edit_id={edit['edit']['edit_id']}",
+                    token="secret",
+                )
+                edit_diff, _, edit_diff_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/edit-diffs/{edit['diff']['diff_id']}",
+                    token="secret",
+                )
+                toc_entries, _, toc_entries_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/toc?toc_id=edit-layer",
+                    token="secret",
+                )
                 bookmarks, _, bookmarks_status = fetch_json(
                     f"{server.base_url}/alienhand/refinement/bookmarks?channel={channel_uuid}",
                     token="secret",
@@ -254,6 +306,13 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(cut["cut"]["source_block_id"], blocks[0].block_id)
             self.assertEqual(chapter_status, 201)
             self.assertEqual(chapter["chapter"]["member_cut_ids"], [cut["cut"]["cut_id"]])
+            self.assertEqual(edit_status, 201)
+            self.assertEqual(edit["edit"]["input_ref"]["id"], chapter["chapter"]["chapter_id"])
+            self.assertEqual(edit["diff"]["edit_id"], edit["edit"]["edit_id"])
+            self.assertEqual(missing_edit_status, 404)
+            self.assertEqual(missing_edit["error"], "edit_target_not_found")
+            self.assertEqual(toc_entry_status, 201)
+            self.assertEqual(toc_entry["entry"]["target_id"], chapter["chapter"]["chapter_id"])
             self.assertEqual(bookmark_status, 201)
             self.assertEqual(bookmark["bookmark"]["target_id"], blocks[0].block_id)
             self.assertEqual(bookmark["bookmark"]["note"], "Bookmark notes stay rooted in the raw source.")
@@ -278,6 +337,15 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(active_cuts["cuts"], [])
             self.assertEqual(chapters_status, 200)
             self.assertEqual(len(chapters["chapters"]), 1)
+            self.assertEqual(chapters["chapters"][0]["edit_chain"], [edit["edit"]["edit_id"]])
+            self.assertEqual(edits_status, 200)
+            self.assertEqual([row["edit_id"] for row in edits["edits"]], [edit["edit"]["edit_id"]])
+            self.assertEqual(edit_diffs_status, 200)
+            self.assertEqual([row["diff_id"] for row in edit_diffs["diffs"]], [edit["diff"]["diff_id"]])
+            self.assertEqual(edit_diff_status, 200)
+            self.assertEqual(edit_diff["diff"]["content"]["add"][0]["value"], "HTTP edit proof")
+            self.assertEqual(toc_entries_status, 200)
+            self.assertEqual([row["target_id"] for row in toc_entries["entries"]], [chapter["chapter"]["chapter_id"]])
             self.assertEqual(bookmarks_status, 200)
             self.assertEqual([row["bookmark_id"] for row in bookmarks["bookmarks"]], [bookmark["bookmark"]["bookmark_id"]])
             self.assertEqual(block_bookmarks_status, 200)
@@ -313,6 +381,9 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(result["search_hits"], 1)
             self.assertEqual(result["listed_cuts"], 1)
             self.assertEqual(result["listed_chapters"], 1)
+            self.assertEqual(result["listed_edits"], 1)
+            self.assertEqual(result["listed_diffs"], 1)
+            self.assertEqual(result["listed_toc_entries"], 1)
             self.assertEqual(result["listed_bookmarks"], 1)
             self.assertEqual(result["bookmark_note"], "Bookmark note follows the source block.")
             self.assertEqual(result["listed_quotes"], 1)

@@ -194,6 +194,32 @@ class PayloadResolverHTTPServer:
                         return True
                     self._send_json({"stickies": [sticky.to_dict() for sticky in stickies]}, HTTPStatus.OK)
                     return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "edits"):
+                    with ConversationRefinementStore(owner.refinement_db_path) as store:
+                        edits = store.list_edits(edit_type=query.get("edit_type"))
+                    self._send_json({"edits": [edit.to_dict() for edit in edits]}, HTTPStatus.OK)
+                    return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "edit-diffs"):
+                    with ConversationRefinementStore(owner.refinement_db_path) as store:
+                        diffs = store.list_edit_diffs(edit_id=query.get("edit_id"))
+                    self._send_json({"diffs": [diff.to_dict() for diff in diffs]}, HTTPStatus.OK)
+                    return True
+                if len(parts) == 4 and tuple(parts[:3]) == (*REFINEMENT_PATH_PREFIX, "edit-diffs"):
+                    diff_id = parts[3]
+                    try:
+                        with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            diff = store.get_edit_diff(diff_id)
+                    except KeyError:
+                        self._send_json({"error": "edit_diff_not_found"}, HTTPStatus.NOT_FOUND)
+                        return True
+                    self._send_json({"diff": diff.to_dict()}, HTTPStatus.OK)
+                    return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "toc"):
+                    toc_id = query.get("toc_id") or "main"
+                    with ConversationRefinementStore(owner.refinement_db_path) as store:
+                        entries = store.list_toc_entries(toc_id)
+                    self._send_json({"toc_id": toc_id, "entries": entries}, HTTPStatus.OK)
+                    return True
                 return False
 
             def _handle_refinement_post(self) -> bool:
@@ -343,6 +369,92 @@ class PayloadResolverHTTPServer:
                         self._send_json({"error": "sticky_target_not_found"}, HTTPStatus.NOT_FOUND)
                         return True
                     self._send_json({"sticky": sticky.to_dict()}, HTTPStatus.CREATED)
+                    return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "edits"):
+                    body = self._read_json_body()
+                    if body is None:
+                        return True
+                    input_ref = body.get("input_ref")
+                    output_ref = body.get("output_ref")
+                    diff_content = body.get("diff_content")
+                    source_ref = body.get("source_ref")
+                    edit_type = str(body.get("edit_type") or "")
+                    author = str(body.get("author") or "")
+                    if not isinstance(input_ref, dict):
+                        self._send_json({"error": "input_ref_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if not isinstance(output_ref, dict):
+                        self._send_json({"error": "output_ref_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if not edit_type:
+                        self._send_json({"error": "edit_type_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if not author:
+                        self._send_json({"error": "author_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if not isinstance(diff_content, dict):
+                        self._send_json({"error": "diff_content_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if source_ref is not None and not isinstance(source_ref, dict):
+                        self._send_json({"error": "source_ref_must_be_object"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    diff_uri = body.get("diff_uri")
+                    if diff_uri is not None and not isinstance(diff_uri, str):
+                        self._send_json({"error": "diff_uri_must_be_string"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    try:
+                        with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            edit, diff = store.apply_edit(
+                                input_ref=input_ref,
+                                output_ref=output_ref,
+                                edit_type=edit_type,
+                                reason=str(body.get("reason") or ""),
+                                author=author,
+                                diff_content=diff_content,
+                                source_ref=source_ref,
+                                diff_format=str(body.get("diff_format") or "jsondiff"),
+                                diff_uri=diff_uri,
+                            )
+                    except KeyError:
+                        self._send_json({"error": "edit_target_not_found"}, HTTPStatus.NOT_FOUND)
+                        return True
+                    self._send_json({"edit": edit.to_dict(), "diff": diff.to_dict()}, HTTPStatus.CREATED)
+                    return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "toc"):
+                    body = self._read_json_body()
+                    if body is None:
+                        return True
+                    entry_type = str(body.get("entry_type") or "")
+                    target_id = str(body.get("target_id") or "")
+                    title = str(body.get("title") or "")
+                    source_scope = body.get("source_scope")
+                    if not entry_type:
+                        self._send_json({"error": "entry_type_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if not target_id:
+                        self._send_json({"error": "target_id_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if not title:
+                        self._send_json({"error": "title_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if source_scope is not None and not isinstance(source_scope, dict):
+                        self._send_json({"error": "source_scope_must_be_object"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    try:
+                        ordinal = _positive_int_value(body.get("ordinal"), "ordinal", allow_zero=True)
+                        with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            entry = store.add_toc_entry(
+                                toc_id=str(body.get("toc_id") or "main"),
+                                ordinal=ordinal,
+                                entry_type=entry_type,
+                                target_id=target_id,
+                                title=title,
+                                source_scope=source_scope,
+                            )
+                    except ValueError as error:
+                        self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    self._send_json({"entry": entry}, HTTPStatus.CREATED)
                     return True
                 return False
 
@@ -528,6 +640,33 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
             {"title": "Workbench Sources", "summary": "User-selected proof cut.", "cut_ids": [cut_id]},
             access_token=access_token,
         )
+        chapter_id = chapter_response["json"].get("chapter", {}).get("chapter_id")
+        edit_response = _http_post_json(
+            f"{server.base_url}/alienhand/refinement/edits",
+            {
+                "input_ref": {"type": "chapter", "id": chapter_id},
+                "output_ref": {"type": "chapter", "id": chapter_id, "revision": 1},
+                "edit_type": "annotate",
+                "reason": "Prove editorial API.",
+                "author": "alienhand",
+                "diff_content": {"add": [{"path": "/summary", "value": "Editorial API proof."}]},
+            },
+            access_token=access_token,
+        )
+        edit_id = edit_response["json"].get("edit", {}).get("edit_id")
+        diff_id = edit_response["json"].get("diff", {}).get("diff_id")
+        toc_response = _http_post_json(
+            f"{server.base_url}/alienhand/refinement/toc",
+            {
+                "toc_id": "main",
+                "ordinal": 0,
+                "entry_type": "chapter",
+                "target_id": chapter_id,
+                "title": "Workbench Sources",
+                "source_scope": {"block_ids": [imported_blocks[0].block_id], "cut_ids": [cut_id]},
+            },
+            access_token=access_token,
+        )
         bookmark_response = _http_post_json(
             f"{server.base_url}/alienhand/refinement/bookmarks",
             {
@@ -568,6 +707,22 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
             f"{server.base_url}/alienhand/refinement/chapters?channel={channel_uuid}",
             access_token=access_token,
         )
+        edits_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/edits?edit_type=annotate",
+            access_token=access_token,
+        )
+        diffs_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/edit-diffs?edit_id={edit_id}",
+            access_token=access_token,
+        )
+        diff_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/edit-diffs/{diff_id}",
+            access_token=access_token,
+        )
+        toc_list_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/toc?toc_id=main",
+            access_token=access_token,
+        )
         bookmarks_response = _http_json(
             f"{server.base_url}/alienhand/refinement/bookmarks?channel={channel_uuid}",
             access_token=access_token,
@@ -594,6 +749,9 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
     hits = search_response["json"].get("hits", [])
     cuts = cuts_response["json"].get("cuts", [])
     chapters = chapters_response["json"].get("chapters", [])
+    edits = edits_response["json"].get("edits", [])
+    diffs = diffs_response["json"].get("diffs", [])
+    toc_entries = toc_list_response["json"].get("entries", [])
     bookmarks = bookmarks_response["json"].get("bookmarks", [])
     quotes = quotes_response["json"].get("quotes", [])
     stickies = stickies_response["json"].get("stickies", [])
@@ -607,6 +765,9 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         and unauthorized_response["status"] == 401
         and cut_response["status"] == 201
         and chapter_response["status"] == 201
+        and edit_response["status"] == 201
+        and edit_response["json"].get("edit", {}).get("diff_id") == diff_id
+        and toc_response["status"] == 201
         and bookmark_response["status"] == 201
         and bookmark_response["json"].get("bookmark", {}).get("note") == "Bookmark note follows the source block."
         and quote_response["status"] == 201
@@ -618,6 +779,14 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         and remove_response["json"].get("cut", {}).get("status") == "removed"
         and len(cuts) == 1
         and len(chapters) == 1
+        and chapters[0].get("edit_chain") == [edit_id]
+        and len(edits) == 1
+        and edits[0].get("edit_id") == edit_id
+        and len(diffs) == 1
+        and diffs[0].get("diff_id") == diff_id
+        and diff_response["json"].get("diff", {}).get("diff_id") == diff_id
+        and len(toc_entries) == 1
+        and toc_entries[0].get("target_id") == chapter_id
         and len(bookmarks) == 1
         and bookmarks[0].get("target_id") == imported_blocks[0].block_id
         and len(quotes) == 1
@@ -637,7 +806,12 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         "listed_blocks": len(blocks),
         "search_hits": len(hits),
         "created_cut_id": cut_id,
-        "created_chapter_id": chapter_response["json"].get("chapter", {}).get("chapter_id"),
+        "created_chapter_id": chapter_id,
+        "created_edit_id": edit_id,
+        "created_diff_id": diff_id,
+        "listed_edits": len(edits),
+        "listed_diffs": len(diffs),
+        "listed_toc_entries": len(toc_entries),
         "created_bookmark_id": bookmark_response["json"].get("bookmark", {}).get("bookmark_id"),
         "bookmark_note": bookmark_response["json"].get("bookmark", {}).get("note"),
         "created_quote_id": quote_response["json"].get("quote", {}).get("quote_id"),

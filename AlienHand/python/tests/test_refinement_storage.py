@@ -289,7 +289,7 @@ class RefinementStorageTests(unittest.TestCase):
                     author="tester",
                     diff_content={"add": [{"path": "/note", "value": bookmark.note}]},
                 )
-                store.add_toc_entry(
+                toc_entry = store.add_toc_entry(
                     toc_id="edit-layer",
                     ordinal=0,
                     entry_type="chapter",
@@ -299,15 +299,34 @@ class RefinementStorageTests(unittest.TestCase):
                 )
 
                 toc = store.list_toc_entries("edit-layer")
+                loaded_chapter = store.get_chapter(chapter.chapter_id)
                 loaded_bookmark = store.get_bookmark(bookmark.bookmark_id)
+                loaded_edit = store.get_edit(edit.edit_id)
+                loaded_diff = store.get_edit_diff(diff.diff_id)
 
                 self.assertEqual(loaded_bookmark.note, "This note follows the source anchor.")
                 self.assertEqual(loaded_bookmark.promotion_state, "mirrored")
                 self.assertEqual(sticky.clear_state, "active")
                 self.assertEqual(quote.excerpt, "echo the note")
+                self.assertEqual(loaded_chapter.edit_chain, (edit.edit_id,))
+                self.assertEqual(loaded_edit.output_ref["revision"], 1)
                 self.assertEqual(diff.edit_id, edit.edit_id)
+                self.assertEqual(loaded_diff.content["add"][0]["value"], bookmark.note)
+                self.assertEqual([row.edit_id for row in store.list_edits(edit_type="annotate")], [edit.edit_id])
+                self.assertEqual([row.diff_id for row in store.list_edit_diffs(edit_id=edit.edit_id)], [diff.diff_id])
                 self.assertTrue(diff.diff_uri.startswith("sqlite://conversation_edit_diffs/"))
+                self.assertEqual(toc_entry["target_id"], chapter.chapter_id)
                 self.assertEqual(toc[0]["source_scope"]["block_ids"], [block.block_id])
+                with self.assertRaises(KeyError):
+                    store.apply_edit(
+                        input_ref={"type": "chapter", "id": "missing-chapter"},
+                        output_ref={"type": "chapter", "id": "missing-chapter", "revision": 1},
+                        edit_type="annotate",
+                        reason="Missing chapter should not commit.",
+                        author="tester",
+                        diff_content={"replace": []},
+                    )
+                self.assertEqual(len(store.list_edits()), 1)
 
     def test_refinement_storage_proof_exercises_core_workflow(self):
         with tempfile.TemporaryDirectory() as temp:

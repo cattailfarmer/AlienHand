@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup, the first runtime substrate proof, and the separate chat conversation refinement specification
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, refinement HTTP workbench API proof, bookmark-note HTTP API proof, quote HTTP API proof, sticky HTTP API proof, first The Lounge refinement workbench UI proof, workbench bookmark-note UI proof, workbench quote/sticky UI proof, workbench sticky unpin proof, app-owned workbench runtime proof, workbench live-review launcher, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but polished split-pane interaction, polished quote selection, polished sticky presentation, editorial controls, browser-click automation, and production authentication hardening are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, refinement HTTP workbench API proof, bookmark-note HTTP API proof, quote HTTP API proof, sticky HTTP API proof, editorial HTTP API proof, first The Lounge refinement workbench UI proof, workbench bookmark-note UI proof, workbench quote/sticky UI proof, workbench sticky unpin proof, app-owned workbench runtime proof, workbench live-review launcher, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but polished split-pane interaction, polished quote selection, polished sticky presentation, editorial controls, browser-click automation, and production authentication hardening are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -202,20 +202,20 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [JustificationEntry: RefinementHTTPWorkbenchAPIProof] is justified
   + [work_type] is runtime_code
-  + [requirement_anchor] is [ConversationRefinementHTTPV1], [ConversationBookmarkHTTPV1], [ConversationQuoteHTTPV1], [ConversationStickyHTTPV1], [ConversationStorageModel], [ConversationRefinementState], and [ConversationAnnotationSemantics]
+  + [requirement_anchor] is [ConversationRefinementHTTPV1], [ConversationBookmarkHTTPV1], [ConversationQuoteHTTPV1], [ConversationStickyHTTPV1], [ConversationEditorialHTTPV1], [ConversationStorageModel], [ConversationRefinementState], and [ConversationAnnotationSemantics]
   + [implemented_artifact] is AlienHand/python/alienhand_ai/payload_http.py authenticated refinement HTTP routes
-  + [implemented_artifact] is AlienHand/python/alienhand_ai/refinement_storage.py list_blocks, channel-filtered list_cuts, channel-filtered list_chapters, create_bookmark target validation, channel-filtered list_bookmarks, create_quote source validation, channel-filtered list_quotes, create_sticky target validation, and channel-filtered list_stickies query helpers
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/refinement_storage.py list_blocks, channel-filtered list_cuts, channel-filtered list_chapters, create_bookmark target validation, channel-filtered list_bookmarks, create_quote source validation, channel-filtered list_quotes, create_sticky target validation, channel-filtered list_stickies query helpers, list_edits, list_edit_diffs, get_edit_diff, and list_toc_entries
   + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-refinement-http-proof command
   + [implemented_artifact] is AlienHand/python/tests/test_payload_http.py refinement HTTP API tests
-  + [implemented_artifact] is AlienHand/python/tests/test_refinement_storage.py channel-filtered cut, chapter, bookmark, quote, and sticky tests
-  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop ConversationRefinementHTTPV1, ConversationBookmarkHTTPV1, ConversationQuoteHTTPV1, and ConversationStickyHTTPV1
+  + [implemented_artifact] is AlienHand/python/tests/test_refinement_storage.py channel-filtered cut, chapter, bookmark, quote, sticky, and editorial edit tests
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop ConversationRefinementHTTPV1, ConversationBookmarkHTTPV1, ConversationQuoteHTTPV1, ConversationStickyHTTPV1, and ConversationEditorialHTTPV1
   + [implemented_artifact] is README.md proof command reference
   + [evidence_anchor] is python -m unittest tests.test_payload_http tests.test_refinement_storage
   + [evidence_anchor] is python -m unittest discover -s tests
   + [evidence_anchor] is python -m alienhand_ai.cli chat-refinement-http-proof --output runs --name chat-refinement-http-proof
-  + [verification_result] is one committed chat payload was imported into refinement.sqlite3, the HTTP API listed the channel-filtered source block, searched the term workbench back to the source block, rejected unauthenticated access with 401, created one cut from the block, created one chapter from the cut, created one bookmark note against the source block, created one quote against the source block, created one sticky against the bookmark, soft-removed the cut with DELETE, listed one removed cut, one chapter, one bookmark, one quote, and one sticky scoped to the channel, returned refinement_http_ok true, and full test discovery passed with 85 tests
+  + [verification_result] is one committed chat payload was imported into refinement.sqlite3, the HTTP API listed the channel-filtered source block, searched the term workbench back to the source block, rejected unauthenticated access with 401, created one cut from the block, created one chapter from the cut, applied one chapter-targeted editorial edit with a diff artifact, created one table-of-contents entry, created one bookmark note against the source block, created one quote against the source block, created one sticky against the bookmark, soft-removed the cut with DELETE, listed one removed cut, one chapter with the edit in its edit_chain, one edit, one diff, one toc entry, one bookmark, one quote, and one sticky scoped to the channel, returned refinement_http_ok true, and full test discovery passed with 85 tests
   + [status] is justified
-  + [uncertainty] is this proves the browser-facing API contract; rough visual workbench wiring is covered by [TheLoungeRefinementWorkbenchProof], while polished split-pane interaction, drag pointer, bookmark hover UI, and production authorization policy remain future work
+  + [uncertainty] is this proves the browser-facing API contract; rough visual workbench wiring is covered by [TheLoungeRefinementWorkbenchProof], while polished split-pane interaction, drag pointer, editorial pane controls, and production authorization policy remain future work
 
 & [JustificationEntry: BookmarkNoteHTTPAPIProof] is justified
   + [work_type] is runtime_code
@@ -261,6 +261,21 @@ Description: SOP description of the justification step, called "jusitification" 
   + [verification_result] is sticky creation validates that block, cut, chapter, or bookmark targets exist, missing bookmark targets return sticky_target_not_found through HTTP, a sticky rooted in a bookmark is created with status 201, visibility, retention, and clear state are preserved in the returned object, channel-filtered active sticky listing returns that sticky, target_type filtering returns the same bookmark sticky, DELETE marks the sticky dismissed, active listing then returns zero stickies, and the CLI proof returned listed_stickies 1, cleared_sticky_state dismissed, active_stickies_after_clear 0, and refinement_http_ok true
   + [status] is justified
   + [uncertainty] is this proves sticky persistence, clear-state transition, and API visibility; The Lounge first-pass pin/unpin controls are covered by [TheLoungeRefinementWorkbenchProof], while session reminder presentation remains future work
+
+& [JustificationEntry: EditorialHTTPAPIProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [ConversationEditorialHTTPV1], [ConversationEditSchema], [ConversationEditDiffArtifact], [ConversationTableOfContents], and [ConversationRefinementState]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/refinement_storage.py get_edit, list_edits, get_edit_diff, list_edit_diffs, chapter edit_chain appending, add_toc_entry return value, and list_toc_entries
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/payload_http.py /alienhand/refinement/edits, /alienhand/refinement/edit-diffs, and /alienhand/refinement/toc GET and POST routes
+  + [implemented_artifact] is AlienHand/python/tests/test_refinement_storage.py editorial edit, diff, toc, and missing chapter rollback assertions
+  + [implemented_artifact] is AlienHand/python/tests/test_payload_http.py editorial HTTP API assertions
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop ConversationEditorialHTTPV1
+  + [evidence_anchor] is python -m unittest tests.test_payload_http tests.test_refinement_storage
+  + [evidence_anchor] is python -m unittest discover -s tests
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-refinement-http-proof --output runs --name chat-refinement-http-proof
+  + [verification_result] is an authenticated client created one chapter-targeted editorial edit with input_ref, output_ref, edit_type, reason, author, and diff evidence, the storage layer appended that edit into the chapter edit_chain, the HTTP layer listed the edit by edit_type, listed its diff by edit_id, resolved its diff by diff_id, created and listed one toc entry by toc_id, rejected a missing chapter-targeted edit as edit_target_not_found, and the CLI proof returned listed_edits 1, listed_diffs 1, listed_toc_entries 1, and refinement_http_ok true
+  + [status] is justified
+  + [uncertainty] is this proves the editorial data/API substrate; The Lounge editorial pane controls and visual edit review remain future work
 
 & [JustificationEntry: TheLoungeRefinementWorkbenchProof] is justified
   + [work_type] is runtime_code

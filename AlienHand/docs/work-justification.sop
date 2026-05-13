@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup, the first runtime substrate proof, and the separate chat conversation refinement specification
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, refinement HTTP workbench API proof, first The Lounge refinement workbench UI proof, app-owned workbench runtime proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but polished split-pane interaction, bookmark/quote/editorial controls, browser-click automation, and production authentication hardening are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, refinement HTTP workbench API proof, first The Lounge refinement workbench UI proof, app-owned workbench runtime proof, workbench live-review launcher, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but polished split-pane interaction, bookmark/quote/editorial controls, browser-click automation, and production authentication hardening are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -247,6 +247,19 @@ Description: SOP description of the justification step, called "jusitification" 
   + [verification_result] is the runtime proof started local Ergo on port 62625, payload resolver at http://127.0.0.1:62667, and The Lounge at http://127.0.0.1:62668; published one app message to channel #eeadb76978fa435c86ae2dbe0b04bb0a; fetched the render row; listed one channel block; searched workbench to one hit; created one cut; created one chapter; soft-removed the cut; confirmed zero active cuts after removal; verified The Lounge served bundle strings for AlienHand refinement and workbench CSS; stopped resolver and The Lounge; cold replay returned one resolved payload; and workbench_runtime_ok returned true
   + [status] is justified
   + [uncertainty] is this is a runtime HTTP/static-asset smoke test; actual browser click automation and human-visible interaction review remain future work
+
+& [JustificationEntry: TheLoungeWorkbenchLiveReviewCommand] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [TheLoungeRefinementWorkbenchLiveReview], [TheLoungeRefinementWorkbenchV1], and [AppOwnedTheLoungeRuntimeGroupProof]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-workbench-live command
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop TheLoungeRefinementWorkbenchLiveReview
+  + [implemented_artifact] is README.md live browser review instructions
+  + [evidence_anchor] is python -m compileall alienhand_ai
+  + [evidence_anchor] is python -m unittest tests.test_payload_http tests.test_refinement_storage
+  + [evidence_anchor] is background launch of python -m alienhand_ai.cli chat-workbench-live --output runs --name chat-workbench-live-command-proof --ready-file runs/chat-workbench-live-command-proof/ready.json --stop-file runs/chat-workbench-live-command-proof/stop
+  + [verification_result] is chat-workbench-live wrote ready.json with channel #a4a82b87502947fb8ccef0654ab72291, message 4de2bb7b-7ec3-4ded-80cb-9c48341d59dc, payload resolver http://127.0.0.1:63716, and The Lounge http://127.0.0.1:63717; HTTP GET to The Lounge returned 200; creating the stop file shut the command down and printed workbench_live_stopped true
+  + [status] is justified
+  + [uncertainty] is browser automation could not be executed in this environment because the browser-use Node runtime requires Node >=22.22.0 and the configured runtime is Node 22.19.0; manual review remains available through the live command
 
 & [JustificationEntry: ChatRuntimeTruthTestCore] is partially_justified
   + [work_type] is runtime_code

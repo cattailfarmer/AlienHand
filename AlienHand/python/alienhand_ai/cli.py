@@ -3,13 +3,16 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from time import sleep
 from uuid import uuid4
 
 from .chat_platform import (
+    AlienHandChatService,
     ChannelJSONLHistory,
     IRCNetworkPublisher,
     PayloadStore,
     commit_message,
+    irc_channel_name,
     run_app_refinement_lifecycle_proof,
     run_app_lifecycle_proof,
     run_chat_truth_test,
@@ -202,6 +205,20 @@ def main() -> None:
     chat_workbench_runtime.add_argument("--text", default="hello app-owned refinement workbench")
     chat_workbench_runtime.add_argument("--output", default="runs")
     chat_workbench_runtime.add_argument("--name", default="chat-workbench-runtime-proof")
+
+    chat_workbench_live = sub.add_parser("chat-workbench-live")
+    chat_workbench_live.add_argument("--ergo-root")
+    chat_workbench_live.add_argument("--thelounge-root")
+    chat_workbench_live.add_argument("--port", type=int)
+    chat_workbench_live.add_argument("--thelounge-port", type=int)
+    chat_workbench_live.add_argument("--nick", default="alienhandagent")
+    chat_workbench_live.add_argument("--app-id", type=int, default=1)
+    chat_workbench_live.add_argument("--channel")
+    chat_workbench_live.add_argument("--text", default="hello live refinement workbench")
+    chat_workbench_live.add_argument("--ready-file")
+    chat_workbench_live.add_argument("--stop-file")
+    chat_workbench_live.add_argument("--output", default="runs")
+    chat_workbench_live.add_argument("--name", default="chat-workbench-live")
 
     chat_refinement_storage = sub.add_parser("chat-refinement-storage-proof")
     chat_refinement_storage.add_argument("--output", default="runs")
@@ -409,6 +426,9 @@ def main() -> None:
             thelounge_port=args.thelounge_port,
         )
         print(json.dumps(result, indent=2))
+    elif args.command == "chat-workbench-live":
+        result = run_workbench_live_command(args)
+        print(json.dumps(result, indent=2))
     elif args.command == "chat-refinement-storage-proof":
         result = run_refinement_storage_proof(Path(args.output) / args.name)
         print(json.dumps(result, indent=2))
@@ -418,6 +438,58 @@ def main() -> None:
     elif args.command == "chat-refinement-http-proof":
         result = run_refinement_http_api_proof(Path(args.output) / args.name, app_id=args.app_id)
         print(json.dumps(result, indent=2))
+
+
+def run_workbench_live_command(args: argparse.Namespace) -> dict[str, object]:
+    root = Path(args.output) / args.name
+    channel_uuid = args.channel or uuid4().hex
+    ready_file = Path(args.ready_file) if args.ready_file else root / "workbench-live-ready.json"
+    stop_file = Path(args.stop_file) if args.stop_file else None
+    with AlienHandChatService(
+        root,
+        ergo_root=args.ergo_root,
+        thelounge_root=args.thelounge_root,
+        app_id=args.app_id,
+        nick=args.nick,
+        port=args.port,
+        thelounge_port=args.thelounge_port,
+        start_thelounge=True,
+    ) as service:
+        published = service.publish_text(
+            args.text,
+            channel_uuid=channel_uuid,
+            metadata={"proof": "workbench_live_review"},
+        )
+        ready = {
+            "root": str(root.resolve()),
+            "app_id": args.app_id,
+            "channel_uuid": channel_uuid,
+            "irc_channel": irc_channel_name(channel_uuid),
+            "message_uuid": published.envelope.message_uuid,
+            "ergo_port": service.port,
+            "resolver_base_url": service.payload_resolver_base_url,
+            "thelounge_base_url": service.thelounge_base_url,
+            "ready_file": str(ready_file.resolve()),
+            "stop_file": str(stop_file.resolve()) if stop_file else None,
+        }
+        ready_file.parent.mkdir(parents=True, exist_ok=True)
+        ready_file.write_text(json.dumps(ready, indent=2), encoding="utf-8")
+        print(json.dumps({"ready": ready}, indent=2), flush=True)
+        try:
+            if stop_file is None:
+                while True:
+                    sleep(0.5)
+            else:
+                while not stop_file.exists():
+                    sleep(0.5)
+        except KeyboardInterrupt:
+            pass
+    return {
+        "root": str(root.resolve()),
+        "ready_file": str(ready_file.resolve()),
+        "stop_file": str(stop_file.resolve()) if stop_file else None,
+        "workbench_live_stopped": True,
+    }
 
 
 def import_godot_log(log_path: str | Path, output: str | Path, name: str, report: bool) -> dict[str, object]:

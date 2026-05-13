@@ -69,6 +69,17 @@ python -m alienhand_ai.cli chat-runtime-group-proof --output runs --name chat-ru
 python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-runtime-proof
 ```
 
+For a live browser review, run:
+
+```powershell
+python -m alienhand_ai.cli chat-workbench-live --output runs --name chat-workbench-live
+```
+
+The live command writes `workbench-live-ready.json` with the local The Lounge URL,
+payload resolver URL, seeded UUID channel, and message UUID, then keeps the
+runtime alive until `Ctrl+C`. Automation can use `--ready-file` and `--stop-file`
+to coordinate startup and shutdown.
+
 The prototype channel history command is `!ah history [all|<messages>] [chunk
 <chunk_size>]`, for example `!ah history 25 chunk 5`. The command handler records
 a payload-backed `history_request` event and returns recent-first replay chunks

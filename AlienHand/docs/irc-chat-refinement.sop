@@ -428,6 +428,19 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: verify The Lounge serves workbench code and styling
   = should: remain a runtime smoke test until browser-level click automation is added
 
+& [TheLoungeRefinementWorkbenchLiveReview] is the manual/browser review launcher for the first refinement workbench
+  + [implementation] is AlienHand/python/alienhand_ai/cli.py chat-workbench-live
+  + [ready_file] is a JSON document containing app ports, resolver URL, The Lounge URL, channel UUID, IRC channel, and seeded message UUID
+  + [stop_file] is an optional file path that ends the live runtime when created
+  + [fallback_stop] is Ctrl+C when no stop file is supplied
+
+  = must: start the same app-owned runtime group as [TheLoungeRefinementWorkbenchRuntimeProof]
+  = must: publish one seeded message into a UUID-named channel
+  = must: keep the runtime alive for browser or human review
+  = must: write review connection details before waiting
+  = must: shut down Ergo, payload resolver, and The Lounge when review ends
+  = should: support automated harnesses through ready-file and stop-file paths
+
 & [ConversationEditDiffArtifact] is the change record for an editorial edit
   + [diff_id] is the stable identifier
   + [edit_id] is the parent edit identifier

@@ -46,7 +46,7 @@ Description: SOP description of the justification step, called "jusitification" 
 ## Current Work Ledger
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
-  + [scope] is work performed in the AlienHand repository for chat-platform setup and the first runtime substrate proof
+  + [scope] is work performed in the AlienHand repository for chat-platform setup, the first runtime substrate proof, and the separate chat conversation refinement specification
   + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but live history presentation and production authentication hardening are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
@@ -102,6 +102,17 @@ Description: SOP description of the justification step, called "jusitification" 
   + [verification_result] is this artifact defines the justification pass and current work ledger
   + [status] is justified
   + [uncertainty] is future runtime work must append or update entries as implementation proceeds
+
+& [JustificationEntry: ChatConversationRefinementSpecification] is justified
+  + [work_type] is protocol
+  + [requirement_anchor] is user request to define the refinement layer separately with minimal edits to the original chat-platform specification
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop
+  + [implemented_artifact] is AlienHand/docs/irc-chat-platform.sop reference to the refinement spec
+  + [implemented_artifact] is AlienHand/docs/irc-chat-foundation.md reference to the refinement spec
+  + [evidence_anchor] is local uncommitted files AlienHand/docs/irc-chat-refinement.sop, AlienHand/docs/irc-chat-platform.sop, and AlienHand/docs/irc-chat-foundation.md
+  + [verification_result] is the refined chapter/bookmark/edit layer now has its own SOP subject and the base chat spec only points at it
+  + [status] is justified
+  + [uncertainty] is detailed runtime implementation of chapter UI, bookmark promotion, and editorial editing remains future work
 
 & [JustificationEntry: ChatRuntimeTruthTestCore] is partially_justified
   + [work_type] is runtime_code

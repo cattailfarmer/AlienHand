@@ -1,0 +1,107 @@
+Subject: AlienHand IRC Chat Conversation Refinement
+
+Description: SOP specification for the refined conversation layer that reorganizes raw chat into chapters, bookmarks, notes, sticky references, quotes, and editorial edits without mutating the source conversation record.
+
+@ [source] platform/source/SOP_Markdown.md
+@ [source] platform/Delineation.sop
+@ [source] platform/Integration.sop
+@ [source] platform/Semantic_Refinement.sop
+@ [foundation] AlienHand/docs/irc-chat-foundation.md
+@ [platform] AlienHand/docs/irc-chat-platform.sop
+@ [justification] AlienHand/docs/work-justification.sop
+
+& [AlienHandChatConversationRefinement] is the editorial layer that composes curated conversation views from raw chat history
+  + [raw_conversation] is the immutable source chat stream from [AlienHandIRCChatPlatform]
+  + [refined_product] is the curated presentation produced from raw conversation segments
+  + [chapter] is an editorial grouping of related conversation spans, including discontiguous spans when needed
+  + [bookmark] is a reference marker that can attach to raw conversation items and refined chapters
+  + [note] is a human or agent annotation attached to a conversation anchor
+  + [sticky_reference] is a persistent annotation intended to remain visible across context shifts
+  + [quote] is a preserved excerpt with provenance and source identity
+  + [editorial_edit] is a transformation applied to the refined product without rewriting the raw source record
+
+  = must: keep raw conversation immutable
+  = must: allow chapters to glue together skipped-around exchanges into a coherent editorial narrative
+  = must: preserve provenance for every bookmark, note, quote, and sticky reference
+  = must: allow bookmarks to exist in both the raw conversation layer and the refined product layer
+  = must: keep chapters only in the refined product layer
+  = must: allow editorial edits to reshape presentation without erasing source evidence
+  - never: treat a chapter as the truth source
+  - never: discard raw conversation when generating a refined view
+
+## Layer Boundaries
+
+/ [AlienHandChatConversationRefinement] -(Delineation)> [source_record], [annotation_layer], [refined_layer], [uncertainty]
+
+& [RefinementLayerBoundary] is the separation between raw chat, annotations, and editorialized output
+  + [source_record] is the unedited chat substrate and payload history
+  + [annotation_layer] is bookmarks, notes, sticky references, and quotes attached to source or refined material
+  + [refined_layer] is chapters and post-processed editorial views
+  + [uncertainty] is the exact UI treatment of chapter editing, bookmark promotion, and raw/debug visibility
+
+  = must: preserve source record identity in every derived artifact
+  = must: allow annotations to point to both raw and refined targets
+  = must: keep chapter composition separate from raw transport and replay
+  = should: surface raw and refined views side by side when debugging or reviewing
+
+## Identity Vocabulary
+
+| [ConversationArtifactKind] is (raw_message | chapter | bookmark | note | sticky_reference | quote | editorial_edit)
+| [RefinedViewMode] is (raw | annotated | chaptered | editorial)
+| [BookmarkScope] is (raw_only | refined_only | both)
+
+& [ConversationChapter] is a curated presentation unit for related conversation spans
+  + [chapter_id] is a stable identifier for the curated view
+  + [title] is the human-readable chapter label
+  + [summary] is a concise narrative description of what the chapter contains
+  + [members] are the raw message UUIDs or spans included in the chapter
+  + [anchors] are bookmarks or reference points used to recover the chapter shape
+  + [mode] is [RefinedViewMode]
+
+  = must: support discontiguous grouping when the live conversation skips around
+  = must: preserve the source ordering inside each included span
+  = must: expose enough metadata for navigation and review
+
+& [ConversationBookmark] is a navigational anchor in either raw or refined conversation space
+  + [bookmark_id] is a stable identifier
+  + [target] is a raw message, span, or chapter
+  + [scope] is [BookmarkScope]
+  + [label] is optional human-readable text
+  + [note_count] is the number of attached notes
+
+  = must: be attachable to raw conversation items
+  = must: be attachable to refined chapters
+  = should: survive chapter regeneration when the target still exists
+
+& [ConversationQuote] is a provenance-preserving excerpt
+  + [quote_id] is a stable identifier
+  + [source_target] is the raw message or chapter source
+  + [excerpt] is the preserved text or frame reference
+  + [provenance] is source UUID, timestamp, and actor identity
+
+  = must: keep the source reference visible
+  = must: not alter the original message record
+
+& [EditorialEdit] is a post-refinement transformation
+  + [edit_id] is a stable identifier
+  + [input_view] is the chaptered or annotated view being edited
+  + [output_view] is the new refined presentation
+  + [change_type] is reorder, condense, expand, redact, or annotate
+
+  = must: preserve the original view as evidence
+  = must: record the edit as a derivative artifact
+  = must: support review of what changed and why
+
+## Presentation Rules
+
+& [RefinedPresentationRules] are the rules for showing refined chat content
+  + [normal_view] is the standard chat surface
+  + [debug_view] is the raw conversation and annotation surface
+  + [chapter_view] is the curated narrative surface
+  + [editorial_view] is the post-processed publication surface
+
+  = must: keep raw conversation available for inspection
+  = must: allow debug view to show source messages, bookmarks, quotes, and edits
+  = must: allow normal view to remain simpler than the editorial layer
+  = should: let chapter and editorial views coexist without replacing the source
+

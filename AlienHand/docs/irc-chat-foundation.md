@@ -82,6 +82,7 @@ Recommended event types:
 - History access is command-driven.
 - The prototype command syntax is `!ah history [all|<messages>] [chunk <chunk_size>]`.
 - Examples are `!ah history`, `!ah history 25`, `!ah history 25 chunk 5`, and `!ah history all chunk 10`.
+- The chapter/bookmark/editorial refinement layer is specified separately in `irc-chat-refinement.sop`.
 - The request should become a structured event so replay and auditing can recognize it.
 - History delivery should come from the durable log, not from IRC state alone.
 

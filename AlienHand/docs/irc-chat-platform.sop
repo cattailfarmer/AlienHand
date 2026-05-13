@@ -11,6 +11,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
 @ [source] platform/source/retired/Sierpinski_Reasoning.md
 @ [foundation] AlienHand/docs/irc-chat-foundation.md
 @ [justification] AlienHand/docs/work-justification.sop
+@ [refinement] AlienHand/docs/irc-chat-refinement.sop
 @ [submodule] AlienHand/BizHawk
 @ [submodule] AlienHand/Ergo
 @ [submodule] AlienHand/thelounge
@@ -248,6 +249,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   = should: support default recent history, explicit message counts, all history, and chunk-size override
 
   ~ [live_presentation] is provisional until The Lounge command capture and transcript display are connected
+  ~ [refined_presentation] is specified in [AlienHandChatConversationRefinement] for chapters, bookmarks, notes, sticky references, quotes, and editorial edits
 
 ## Ephemeral Private Messages
 

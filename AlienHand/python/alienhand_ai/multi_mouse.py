@@ -13,6 +13,10 @@ MODE_BLOCKED = "blocked"
 MODE_INTEGRATED = "integrated"
 MODE_INDEPENDENT = "independent"
 
+ROLE_WINDOWS_POINTER = "windows_pointer"
+ROLE_ALIENHAND_POINTER = "alienhand_pointer"
+ROLE_OBSERVED = "observed"
+
 CHANNEL_WINDOWS = "windows_passthrough"
 CHANNEL_BLOCKED = "blocked"
 CHANNEL_LEGACY = "legacy_injected"
@@ -28,6 +32,7 @@ BUTTON_ACTIONS = {
 }
 
 VALID_MODES = {MODE_BLOCKED, MODE_INTEGRATED, MODE_INDEPENDENT}
+VALID_DEVICE_ROLES = {ROLE_WINDOWS_POINTER, ROLE_ALIENHAND_POINTER, ROLE_OBSERVED}
 
 RIM_TYPEMOUSE = 0
 RIM_TYPEKEYBOARD = 1
@@ -61,6 +66,75 @@ class RawInputDevice:
 
     def to_dict(self) -> JsonDict:
         return {"handle": self.handle, "kind": self.kind, "name": self.name}
+
+
+@dataclass(frozen=True)
+class MouseDeviceAssignment:
+    raw_input_name: str
+    logical_device_id: str
+    role: str
+    label: str = ""
+
+    def __post_init__(self) -> None:
+        if self.role not in VALID_DEVICE_ROLES:
+            raise ValueError(f"Unsupported mouse device role: {self.role}")
+        if not self.raw_input_name:
+            raise ValueError("raw_input_name must be non-empty")
+        if not self.logical_device_id:
+            raise ValueError("logical_device_id must be non-empty")
+
+    def to_dict(self) -> JsonDict:
+        return {
+            "raw_input_name": self.raw_input_name,
+            "logical_device_id": self.logical_device_id,
+            "role": self.role,
+            "label": self.label,
+        }
+
+    @classmethod
+    def from_dict(cls, data: JsonDict) -> MouseDeviceAssignment:
+        return cls(
+            raw_input_name=_string_value(data.get("raw_input_name"), "raw_input_name"),
+            logical_device_id=_string_value(data.get("logical_device_id"), "logical_device_id"),
+            role=_string_value(data.get("role"), "role"),
+            label=_optional_string_value(data.get("label"), "label"),
+        )
+
+
+@dataclass
+class DeviceAssignmentTable:
+    assignments: list[MouseDeviceAssignment] = field(default_factory=list)
+
+    def add_assignment(self, assignment: MouseDeviceAssignment) -> None:
+        self.assignments.append(assignment)
+
+    def resolve_raw_name(self, raw_input_name: str) -> MouseDeviceAssignment | None:
+        for assignment in self.assignments:
+            if assignment.raw_input_name == raw_input_name:
+                return assignment
+        return None
+
+    def captured_device_ids(self) -> set[str]:
+        return {
+            assignment.logical_device_id
+            for assignment in self.assignments
+            if assignment.role == ROLE_ALIENHAND_POINTER
+        }
+
+    def to_dict(self) -> JsonDict:
+        return {"assignments": [assignment.to_dict() for assignment in self.assignments]}
+
+    @classmethod
+    def from_dict(cls, data: JsonDict) -> DeviceAssignmentTable:
+        assignments = data.get("assignments", [])
+        if not isinstance(assignments, list):
+            raise ValueError("assignments must be a list")
+        table = cls()
+        for assignment_data in assignments:
+            if not isinstance(assignment_data, dict):
+                raise ValueError("each assignment must be an object")
+            table.add_assignment(MouseDeviceAssignment.from_dict(assignment_data))
+        return table
 
 
 @dataclass(frozen=True)
@@ -587,6 +661,59 @@ def run_multi_mouse_device_scan(root: str | Path) -> JsonDict:
     return result
 
 
+def suggest_mouse_device_assignments(devices: Iterable[RawInputDevice]) -> DeviceAssignmentTable:
+    mouse_devices = [device for device in devices if device.kind == "mouse"]
+    table = DeviceAssignmentTable()
+    for index, device in enumerate(mouse_devices):
+        if index == 0:
+            table.add_assignment(
+                MouseDeviceAssignment(
+                    raw_input_name=device.name,
+                    logical_device_id="mouse-a",
+                    role=ROLE_WINDOWS_POINTER,
+                    label="Windows pointer candidate",
+                )
+            )
+        elif index == 1:
+            table.add_assignment(
+                MouseDeviceAssignment(
+                    raw_input_name=device.name,
+                    logical_device_id="mouse-b",
+                    role=ROLE_ALIENHAND_POINTER,
+                    label="AlienHand pointer candidate",
+                )
+            )
+        else:
+            table.add_assignment(
+                MouseDeviceAssignment(
+                    raw_input_name=device.name,
+                    logical_device_id=f"mouse-extra-{index + 1}",
+                    role=ROLE_OBSERVED,
+                    label="Observed extra mouse",
+                )
+            )
+    return table
+
+
+def run_multi_mouse_assignment_suggestion(root: str | Path) -> JsonDict:
+    root_path = Path(root)
+    root_path.mkdir(parents=True, exist_ok=True)
+    devices = enumerate_windows_raw_input_devices()
+    table = suggest_mouse_device_assignments(devices)
+    result = {
+        "root": str(root_path.resolve()),
+        "mouse_device_count": len([device for device in devices if device.kind == "mouse"]),
+        "assignment_table": table.to_dict(),
+        "captured_device_ids": sorted(table.captured_device_ids()),
+        "activation_state": "suggested_only",
+        "assignment_note": "Review assignments before enabling any future capture backend.",
+    }
+    output = root_path / "multi-mouse-assignment-suggestion.json"
+    output.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    result["output"] = str(output.resolve())
+    return result
+
+
 def read_policy_table(path: str | Path) -> TargetPolicyTable:
     data = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(data, dict):
@@ -598,6 +725,20 @@ def write_policy_table(path: str | Path, policy_table: TargetPolicyTable) -> Pat
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(policy_table.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+    return output
+
+
+def read_device_assignment_table(path: str | Path) -> DeviceAssignmentTable:
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("device assignment document must be an object")
+    return DeviceAssignmentTable.from_dict(data)
+
+
+def write_device_assignment_table(path: str | Path, table: DeviceAssignmentTable) -> Path:
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(table.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
     return output
 
 

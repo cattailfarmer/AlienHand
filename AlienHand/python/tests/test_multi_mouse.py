@@ -11,10 +11,16 @@ from alienhand_ai.multi_mouse import (
     CHANNEL_BLOCKED,
     CHANNEL_LEGACY,
     CHANNEL_WINDOWS,
+    ROLE_ALIENHAND_POINTER,
+    ROLE_OBSERVED,
+    ROLE_WINDOWS_POINTER,
+    DeviceAssignmentTable,
     MODE_BLOCKED,
     MODE_INDEPENDENT,
     MODE_INTEGRATED,
+    MouseDeviceAssignment,
     PointerInputEvent,
+    RawInputDevice,
     RecordingLegacyInjectionBackend,
     TargetIdentity,
     TargetPointerPolicy,
@@ -24,7 +30,10 @@ from alienhand_ai.multi_mouse import (
     effective_target_mode,
     legacy_injection_actions,
     read_policy_table,
+    read_device_assignment_table,
     run_multi_mouse_virtualization_proof,
+    suggest_mouse_device_assignments,
+    write_device_assignment_table,
     write_policy_table,
 )
 
@@ -123,6 +132,35 @@ class MultiMouseRoutingTests(unittest.TestCase):
 
         self.assertEqual(loaded.resolve(TargetIdentity("secure-login", "credential-ui.exe")).mode, MODE_BLOCKED)
         self.assertEqual(loaded.resolve(TargetIdentity("note-window", "NOTEPAD.EXE", "Project notes")).mode, MODE_INTEGRATED)
+
+    def test_suggest_mouse_assignments_marks_second_mouse_as_alienhand_pointer(self):
+        devices = [
+            RawInputDevice(handle=1, kind="keyboard", name="keyboard"),
+            RawInputDevice(handle=2, kind="mouse", name="mouse-device-a"),
+            RawInputDevice(handle=3, kind="mouse", name="mouse-device-b"),
+            RawInputDevice(handle=4, kind="mouse", name="mouse-device-c"),
+        ]
+
+        table = suggest_mouse_device_assignments(devices)
+
+        self.assertEqual(table.resolve_raw_name("mouse-device-a").role, ROLE_WINDOWS_POINTER)
+        self.assertEqual(table.resolve_raw_name("mouse-device-b").role, ROLE_ALIENHAND_POINTER)
+        self.assertEqual(table.resolve_raw_name("mouse-device-c").role, ROLE_OBSERVED)
+        self.assertEqual(table.captured_device_ids(), {"mouse-b"})
+
+    def test_device_assignment_table_round_trips_to_json(self):
+        table = DeviceAssignmentTable(
+            [
+                MouseDeviceAssignment("mouse-device-a", "mouse-a", ROLE_WINDOWS_POINTER),
+                MouseDeviceAssignment("mouse-device-b", "mouse-b", ROLE_ALIENHAND_POINTER),
+            ]
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            path = write_device_assignment_table(Path(temp) / "device-assignment.json", table)
+            loaded = read_device_assignment_table(path)
+
+        self.assertEqual(loaded.resolve_raw_name("mouse-device-a").logical_device_id, "mouse-a")
+        self.assertEqual(loaded.captured_device_ids(), {"mouse-b"})
 
     def test_legacy_injection_actions_are_recorded_without_real_input(self):
         target = TargetIdentity("legacy-editor", "notepad.exe")

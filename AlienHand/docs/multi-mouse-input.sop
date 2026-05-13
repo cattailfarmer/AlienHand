@@ -67,10 +67,12 @@ Description: This specification defines the dual-pointer input substrate for Ali
 
 & [CaptureLayerBoundary] is the driver/interception seam not implemented by the current Python proof
   + [raw_input_scan] is the user-mode ability to observe distinct Raw Input devices
+  + [device_assignment] is the explicit mapping from Raw Input device name to AlienHand logical mouse identity
   + [capture_backend] is a future driver, filter, or interception backend that can consume a chosen device before Windows cursor merge
   + [injection_backend] is the future implementation that converts integrated events into Windows-compatible input
 
   = must: treat Raw Input device discovery as identity evidence, not capture
+  = must: keep device assignment as suggested_only until a user reviews or a later trusted policy activates it
   = must: keep capture/block claims provisional until a backend proves consumed input no longer reaches the system pointer
   = should: keep the router independent from the eventual capture backend
 
@@ -79,7 +81,9 @@ Description: This specification defines the dual-pointer input substrate for Ali
   + [tests] are AlienHand/python/tests/test_multi_mouse.py
   + [proof_command] is multi-mouse-routing-proof
   + [device_scan_command] is multi-mouse-device-scan
+  + [assignment_suggestion_command] is multi-mouse-assignment-suggestion
   + [policy_persistence] is read_policy_table and write_policy_table
+  + [assignment_persistence] is read_device_assignment_table and write_device_assignment_table
   + [legacy_injection_plan] is RecordingLegacyInjectionBackend and legacy_injection_actions
 
   = must: simulate [mouse_a] as the Windows pointer
@@ -87,6 +91,8 @@ Description: This specification defines the dual-pointer input substrate for Ali
   = must: prove blocked, integrated, independent, and independent-to-legacy fallback routing
   = must: prove app-level and surface-specific policy resolution without hardware
   = must: prove policy table JSON round trip without hardware
+  = must: prove suggested physical-device assignment without activating capture
+  = must: prove assignment table JSON round trip without hardware
   = must: prove legacy injection action planning without moving the real cursor
   = must: preserve inspectable routed event records
   = must: avoid moving the real cursor or blocking real hardware during simulation
@@ -117,3 +123,16 @@ Description: This specification defines the dual-pointer input substrate for Ali
   = must: report [multiple_mice_visible] when two or more mouse-class devices are visible
   = must: report [capture_backend_present] false until a real capture backend exists
   - never: use this scan as proof that AlienHand can consume one mouse before Windows cursor merge
+
+& [MultiMouseAssignmentSuggestionProof] is the safe mapping step from physical mouse devices to logical AlienHand roles
+  + [implementation] is AlienHand/python/alienhand_ai/multi_mouse.py suggest_mouse_device_assignments
+  + [proof_command] is multi-mouse-assignment-suggestion
+  + [roles] are windows_pointer, alienhand_pointer, and observed
+  + [activation_state] is suggested_only
+
+  = must: assign the first visible mouse as mouse-a windows_pointer candidate
+  = must: assign the second visible mouse as mouse-b alienhand_pointer candidate
+  = must: assign extra visible mice as observed until reviewed
+  = must: expose captured_device_ids without activating capture
+  = must: serialize the assignment table for review
+  - never: silently activate capture from a suggested assignment

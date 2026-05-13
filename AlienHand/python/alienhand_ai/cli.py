@@ -26,7 +26,11 @@ from .interface_probe import probe_godot_interfaces, summarize_interface_map
 from .interaction_trace import summarize_interaction_trace, write_interaction_trace
 from .learning_memory import ingest_learning_digest, summarize_learning_memory
 from .learning_packets import summarize_learning_packets, write_learning_packets
-from .multi_mouse import run_multi_mouse_device_scan, run_multi_mouse_virtualization_proof
+from .multi_mouse import (
+    run_multi_mouse_assignment_suggestion,
+    run_multi_mouse_device_scan,
+    run_multi_mouse_virtualization_proof,
+)
 from .payload_http import (
     run_app_payload_resolver_lifecycle_proof,
     run_app_thelounge_refinement_workbench_proof,
@@ -245,6 +249,10 @@ def main() -> None:
     multi_mouse_scan.add_argument("--output", default="runs")
     multi_mouse_scan.add_argument("--name", default="multi-mouse-device-scan")
 
+    multi_mouse_assign = sub.add_parser("multi-mouse-assignment-suggestion")
+    multi_mouse_assign.add_argument("--output", default="runs")
+    multi_mouse_assign.add_argument("--name", default="multi-mouse-assignment-suggestion")
+
     args = parser.parse_args()
     if args.command == "record-process":
         command = _normalize_remainder(args.command_args)
@@ -456,6 +464,9 @@ def main() -> None:
         print(json.dumps(result, indent=2))
     elif args.command == "multi-mouse-device-scan":
         result = run_multi_mouse_device_scan(Path(args.output) / args.name)
+        print(json.dumps(result, indent=2))
+    elif args.command == "multi-mouse-assignment-suggestion":
+        result = run_multi_mouse_assignment_suggestion(Path(args.output) / args.name)
         print(json.dumps(result, indent=2))
 
 

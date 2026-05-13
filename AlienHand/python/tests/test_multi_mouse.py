@@ -24,6 +24,7 @@ from alienhand_ai.multi_mouse import (
     RawInputDevice,
     ScreenBounds,
     RecordingLegacyInjectionBackend,
+    SimulatedCaptureBackend,
     TargetIdentity,
     TargetPointerPolicy,
     TargetPolicyRule,
@@ -38,6 +39,7 @@ from alienhand_ai.multi_mouse import (
     suggest_mouse_device_assignments,
     write_device_assignment_table,
     write_policy_table,
+    UnavailableCaptureBackend,
 )
 
 
@@ -183,6 +185,26 @@ class MultiMouseRoutingTests(unittest.TestCase):
         self.assertEqual((clamped.x, clamped.y), (100, 80))
         self.assertIsNone(unknown)
         self.assertEqual(tracker.state_snapshot()["states"]["mouse-b"]["pressed_buttons"], ["left"])
+
+    def test_capture_backends_make_real_capture_availability_explicit(self):
+        assignments = DeviceAssignmentTable(
+            [MouseDeviceAssignment("mouse-device-b", "mouse-b", ROLE_ALIENHAND_POINTER)]
+        )
+        unavailable = UnavailableCaptureBackend()
+        simulated = SimulatedCaptureBackend()
+
+        unavailable_status = unavailable.status(assignments)
+        simulated_status = simulated.activate(assignments)
+
+        self.assertFalse(unavailable_status.available)
+        self.assertFalse(unavailable_status.can_block_input)
+        self.assertEqual(unavailable_status.active_device_ids, ("mouse-b",))
+        with self.assertRaises(RuntimeError):
+            unavailable.activate(assignments)
+        self.assertTrue(simulated_status.available)
+        self.assertTrue(simulated_status.can_block_input)
+        self.assertTrue(simulated_status.simulation_only)
+        self.assertEqual(simulated_status.active_device_ids, ("mouse-b",))
 
     def test_legacy_injection_actions_are_recorded_without_real_input(self):
         target = TargetIdentity("legacy-editor", "notepad.exe")

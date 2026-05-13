@@ -28,6 +28,7 @@ from .learning_memory import ingest_learning_digest, summarize_learning_memory
 from .learning_packets import summarize_learning_packets, write_learning_packets
 from .multi_mouse import (
     run_multi_mouse_assignment_suggestion,
+    run_multi_mouse_capture_preflight,
     run_multi_mouse_device_scan,
     run_multi_mouse_virtualization_proof,
 )
@@ -253,6 +254,10 @@ def main() -> None:
     multi_mouse_assign.add_argument("--output", default="runs")
     multi_mouse_assign.add_argument("--name", default="multi-mouse-assignment-suggestion")
 
+    multi_mouse_capture = sub.add_parser("multi-mouse-capture-preflight")
+    multi_mouse_capture.add_argument("--output", default="runs")
+    multi_mouse_capture.add_argument("--name", default="multi-mouse-capture-preflight")
+
     args = parser.parse_args()
     if args.command == "record-process":
         command = _normalize_remainder(args.command_args)
@@ -467,6 +472,9 @@ def main() -> None:
         print(json.dumps(result, indent=2))
     elif args.command == "multi-mouse-assignment-suggestion":
         result = run_multi_mouse_assignment_suggestion(Path(args.output) / args.name)
+        print(json.dumps(result, indent=2))
+    elif args.command == "multi-mouse-capture-preflight":
+        result = run_multi_mouse_capture_preflight(Path(args.output) / args.name)
         print(json.dumps(result, indent=2))
 
 

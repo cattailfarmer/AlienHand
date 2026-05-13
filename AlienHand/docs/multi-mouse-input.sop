@@ -73,10 +73,12 @@ Description: This specification defines the dual-pointer input substrate for Ali
   + [raw_input_scan] is the user-mode ability to observe distinct Raw Input devices
   + [device_assignment] is the explicit mapping from Raw Input device name to AlienHand logical mouse identity
   + [capture_backend] is a future driver, filter, or interception backend that can consume a chosen device before Windows cursor merge
+  + [capture_preflight] is the explicit runtime check that reports whether capture can be activated
   + [injection_backend] is the future implementation that converts integrated events into Windows-compatible input
 
   = must: treat Raw Input device discovery as identity evidence, not capture
   = must: keep device assignment as suggested_only until a user reviews or a later trusted policy activates it
+  = must: report no real capture availability when no backend is configured
   = must: keep capture/block claims provisional until a backend proves consumed input no longer reaches the system pointer
   = should: keep the router independent from the eventual capture backend
 
@@ -86,9 +88,11 @@ Description: This specification defines the dual-pointer input substrate for Ali
   + [proof_command] is multi-mouse-routing-proof
   + [device_scan_command] is multi-mouse-device-scan
   + [assignment_suggestion_command] is multi-mouse-assignment-suggestion
+  + [capture_preflight_command] is multi-mouse-capture-preflight
   + [policy_persistence] is read_policy_table and write_policy_table
   + [assignment_persistence] is read_device_assignment_table and write_device_assignment_table
   + [motion_normalization] is VirtualPointerTracker, ScreenBounds, and PointerDeltaPacket
+  + [capture_backend_status] is UnavailableCaptureBackend, SimulatedCaptureBackend, and CaptureBackendStatus
   + [legacy_injection_plan] is RecordingLegacyInjectionBackend and legacy_injection_actions
 
   = must: simulate [mouse_a] as the Windows pointer
@@ -99,6 +103,7 @@ Description: This specification defines the dual-pointer input substrate for Ali
   = must: prove suggested physical-device assignment without activating capture
   = must: prove assignment table JSON round trip without hardware
   = must: prove relative delta normalization into clamped absolute virtual pointer events
+  = must: prove capture backend availability is explicit and cannot be assumed
   = must: prove legacy injection action planning without moving the real cursor
   = must: preserve inspectable routed event records
   = must: avoid moving the real cursor or blocking real hardware during simulation
@@ -142,3 +147,15 @@ Description: This specification defines the dual-pointer input substrate for Ali
   = must: expose captured_device_ids without activating capture
   = must: serialize the assignment table for review
   - never: silently activate capture from a suggested assignment
+
+& [MultiMouseCapturePreflightProof] is the safety gate before any real input capture can run
+  + [implementation] is AlienHand/python/alienhand_ai/multi_mouse.py run_multi_mouse_capture_preflight
+  + [proof_command] is multi-mouse-capture-preflight
+  + [unavailable_backend] is the current real backend state
+  + [simulated_backend] is a test-only backend
+
+  = must: combine Raw Input scan, suggested assignment, and capture backend status
+  = must: return [can_activate_capture] false when no real backend is available
+  = must: expose the would-be captured logical device ids
+  = must: make simulated capture visibly simulation_only
+  - never: treat simulated capture as proof of real input blocking

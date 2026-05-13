@@ -138,6 +138,65 @@ class DeviceAssignmentTable:
 
 
 @dataclass(frozen=True)
+class CaptureBackendStatus:
+    backend_name: str
+    available: bool
+    can_block_input: bool
+    active_device_ids: tuple[str, ...] = ()
+    reason: str = ""
+    simulation_only: bool = False
+
+    def to_dict(self) -> JsonDict:
+        return {
+            "backend_name": self.backend_name,
+            "available": self.available,
+            "can_block_input": self.can_block_input,
+            "active_device_ids": list(self.active_device_ids),
+            "reason": self.reason,
+            "simulation_only": self.simulation_only,
+        }
+
+
+class UnavailableCaptureBackend:
+    backend_name = "unavailable"
+
+    def status(self, assignments: DeviceAssignmentTable) -> CaptureBackendStatus:
+        return CaptureBackendStatus(
+            backend_name=self.backend_name,
+            available=False,
+            can_block_input=False,
+            active_device_ids=tuple(sorted(assignments.captured_device_ids())),
+            reason="No driver, filter, or interception backend is configured.",
+        )
+
+    def activate(self, assignments: DeviceAssignmentTable) -> CaptureBackendStatus:
+        status = self.status(assignments)
+        raise RuntimeError(status.reason)
+
+
+class SimulatedCaptureBackend:
+    backend_name = "simulated"
+
+    def __init__(self) -> None:
+        self.active_device_ids: set[str] = set()
+
+    def status(self, assignments: DeviceAssignmentTable) -> CaptureBackendStatus:
+        captured = assignments.captured_device_ids()
+        return CaptureBackendStatus(
+            backend_name=self.backend_name,
+            available=True,
+            can_block_input=True,
+            active_device_ids=tuple(sorted(self.active_device_ids or captured)),
+            reason="Simulation backend only; no real hardware input is blocked.",
+            simulation_only=True,
+        )
+
+    def activate(self, assignments: DeviceAssignmentTable) -> CaptureBackendStatus:
+        self.active_device_ids = assignments.captured_device_ids()
+        return self.status(assignments)
+
+
+@dataclass(frozen=True)
 class TargetPointerPolicy:
     mode: str
     legacy_fallback: str = MODE_BLOCKED
@@ -778,6 +837,29 @@ def run_multi_mouse_assignment_suggestion(root: str | Path) -> JsonDict:
         "assignment_note": "Review assignments before enabling any future capture backend.",
     }
     output = root_path / "multi-mouse-assignment-suggestion.json"
+    output.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    result["output"] = str(output.resolve())
+    return result
+
+
+def run_multi_mouse_capture_preflight(root: str | Path) -> JsonDict:
+    root_path = Path(root)
+    root_path.mkdir(parents=True, exist_ok=True)
+    devices = enumerate_windows_raw_input_devices()
+    assignments = suggest_mouse_device_assignments(devices)
+    backend = UnavailableCaptureBackend()
+    status = backend.status(assignments)
+    mouse_device_count = len([device for device in devices if device.kind == "mouse"])
+    result = {
+        "root": str(root_path.resolve()),
+        "mouse_device_count": mouse_device_count,
+        "multiple_mice_visible": mouse_device_count >= 2,
+        "assignment_table": assignments.to_dict(),
+        "capture_backend": status.to_dict(),
+        "can_activate_capture": status.available and status.can_block_input and bool(status.active_device_ids),
+        "preflight_note": "This preflight intentionally refuses real capture until a backend is installed and verified.",
+    }
+    output = root_path / "multi-mouse-capture-preflight.json"
     output.write_text(json.dumps(result, indent=2), encoding="utf-8")
     result["output"] = str(output.resolve())
     return result

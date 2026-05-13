@@ -352,6 +352,19 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: support user-driven block-to-cut-to-chapter-to-edit proof flow
   = should: treat future storage revisions as additive migrations
 
+& [ConversationReplayImportV1] is the first bridge from durable chat replay into refinement storage
+  + [implementation] is AlienHand/python/alienhand_ai/refinement_storage.py import_replay_rows
+  + [proof_command] is chat-refinement-replay-proof
+  + [source] is [ChannelJSONLHistory] plus [PayloadStore] replay rows
+  + [target] is [ConversationBlockSchema] rows in [ConversationSQLiteStorageV1]
+  + [block_id_rule] is "message:<message_uuid>"
+
+  = must: import resolved replay payloads into searchable conversation blocks
+  = must: skip payload_error rows by default
+  = must: be idempotent for repeated replay imports of the same message UUIDs
+  = must: preserve raw history and payload references in block metadata
+  = should: let imported blocks seed user-controlled cuts and chapters
+
 & [ConversationEditDiffArtifact] is the change record for an editorial edit
   + [diff_id] is the stable identifier
   + [edit_id] is the parent edit identifier

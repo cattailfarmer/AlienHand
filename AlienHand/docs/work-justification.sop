@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup, the first runtime substrate proof, and the separate chat conversation refinement specification
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but live history presentation, refinement workbench UI, and production authentication hardening are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but live history presentation, refinement workbench UI, and production authentication hardening are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -173,6 +173,19 @@ Description: SOP description of the justification step, called "jusitification" 
   + [verification_result] is SQLite schema version 1 migrated, 2 blocks persisted and indexed, 1 cut created and removed, 1 chapter created, 1 mirrored bookmark with note persisted, 1 sticky persisted, 1 quote persisted, 1 edit and diff artifact persisted, 1 TOC entry persisted, search for AlienHand returned 1 source block hit, storage_proof_ok returned true, and full test discovery passed with 75 tests
   + [status] is justified
   + [uncertainty] is live workbench UI, production migration policy beyond version 1, and integration with The Lounge presentation remain future work
+
+& [JustificationEntry: RefinementReplayImportProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [ConversationReplayImportV1], [ConversationBlockSchema], [ConversationStorageModel], and [ChannelContextReplay]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/refinement_storage.py import_replay_rows, conversation_block_from_replay_row, and run_refinement_replay_import_proof
+  + [implemented_artifact] is AlienHand/python/tests/test_refinement_storage.py replay import tests
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-refinement-replay-proof command
+  + [implemented_artifact] is AlienHand/README.md proof command reference
+  + [evidence_anchor] is python -m unittest tests.test_refinement_storage
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-refinement-replay-proof --output runs --name chat-refinement-replay-proof
+  + [verification_result] is two real committed chat payloads replayed from JSONL plus payload store into two stable message:<uuid> conversation blocks, repeated import stayed idempotent at two blocks, search for searchable returned one source block, one cut and one chapter were created from the imported block, and replay_import_ok returned true
+  + [status] is justified
+  + [uncertainty] is automatic live ingestion from the running chat service and The Lounge workbench presentation remain future work
 
 & [JustificationEntry: ChatRuntimeTruthTestCore] is partially_justified
   + [work_type] is runtime_code

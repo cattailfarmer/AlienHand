@@ -11,9 +11,19 @@ from alienhand_ai.refinement_storage import (
     SCHEMA_VERSION,
     ConversationBlock,
     ConversationRefinementStore,
+    import_replay_rows,
+    run_refinement_replay_import_proof,
     run_refinement_storage_proof,
     tokenize_terms,
     utc_timestamp,
+)
+from alienhand_ai.chat_platform import (
+    ChannelJSONLHistory,
+    EnvelopeOutbox,
+    PayloadResolver,
+    PayloadStore,
+    commit_message,
+    replay_channel,
 )
 
 
@@ -108,6 +118,60 @@ class RefinementStorageTests(unittest.TestCase):
             self.assertEqual(result["search_hits"], 1)
             self.assertEqual(result["toc_entries"], 1)
             self.assertEqual(result["removed_cut_status"], "removed")
+
+    def test_import_replay_rows_creates_searchable_blocks_from_chat_history(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            chat_root = root / "chat"
+            channel_uuid = uuid4().hex
+            payload_store = PayloadStore(chat_root)
+            history = ChannelJSONLHistory(chat_root)
+            outbox = EnvelopeOutbox()
+            first = commit_message(
+                app_id=7,
+                channel_uuid=channel_uuid,
+                nick="user",
+                sender_type="user",
+                payload_kind="text",
+                content={"text": "raw source should become searchable"},
+                store=payload_store,
+                history=history,
+                publisher=outbox,
+            )
+            commit_message(
+                app_id=7,
+                channel_uuid=channel_uuid,
+                nick="agent",
+                sender_type="ai_agent",
+                payload_kind="mixed",
+                content={"text": "cuts can begin from replay"},
+                frames=({"kind": "code", "language": "python", "code": "print('seed')"},),
+                store=payload_store,
+                history=history,
+                publisher=outbox,
+            )
+            replay_rows = replay_channel(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
+
+            with ConversationRefinementStore(root / "refinement.sqlite3") as store:
+                blocks = import_replay_rows(store, replay_rows)
+                second_import = import_replay_rows(store, replay_rows)
+                hits = store.search("searchable")
+
+                self.assertEqual(len(blocks), 2)
+                self.assertEqual(len(second_import), 2)
+                self.assertEqual(store.count("conversation_blocks"), 2)
+                self.assertEqual(blocks[0].block_id, f"message:{first.envelope.message_uuid}")
+                self.assertEqual(hits[0].block_id, blocks[0].block_id)
+
+    def test_refinement_replay_import_proof_exercises_chat_to_storage_bridge(self):
+        with tempfile.TemporaryDirectory() as temp:
+            result = run_refinement_replay_import_proof(Path(temp) / "proof")
+
+            self.assertTrue(result["replay_import_ok"])
+            self.assertEqual(result["imported_blocks"], 2)
+            self.assertEqual(result["cuts"], 1)
+            self.assertEqual(result["chapters"], 1)
+            self.assertEqual(result["search_hits"], 1)
 
 
 def sample_block(text: str) -> ConversationBlock:

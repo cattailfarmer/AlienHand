@@ -198,6 +198,41 @@ class ConversationRefinementStore:
             self._index_block(block)
         return block
 
+    def upsert_block(self, block: ConversationBlock) -> ConversationBlock:
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO conversation_blocks(
+                    block_id, channel_uuid, message_uuid, sender, sender_type,
+                    created_at, payload_kind, presentation, raw_refs_json, metadata_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(block_id) DO UPDATE SET
+                    channel_uuid = excluded.channel_uuid,
+                    message_uuid = excluded.message_uuid,
+                    sender = excluded.sender,
+                    sender_type = excluded.sender_type,
+                    created_at = excluded.created_at,
+                    payload_kind = excluded.payload_kind,
+                    presentation = excluded.presentation,
+                    raw_refs_json = excluded.raw_refs_json,
+                    metadata_json = excluded.metadata_json
+                """,
+                (
+                    block.block_id,
+                    block.channel_uuid,
+                    block.message_uuid,
+                    block.sender,
+                    block.sender_type,
+                    block.created_at,
+                    block.payload_kind,
+                    block.presentation,
+                    dumps(block.raw_refs),
+                    dumps(block.metadata),
+                ),
+            )
+            self._index_block(block)
+        return block
+
     def get_block(self, block_id: str) -> ConversationBlock:
         row = self._required_row("SELECT * FROM conversation_blocks WHERE block_id = ?", (block_id,))
         return block_from_row(row)
@@ -540,6 +575,52 @@ class ConversationRefinementStore:
         return row
 
 
+def import_replay_rows(
+    store: ConversationRefinementStore,
+    replay_rows: Iterable[JsonDict],
+    *,
+    include_payload_errors: bool = False,
+) -> list[ConversationBlock]:
+    blocks = []
+    for row in replay_rows:
+        block = conversation_block_from_replay_row(row, include_payload_errors=include_payload_errors)
+        if block is not None:
+            blocks.append(store.upsert_block(block))
+    return blocks
+
+
+def conversation_block_from_replay_row(row: JsonDict, *, include_payload_errors: bool = False) -> ConversationBlock | None:
+    event = dict(row.get("event") or {})
+    payload = dict(row.get("payload") or {})
+    event_type = str(payload.get("event_type") or event.get("event_type") or "message")
+    status = str(payload.get("status") or "")
+    if not include_payload_errors and (event_type == "payload_error" or status == "payload_error"):
+        return None
+    message_uuid = str(payload.get("message_uuid") or event.get("message_uuid") or "")
+    if not message_uuid:
+        return None
+    channel_uuid = str(payload.get("channel_uuid") or event.get("channel_uuid") or "")
+    return ConversationBlock(
+        block_id=f"message:{message_uuid}",
+        channel_uuid=channel_uuid,
+        message_uuid=message_uuid,
+        sender=str(payload.get("sender") or event.get("nick") or ""),
+        sender_type=str(payload.get("sender_type") or event.get("sender_type") or "service"),
+        created_at=str(payload.get("created_at") or event.get("timestamp") or ""),
+        payload_kind=str(payload.get("payload_kind") or "system"),
+        presentation=payload_presentation_text(payload),
+        raw_refs=(
+            {"kind": "history_event", "message_uuid": message_uuid},
+            {"kind": "payload", "message_uuid": message_uuid},
+        ),
+        metadata={
+            "event_type": event_type,
+            "history_event": event,
+            "frame_count": len(payload.get("frames") or ()),
+        },
+    )
+
+
 def run_refinement_storage_proof(root: str | Path) -> JsonDict:
     proof_root = Path(root)
     proof_root.mkdir(parents=True, exist_ok=True)
@@ -638,8 +719,108 @@ def run_refinement_storage_proof(root: str | Path) -> JsonDict:
     return result
 
 
+def run_refinement_replay_import_proof(root: str | Path, *, app_id: int = 1) -> JsonDict:
+    from .chat_platform import (
+        ChannelJSONLHistory,
+        EnvelopeOutbox,
+        PayloadResolver,
+        PayloadStore,
+        commit_message,
+        replay_channel,
+    )
+
+    proof_root = Path(root)
+    chat_root = proof_root / "chat"
+    db_path = proof_root / "refinement.sqlite3"
+    channel_uuid = uuid4().hex
+    payload_store = PayloadStore(chat_root)
+    history = ChannelJSONLHistory(chat_root)
+    outbox = EnvelopeOutbox(chat_root / "irc_outbox.jsonl")
+    user_message = commit_message(
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        nick="user",
+        sender_type="user",
+        payload_kind="text",
+        content={"text": "Please preserve this conversation in searchable blocks."},
+        store=payload_store,
+        history=history,
+        publisher=outbox,
+    )
+    agent_message = commit_message(
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        nick="agent",
+        sender_type="ai_agent",
+        payload_kind="mixed",
+        content={"text": "Replay import can seed the cuts workbench."},
+        frames=({"kind": "code", "language": "python", "code": "print('refine')"},),
+        store=payload_store,
+        history=history,
+        publisher=outbox,
+    )
+    replay_rows = replay_channel(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
+    with ConversationRefinementStore(db_path) as refinement_store:
+        blocks = import_replay_rows(refinement_store, replay_rows)
+        cut = refinement_store.create_cut(blocks[0].block_id)
+        chapter = refinement_store.create_chapter(
+            title="Replay Imported Context",
+            summary="Real chat history became refinement blocks.",
+            cut_ids=(cut.cut_id,),
+        )
+        hits = refinement_store.search("searchable")
+        result = {
+            "root": str(proof_root.resolve()),
+            "database": str(db_path.resolve()),
+            "channel_uuid": channel_uuid,
+            "imported_blocks": len(blocks),
+            "block_ids": [block.block_id for block in blocks],
+            "message_uuids": [user_message.envelope.message_uuid, agent_message.envelope.message_uuid],
+            "cuts": refinement_store.count("conversation_cuts"),
+            "chapters": refinement_store.count("conversation_chapters"),
+            "search_hits": len(hits),
+            "chapter_id": chapter.chapter_id,
+            "replay_import_ok": len(blocks) == 2
+            and refinement_store.count("conversation_blocks") == 2
+            and len(hits) == 1
+            and chapter.member_block_ids == (blocks[0].block_id,),
+        }
+    return result
+
+
 def tokenize_terms(text: str) -> list[str]:
     return [match.group(0).lower() for match in TOKEN_PATTERN.finditer(text)]
+
+
+def payload_presentation_text(payload: JsonDict) -> str:
+    content = payload.get("content")
+    parts: list[str] = []
+    if isinstance(content, dict):
+        text = content.get("text")
+        if isinstance(text, str):
+            parts.append(text)
+        elif content:
+            parts.append(dumps(content))
+    elif isinstance(content, str):
+        parts.append(content)
+    frames = payload.get("frames") or ()
+    for frame in frames:
+        if not isinstance(frame, dict):
+            continue
+        if isinstance(frame.get("code"), str):
+            parts.append(frame["code"])
+        elif isinstance(frame.get("text"), str):
+            parts.append(frame["text"])
+        elif isinstance(frame.get("alt"), str):
+            parts.append(frame["alt"])
+        elif isinstance(frame.get("title"), str):
+            parts.append(frame["title"])
+    presentation = "\n".join(part for part in parts if part).strip()
+    if presentation:
+        return presentation
+    event_type = str(payload.get("event_type") or "message")
+    message_uuid = str(payload.get("message_uuid") or "")
+    return f"[{event_type}] {message_uuid}".strip()
 
 
 def normalize_search_term(term: str) -> str:

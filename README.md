@@ -55,6 +55,7 @@ cd C:\Project\Codex_Projects\ReasoningFramework\AlienHand\AlienHand\python
 $env:PYTHONPATH="."
 python -m alienhand_ai.cli chat-history-proof --output runs --name chat-history-proof
 python -m alienhand_ai.cli chat-refinement-storage-proof --output runs --name chat-refinement-storage-proof
+python -m alienhand_ai.cli chat-refinement-replay-proof --output runs --name chat-refinement-replay-proof
 python -m alienhand_ai.cli chat-payload-resolver-proof --output runs --name chat-payload-resolver-proof
 python -m alienhand_ai.cli chat-app-resolver-proof --output runs --name chat-app-resolver-proof
 python -m alienhand_ai.cli chat-runtime-group-proof --output runs --name chat-runtime-group-proof

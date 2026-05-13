@@ -21,10 +21,12 @@ from alienhand_ai.chat_platform import (
     PayloadResolver,
     PayloadStore,
     commit_message,
+    handle_history_command,
     irc_channel_name,
     make_local_ergo_config,
     normalize_channel_uuid,
     payload_to_render_model,
+    parse_history_command,
     record_history_request,
     replay_channel,
     replay_channel_chunks,
@@ -217,11 +219,87 @@ class ChatPlatformTests(unittest.TestCase):
             self.assertTrue(chunks[0]["has_more"])
             self.assertFalse(chunks[1]["has_more"])
 
+    def test_parse_history_command_supports_count_all_and_chunk_size(self):
+        default_request = parse_history_command("!ah history")
+        counted_request = parse_history_command("!ah history 12 chunk 4")
+        equals_request = parse_history_command("!ah history 9 --chunk=3")
+        all_request = parse_history_command("!ah history all chunk-size 7")
+
+        self.assertIsNotNone(default_request)
+        self.assertEqual(default_request["mode"], "last_messages")
+        self.assertEqual(default_request["messages"], 50)
+        self.assertEqual(default_request["chunk_size"], 10)
+        self.assertEqual(counted_request["messages"], 12)
+        self.assertEqual(counted_request["chunk_size"], 4)
+        self.assertEqual(equals_request["messages"], 9)
+        self.assertEqual(equals_request["chunk_size"], 3)
+        self.assertEqual(all_request["mode"], "all_messages")
+        self.assertIsNone(all_request["messages"])
+        self.assertEqual(all_request["chunk_size"], 7)
+        self.assertIsNone(parse_history_command("hello history"))
+
+        with self.assertRaises(ValueError):
+            parse_history_command("!ah history all 5")
+
+        with self.assertRaises(ValueError):
+            parse_history_command("!ah history 5 all")
+
+        with self.assertRaises(ValueError):
+            parse_history_command("!ah history 5 chunk 0")
+
+    def test_history_command_records_request_and_returns_replay_chunks(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            store = PayloadStore(root)
+            history = ChannelJSONLHistory(root)
+            outbox = EnvelopeOutbox()
+            channel_uuid = uuid4().hex
+
+            for index in range(1, 4):
+                commit_message(
+                    app_id=7,
+                    channel_uuid=channel_uuid,
+                    nick="agent",
+                    sender_type="ai_agent",
+                    payload_kind="text",
+                    content={"text": f"message {index}"},
+                    store=store,
+                    history=history,
+                    publisher=outbox,
+                )
+
+            result = handle_history_command(
+                "!ah history 2 chunk 1",
+                app_id=7,
+                channel_uuid=channel_uuid,
+                nick="user",
+                requester_type="user",
+                store=store,
+                history=history,
+                resolver=PayloadResolver(store),
+                publisher=outbox,
+                metadata={"proof": "history_command"},
+            )
+
+            self.assertIsNotNone(result)
+            self.assertEqual(result["request"]["mode"], "last_messages")
+            self.assertEqual(result["request"]["messages"], 2)
+            self.assertEqual(result["chunk_lengths"], [1, 1])
+            self.assertEqual(result["chunks"][0]["events"][0]["payload"]["content"]["text"], "message 3")
+            self.assertEqual(result["chunks"][1]["events"][0]["payload"]["content"]["text"], "message 2")
+            self.assertEqual(result["resolved_payloads"], 2)
+            self.assertEqual(len(history.load(channel_uuid)), 4)
+            self.assertEqual(history.load(channel_uuid)[-1]["event_type"], "history_request")
+            self.assertEqual(len(outbox.lines), 4)
+
     def test_history_replay_proof_records_request_and_chunks_payloads(self):
         with tempfile.TemporaryDirectory() as temp:
             result = run_history_replay_proof(Path(temp) / "history", message_count=5, chunk_size=2, limit=4)
 
             self.assertTrue(result["request_recorded"])
+            self.assertTrue(result["history_command_ok"])
+            self.assertEqual(result["history_command"], "!ah history 4 chunk 2")
+            self.assertEqual(result["history_command_request"]["messages"], 4)
             self.assertTrue(result["cold_replay_ok"])
             self.assertEqual(result["history_events"], 6)
             self.assertEqual(result["outbox_envelopes"], 6)

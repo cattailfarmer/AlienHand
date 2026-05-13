@@ -17,6 +17,12 @@ JsonDict = dict[str, Any]
 IRC_BODY_BUDGET_BYTES = 400
 RECENT_FIRST_BACKFILL = "recent_first_backfill"
 OLDEST_FIRST_RECONSTRUCT = "oldest_first_reconstruct"
+AH_HISTORY_COMMAND = "!ah history"
+AH_HISTORY_COMMAND_SYNTAX = "!ah history [all|<messages>] [chunk <chunk_size>]"
+DEFAULT_HISTORY_COMMAND_MESSAGES = 50
+DEFAULT_HISTORY_COMMAND_CHUNK_SIZE = 10
+MAX_HISTORY_COMMAND_MESSAGES = 500
+MAX_HISTORY_COMMAND_CHUNK_SIZE = 100
 
 
 class EnvelopePublisher(Protocol):
@@ -991,6 +997,121 @@ def replay_channel_render_models(history: ChannelJSONLHistory, resolver: Payload
     return [payload_to_render_model(row["payload"]) for row in replay_channel(history, resolver, channel_uuid)]
 
 
+def parse_history_command(
+    text: str,
+    *,
+    default_messages: int = DEFAULT_HISTORY_COMMAND_MESSAGES,
+    default_chunk_size: int = DEFAULT_HISTORY_COMMAND_CHUNK_SIZE,
+    max_messages: int = MAX_HISTORY_COMMAND_MESSAGES,
+    max_chunk_size: int = MAX_HISTORY_COMMAND_CHUNK_SIZE,
+) -> JsonDict | None:
+    stripped = text.strip()
+    tokens = stripped.split()
+    if len(tokens) < 2 or tokens[0].lower() != "!ah" or tokens[1].lower() != "history":
+        return None
+
+    mode = "last_messages"
+    messages: int | None = default_messages
+    message_count_seen = False
+    chunk_size = default_chunk_size
+    index = 2
+    while index < len(tokens):
+        token = tokens[index]
+        lowered = token.lower()
+        if lowered == "all":
+            if message_count_seen:
+                raise ValueError("history command cannot combine all with a message count")
+            mode = "all_messages"
+            messages = None
+            index += 1
+        elif lowered in {"chunk", "--chunk", "chunk-size", "--chunk-size"}:
+            index += 1
+            if index >= len(tokens):
+                raise ValueError("history command chunk size is missing")
+            chunk_size = _parse_positive_int(tokens[index], "history command chunk size")
+            index += 1
+        elif lowered.startswith("chunk=") or lowered.startswith("--chunk="):
+            chunk_size = _parse_positive_int(token.split("=", 1)[1], "history command chunk size")
+            index += 1
+        elif lowered.startswith("chunk-size=") or lowered.startswith("--chunk-size="):
+            chunk_size = _parse_positive_int(token.split("=", 1)[1], "history command chunk size")
+            index += 1
+        elif token.isdigit():
+            if mode == "all_messages":
+                raise ValueError("history command cannot combine all with a message count")
+            messages = _parse_positive_int(token, "history command message count")
+            message_count_seen = True
+            index += 1
+        else:
+            raise ValueError(f"unsupported history command token: {token}")
+
+    if messages is not None and messages > max_messages:
+        raise ValueError(f"history command message count exceeds {max_messages}")
+    if chunk_size > max_chunk_size:
+        raise ValueError(f"history command chunk size exceeds {max_chunk_size}")
+
+    return {
+        "syntax": AH_HISTORY_COMMAND_SYNTAX,
+        "command_text": stripped,
+        "mode": mode,
+        "messages": messages,
+        "chunk_size": chunk_size,
+        "direction": RECENT_FIRST_BACKFILL,
+        "event_types": ["message"],
+    }
+
+
+def handle_history_command(
+    command_text: str,
+    *,
+    app_id: int,
+    channel_uuid: str,
+    nick: str,
+    requester_type: str,
+    store: PayloadStore,
+    history: ChannelJSONLHistory,
+    resolver: PayloadResolver,
+    publisher: EnvelopePublisher,
+    metadata: JsonDict | None = None,
+) -> JsonDict | None:
+    request = parse_history_command(command_text)
+    if request is None:
+        return None
+
+    published = record_history_request(
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        nick=nick,
+        requester_type=requester_type,
+        request=request,
+        store=store,
+        history=history,
+        publisher=publisher,
+        metadata=metadata,
+    )
+    chunks = replay_channel_chunks(
+        history,
+        resolver,
+        channel_uuid,
+        chunk_size=int(request["chunk_size"]),
+        limit=request["messages"],
+        direction=str(request["direction"]),
+        event_types=tuple(request["event_types"]),
+    )
+    payloads = [row["payload"] for chunk in chunks for row in chunk["events"]]
+    return {
+        "request": request,
+        "history_request_uuid": published.envelope.message_uuid,
+        "history_request_envelope": published.envelope.to_line(),
+        "history_request_payload": published.payload.to_dict(),
+        "chunks": chunks,
+        "chunk_count": len(chunks),
+        "chunk_lengths": [chunk["event_count"] for chunk in chunks],
+        "resolved_payloads": len([payload for payload in payloads if payload.get("event_type") != "payload_error"]),
+        "payload_errors": len([payload for payload in payloads if payload.get("event_type") == "payload_error"]),
+    }
+
+
 def record_history_request(
     *,
     app_id: int,
@@ -1098,6 +1219,7 @@ def run_history_replay_proof(
     message_count: int = 5,
     chunk_size: int = 2,
     limit: int = 4,
+    command_text: str | None = None,
 ) -> JsonDict:
     chat_root = Path(root)
     store = PayloadStore(chat_root)
@@ -1121,40 +1243,41 @@ def run_history_replay_proof(
             )
         )
 
-    request = record_history_request(
+    resolved_command_text = command_text or f"!ah history {limit} chunk {chunk_size}"
+    command_result = handle_history_command(
+        resolved_command_text,
         app_id=app_id,
         channel_uuid=channel_uuid,
         nick="user",
         requester_type="user",
-        request={"mode": "last_messages", "messages": limit, "chunk_size": chunk_size},
         store=store,
         history=history,
+        resolver=PayloadResolver(store),
         publisher=outbox,
         metadata={"proof": "history_replay"},
     )
-
-    chunks = replay_channel_chunks(
-        ChannelJSONLHistory(chat_root),
-        PayloadResolver(PayloadStore(chat_root)),
-        channel_uuid,
-        chunk_size=chunk_size,
-        limit=limit,
-        event_types=("message",),
-    )
+    if command_result is None:
+        raise ValueError(f"not an AlienHand history command: {resolved_command_text}")
+    chunks = command_result["chunks"]
     payloads = [row["payload"] for chunk in chunks for row in chunk["events"]]
+    history_events = ChannelJSONLHistory(chat_root).load(channel_uuid)
     return {
         "app_id": app_id,
         "channel_uuid": channel_uuid,
+        "history_command": resolved_command_text,
+        "history_command_request": command_result["request"],
         "messages_committed": [message.envelope.message_uuid for message in committed],
-        "history_request_uuid": request.envelope.message_uuid,
-        "history_events": len(ChannelJSONLHistory(chat_root).load(channel_uuid)),
+        "history_request_uuid": command_result["history_request_uuid"],
+        "history_events": len(history_events),
         "outbox_envelopes": len(outbox.lines),
-        "chunk_count": len(chunks),
-        "chunk_lengths": [chunk["event_count"] for chunk in chunks],
+        "chunk_count": command_result["chunk_count"],
+        "chunk_lengths": command_result["chunk_lengths"],
         "first_chunk_texts": [row["payload"]["content"]["text"] for row in chunks[0]["events"]] if chunks else [],
         "resolved_payloads": len([payload for payload in payloads if payload.get("event_type") != "payload_error"]),
-        "request_recorded": request.payload.event_type == "history_request",
-        "cold_replay_ok": len(payloads) == min(limit, message_count),
+        "request_recorded": any(event.get("event_type") == "history_request" for event in history_events),
+        "history_command_ok": command_result["request"]["mode"] in {"last_messages", "all_messages"}
+        and command_result["history_request_payload"]["event_type"] == "history_request",
+        "cold_replay_ok": len(payloads) == min(command_result["request"]["messages"] or message_count, message_count),
         "root": str(chat_root.resolve()),
     }
 
@@ -1373,6 +1496,16 @@ def _parse_wire_tokens(tokens: list[str]) -> dict[str, str]:
     if missing:
         raise ValueError(f"missing envelope fields: {sorted(missing)}")
     return values
+
+
+def _parse_positive_int(value: str, label: str) -> int:
+    try:
+        parsed = int(value)
+    except ValueError as error:
+        raise ValueError(f"{label} must be a positive integer") from error
+    if parsed < 1:
+        raise ValueError(f"{label} must be a positive integer")
+    return parsed
 
 
 def _require_wire_token(key: str, value: str) -> None:

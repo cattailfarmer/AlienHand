@@ -143,6 +143,7 @@ def main() -> None:
     chat_history.add_argument("--messages", type=int, default=5)
     chat_history.add_argument("--chunk-size", type=int, default=2)
     chat_history.add_argument("--limit", type=int, default=4)
+    chat_history.add_argument("--command", dest="history_command")
     chat_history.add_argument("--output", default="runs")
     chat_history.add_argument("--name", default="chat-history-proof")
 
@@ -320,6 +321,7 @@ def main() -> None:
             message_count=args.messages,
             chunk_size=args.chunk_size,
             limit=args.limit,
+            command_text=args.history_command,
         )
         print(json.dumps(result, indent=2))
     elif args.command == "chat-render-proof":

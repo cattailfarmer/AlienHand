@@ -52,10 +52,16 @@ the app-owned The Lounge runtime group:
 ```powershell
 cd C:\Project\Codex_Projects\ReasoningFramework\AlienHand\AlienHand\python
 $env:PYTHONPATH="."
+python -m alienhand_ai.cli chat-history-proof --output runs --name chat-history-proof
 python -m alienhand_ai.cli chat-payload-resolver-proof --output runs --name chat-payload-resolver-proof
 python -m alienhand_ai.cli chat-app-resolver-proof --output runs --name chat-app-resolver-proof
 python -m alienhand_ai.cli chat-runtime-group-proof --output runs --name chat-runtime-group-proof
 ```
+
+The prototype channel history command is `!ah history [all|<messages>] [chunk
+<chunk_size>]`, for example `!ah history 25 chunk 5`. The command handler records
+a payload-backed `history_request` event and returns recent-first replay chunks
+from JSONL plus payload files.
 
 `chat-runtime-group-proof` expects the nested The Lounge fork to have a built
 `dist/server/index.js`. If that build output is absent, run `yarn build` in

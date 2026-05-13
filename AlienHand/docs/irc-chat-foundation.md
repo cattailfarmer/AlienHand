@@ -80,7 +80,8 @@ Recommended event types:
 ## User History Requests
 
 - History access is command-driven.
-- The command syntax is not finalized yet.
+- The prototype command syntax is `!ah history [all|<messages>] [chunk <chunk_size>]`.
+- Examples are `!ah history`, `!ah history 25`, `!ah history 25 chunk 5`, and `!ah history all chunk 10`.
 - The request should become a structured event so replay and auditing can recognize it.
 - History delivery should come from the durable log, not from IRC state alone.
 
@@ -95,8 +96,8 @@ Recommended event types:
 
 ## Open Decisions
 
-- Final command syntax for history requests.
 - Production-grade resolver authentication and authorization beyond the local prototype bearer token.
+- Live The Lounge command capture and user-facing replay presentation.
 - Exact chunk size and token budgeting for replay.
 - Whether to keep a short-lived cache for PM context beyond the live session.
 - How much non-message metadata should be exposed back to users during history replay.
@@ -140,9 +141,9 @@ The prototype succeeds only if it can publish an `AHIRC/1` envelope, resolve the
 
 The current runtime slice implements the durable substrate core in `alienhand_ai.chat_platform`.
 
-It verifies compact `AH1` envelope round-trip, 32-character channel UUID hex normalization, payload write-before-history-before-publication ordering, JSONL channel append, cold replay from disk, explicit `payload_error` records for missing payloads, socket-level IRC `JOIN`/`PRIVMSG` publication against a fake server, real local Ergo startup/publication/shutdown through `chat-ergo-proof`, AlienHand-owned service lifecycle startup/publication/shutdown through `chat-app-lifecycle-proof`, app-owned payload resolver startup/fetch/shutdown and thelounge environment export through `chat-app-resolver-proof`, prototype bearer-token access control through `chat-payload-resolver-proof`, app-owned The Lounge startup/config/shutdown through `chat-runtime-group-proof`, minimal user IRC client receive plus payload resolution through `chat-user-client-proof`, chunked payload replay plus payload-backed `history_request` recording through `chat-history-proof`, render-model conversion for left/right/system rows plus code/image frames through `chat-render-proof`, thelounge fork rendering support through `chat-thelounge-adapter-proof`, and standalone HTTP payload resolver fetch through `chat-payload-resolver-proof`.
+It verifies compact `AH1` envelope round-trip, 32-character channel UUID hex normalization, payload write-before-history-before-publication ordering, JSONL channel append, cold replay from disk, explicit `payload_error` records for missing payloads, socket-level IRC `JOIN`/`PRIVMSG` publication against a fake server, real local Ergo startup/publication/shutdown through `chat-ergo-proof`, AlienHand-owned service lifecycle startup/publication/shutdown through `chat-app-lifecycle-proof`, app-owned payload resolver startup/fetch/shutdown and thelounge environment export through `chat-app-resolver-proof`, prototype bearer-token access control through `chat-payload-resolver-proof`, app-owned The Lounge startup/config/shutdown through `chat-runtime-group-proof`, minimal user IRC client receive plus payload resolution through `chat-user-client-proof`, `!ah history` command parsing plus payload-backed `history_request` recording through `chat-history-proof`, chunked payload replay, render-model conversion for left/right/system rows plus code/image frames through `chat-render-proof`, thelounge fork rendering support through `chat-thelounge-adapter-proof`, and standalone HTTP payload resolver fetch through `chat-payload-resolver-proof`.
 
-The remaining truth-test work is to settle the final user command syntax for history requests and to replace the local prototype bearer-token rule with production-grade authentication if the resolver is exposed beyond the app-owned local runtime.
+The remaining truth-test work is to connect the command handler into live The Lounge/user routing, present replay chunks back to users, and replace the local prototype bearer-token rule with production-grade authentication if the resolver is exposed beyond the app-owned local runtime.
 
 ## thelounge Fork Wiring
 

@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup and the first runtime substrate proof
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, chunked history replay, render-model conversion, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but final history command syntax and production authentication hardening are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but live history presentation and production authentication hardening are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -74,7 +74,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is git submodule status fc3d8986 AlienHand/thelounge
   + [verification_result] is thelounge exists under AlienHand/thelounge from the pushable AlienHand fork and provides the planned human client dependency
   + [status] is justified
-  + [uncertainty] is final user command syntax and production authentication hardening remain unfinished
+  + [uncertainty] is live history presentation and production authentication hardening remain unfinished
 
 & [JustificationEntry: ChatFoundationDocument] is justified
   + [work_type] is documentation
@@ -92,7 +92,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-platform.sop
   + [verification_result] is SOP spec defines envelope, payload store, payload resolver, commit order, replay, protocol review, truth test, and progress graph
   + [status] is justified
-  + [uncertainty] is final history command syntax and production authentication hardening remain unfinished
+  + [uncertainty] is live history presentation and production authentication hardening remain unfinished
 
 & [JustificationEntry: WorkJustificationLayer] is justified
   + [work_type] is documentation
@@ -176,14 +176,16 @@ Description: SOP description of the justification step, called "jusitification" 
 & [JustificationEntry: HistoryReplayProof] is justified
   + [work_type] is runtime_code
   + [requirement_anchor] is [ChannelContextReplay], [HistoryCommand], [ChannelJSONLHistory], [PayloadResolver], [history_request_node], and [RuntimePrototypeSlice]
-  + [implemented_artifact] is AlienHand/python/alienhand_ai/chat_platform.py replay_channel_chunks, record_history_request, and run_history_replay_proof
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/chat_platform.py parse_history_command, handle_history_command, replay_channel_chunks, record_history_request, and run_history_replay_proof
   + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-history-proof command
-  + [implemented_artifact] is AlienHand/python/tests/test_chat_platform.py test_chunked_replay_backfills_recent_full_messages and test_history_replay_proof_records_request_and_chunks_payloads
+  + [implemented_artifact] is AlienHand/python/tests/test_chat_platform.py test_parse_history_command_supports_count_all_and_chunk_size, test_history_command_records_request_and_returns_replay_chunks, test_chunked_replay_backfills_recent_full_messages, and test_history_replay_proof_records_request_and_chunks_payloads
   + [evidence_anchor] is python -m unittest tests.test_chat_platform
+  + [evidence_anchor] is python -m unittest discover -s tests
   + [evidence_anchor] is python -m alienhand_ai.cli chat-history-proof --output runs --name chat-history-proof
-  + [verification_result] is channel 33d6bd08eccd447296b6d0f7baca8d9f recorded 5 message payloads plus 1 payload-backed history_request, replayed the latest 4 messages as two full-payload chunks of 2, resolved 4 payloads, and returned cold_replay_ok true
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-history-proof --command "!ah history all chunk 2" --output runs --name chat-history-command-all-proof
+  + [verification_result] is command !ah history 4 chunk 2 parsed to last_messages with messages 4 and chunk_size 2, channel 1464d54fa0804b9fb8141c69572aeca2 recorded 5 message payloads plus payload-backed history_request 579524de-d0e4-4576-84d0-d81510024b88, replayed the latest 4 messages as two full-payload chunks of 2, resolved 4 payloads, returned history_command_ok true, and returned cold_replay_ok true; command !ah history all chunk 2 parsed to all_messages, replayed 5 payloads in chunk lengths 2, 2, 1, and returned cold_replay_ok true
   + [status] is justified
-  + [uncertainty] is the final user-facing command syntax remains unsettled; this proof only verifies the replay substrate the command will call
+  + [uncertainty] is live The Lounge command capture and user-facing replay presentation are not implemented; this proof verifies command syntax, durable request recording, and replay substrate routing
 
 & [JustificationEntry: RenderModelProof] is justified
   + [work_type] is runtime_code

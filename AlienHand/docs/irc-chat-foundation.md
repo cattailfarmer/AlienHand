@@ -139,6 +139,12 @@ The prototype succeeds only if it can publish an `AHIRC/1` envelope, resolve the
 
 The current runtime slice implements the durable substrate core in `alienhand_ai.chat_platform`.
 
-It verifies compact `AH1` envelope round-trip, 32-character channel UUID hex normalization, payload write-before-history-before-publication ordering, JSONL channel append, cold replay from disk, explicit `payload_error` records for missing payloads, socket-level IRC `JOIN`/`PRIVMSG` publication against a fake server, real local Ergo startup/publication/shutdown through `chat-ergo-proof`, AlienHand-owned service lifecycle startup/publication/shutdown through `chat-app-lifecycle-proof`, minimal user IRC client receive plus payload resolution through `chat-user-client-proof`, chunked payload replay plus payload-backed `history_request` recording through `chat-history-proof`, and render-model conversion for left/right/system rows plus code/image frames through `chat-render-proof`.
+It verifies compact `AH1` envelope round-trip, 32-character channel UUID hex normalization, payload write-before-history-before-publication ordering, JSONL channel append, cold replay from disk, explicit `payload_error` records for missing payloads, socket-level IRC `JOIN`/`PRIVMSG` publication against a fake server, real local Ergo startup/publication/shutdown through `chat-ergo-proof`, AlienHand-owned service lifecycle startup/publication/shutdown through `chat-app-lifecycle-proof`, minimal user IRC client receive plus payload resolution through `chat-user-client-proof`, chunked payload replay plus payload-backed `history_request` recording through `chat-history-proof`, render-model conversion for left/right/system rows plus code/image frames through `chat-render-proof`, and a thelounge adapter overlay plus preview fixture through `chat-thelounge-adapter-proof`.
 
-The remaining truth-test work is to implement the thelounge UI against the render model and settle the final user command syntax for history requests.
+The remaining truth-test work is to wire the adapter into a pushable thelounge fork, connect the live payload resolver path, and settle the final user command syntax for history requests.
+
+## thelounge Adapter Overlay
+
+The first client-facing adapter lives outside the upstream submodule at `AlienHand/thelounge-alienhand`.
+
+This is intentional. The local thelounge submodule currently tracks `https://github.com/thelounge/thelounge.git`, so committing directly inside the submodule would require a pushed fork commit before the parent repository could safely reference it. The adapter overlay gives us a reviewable Vue component, CSS, fixture, and preview proof while preserving a clean future move into an AlienHand-owned thelounge fork.

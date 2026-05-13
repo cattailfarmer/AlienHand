@@ -71,6 +71,7 @@ python -m alienhand_ai.cli chat-app-lifecycle-proof --output runs --name chat-ap
 python -m alienhand_ai.cli chat-user-client-proof --output runs --name chat-user-client-proof
 python -m alienhand_ai.cli chat-history-proof --output runs --name chat-history-proof
 python -m alienhand_ai.cli chat-render-proof --output runs --name chat-render-proof
+python -m alienhand_ai.cli chat-thelounge-adapter-proof --output runs --name chat-thelounge-adapter-proof
 ```
 
 The generic CLI is the intended path for operating and debugging programs such
@@ -100,6 +101,10 @@ final user command syntax; it proves the replay substrate that syntax will call.
 `chat-render-proof` turns resolved payloads into render rows for the future
 client surface: user rows orient left, AI-agent rows orient right, service/error
 rows render as system rows, and code/image frames are normalized for the UI.
+`chat-thelounge-adapter-proof` writes a render-row fixture and static preview
+HTML for the AlienHand-owned thelounge adapter overlay. This keeps the UI
+contract reviewable before the upstream thelounge submodule is pointed at a
+pushable AlienHand fork.
 
 If `--name` is omitted or set to `auto`, AlienHand stores the run in the next
 numeric folder under `--output`: `runs\1`, `runs\2`, `runs\3`, and so on. It

@@ -25,6 +25,7 @@ from .learning_packets import summarize_learning_packets, write_learning_packets
 from .runner import ProcessRunConfig, record_process
 from .sop import compile_sop_file, compile_sop_text, write_sop_packets
 from .telemetry import TelemetryRecorder, summarize_run, write_html_report
+from .thelounge_adapter import run_thelounge_adapter_proof
 
 
 def main() -> None:
@@ -144,6 +145,11 @@ def main() -> None:
     chat_render.add_argument("--app-id", type=int, default=1)
     chat_render.add_argument("--output", default="runs")
     chat_render.add_argument("--name", default="chat-render-proof")
+
+    chat_thelounge = sub.add_parser("chat-thelounge-adapter-proof")
+    chat_thelounge.add_argument("--app-id", type=int, default=1)
+    chat_thelounge.add_argument("--output", default="runs")
+    chat_thelounge.add_argument("--name", default="chat-thelounge-adapter-proof")
 
     args = parser.parse_args()
     if args.command == "record-process":
@@ -288,6 +294,9 @@ def main() -> None:
         print(json.dumps(result, indent=2))
     elif args.command == "chat-render-proof":
         result = run_render_model_proof(Path(args.output) / args.name, app_id=args.app_id)
+        print(json.dumps(result, indent=2))
+    elif args.command == "chat-thelounge-adapter-proof":
+        result = run_thelounge_adapter_proof(Path(args.output) / args.name, app_id=args.app_id)
         print(json.dumps(result, indent=2))
 
 

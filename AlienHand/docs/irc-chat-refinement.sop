@@ -387,7 +387,7 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [base_path] is /alienhand/refinement
   + [auth] is the prototype bearer token shared with [PayloadResolverHTTP]
   + [read_endpoints] are blocks, search, cuts, chapters, bookmarks, quotes, stickies, edits, edit-diffs, and toc
-  + [write_endpoints] are create cut, remove cut, create chapter, create bookmark, create quote, create sticky, apply edit, and create toc entry
+  + [write_endpoints] are adopt live block, create cut, remove cut, create chapter, create bookmark, create quote, create sticky, apply edit, and create toc entry
 
   = must: expose channel-filtered conversation blocks for the raw pane
   = must: expose search hits that map terms back to source block IDs
@@ -396,6 +396,7 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: expose channel-filtered quotes when a channel UUID is supplied
   = must: expose channel-filtered sticky references when a channel UUID is supplied
   = must: expose editorial edits, edit diff artifacts, and table-of-contents entries for the refined layer
+  = must: allow explicit user-controlled adoption of a live IRC line into a durable refinement block
   = must: allow explicit user-controlled creation of cuts from source blocks
   = must: allow explicit user-controlled soft-removal of cuts
   = must: allow explicit user-controlled chapter creation from selected cuts
@@ -474,12 +475,14 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [style] is AlienHand/thelounge/client/css/alienhand-chat.css workbench styling
   + [entrypoint] is AlienHand/thelounge/client/components/Chat.vue Cuts toggle
   + [proof_command] is chat-workbench-runtime-proof
-  + [fork_commit] is 82ea2680
+  + [fork_commit] is e557017c
 
   = must: appear only for channel names that resolve to a 32-character hexadecimal UUID
   = must: provide a visible Cuts control at the top chat frame
   = must: fetch raw conversation blocks for the current channel
   = must: search raw blocks through [ConversationRefinementHTTPV1]
+  = must: let a user stage a live IRC chat line as the source for a cut
+  = must: let the cuts pane adopt that live IRC line as a refinement block before inserting it
   = must: let a user inject a raw block into the cuts pane
   = must: let a user remove an active cut with an x control
   = must: let a user create a chapter from the active channel cuts

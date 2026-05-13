@@ -371,6 +371,45 @@ class PayloadHTTPTests(unittest.TestCase):
                 [sticky["sticky"]["sticky_id"]],
             )
 
+    def test_refinement_http_api_can_adopt_live_irc_message_as_block(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            channel_uuid = uuid4().hex
+            with PayloadResolverHTTPServer(root, access_token="secret") as server:
+                block, _, block_status = post_json(
+                    f"{server.base_url}/alienhand/refinement/blocks",
+                    {
+                        "block_id": f"thelounge:{channel_uuid}:42",
+                        "channel_uuid": channel_uuid,
+                        "message_uuid": f"thelounge-{channel_uuid}-42",
+                        "sender": "alienhanduser00",
+                        "sender_type": "user",
+                        "created_at": "2026-05-13T13:57:00.000Z",
+                        "payload_kind": "irc_text",
+                        "presentation": "ffffffffffff",
+                        "raw_refs": [{"kind": "thelounge_message", "message_id": 42}],
+                        "metadata": {"source": "thelounge_live_chat"},
+                    },
+                    token="secret",
+                )
+                cut, _, cut_status = post_json(
+                    f"{server.base_url}/alienhand/refinement/cuts",
+                    {"source_block_id": block["block"]["block_id"]},
+                    token="secret",
+                )
+                listed, _, listed_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/blocks?channel={channel_uuid}",
+                    token="secret",
+                )
+
+            self.assertEqual(block_status, 201)
+            self.assertEqual(block["block"]["sender"], "alienhanduser00")
+            self.assertEqual(block["block"]["presentation"], "ffffffffffff")
+            self.assertEqual(cut_status, 201)
+            self.assertEqual(cut["cut"]["source_block_id"], block["block"]["block_id"])
+            self.assertEqual(listed_status, 200)
+            self.assertEqual([row["block_id"] for row in listed["blocks"]], [block["block"]["block_id"]])
+
     def test_refinement_http_api_proof_exercises_workbench_contract(self):
         with tempfile.TemporaryDirectory() as temp:
             result = run_refinement_http_api_proof(Path(temp) / "refinement-http")

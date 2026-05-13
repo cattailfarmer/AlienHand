@@ -62,7 +62,9 @@ bookmark anchors, and can unpin stickies while preserving their durable record.
 The same local refinement API now exposes the first editorial substrate for
 chapter-targeted edit records, durable diff artifacts, and refined table-of-contents
 entries, and the The Lounge workbench has first-pass controls for applying a
-chapter edit and adding a chapter to the refined TOC.
+chapter edit and adding a chapter to the refined TOC. Live IRC chat lines in a
+UUID channel now expose a source arrow so the cuts pane can adopt that line as a
+refinement block and insert it into the cuts surface.
 
 Current proof commands for live payload lookup, app-owned resolver lifecycle, and
 the app-owned The Lounge runtime group:

@@ -12,7 +12,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
-from .refinement_storage import ConversationRefinementStore, import_replay_rows
+from .refinement_storage import ConversationBlock, ConversationRefinementStore, import_replay_rows
 from .chat_platform import (
     AlienHandChatService,
     ChannelJSONLHistory,
@@ -248,6 +248,54 @@ class PayloadResolverHTTPServer:
                         self._send_json({"error": "source_block_not_found"}, HTTPStatus.NOT_FOUND)
                         return True
                     self._send_json({"cut": cut.to_dict()}, HTTPStatus.CREATED)
+                    return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "blocks"):
+                    body = self._read_json_body()
+                    if body is None:
+                        return True
+                    channel_uuid = str(body.get("channel_uuid") or "")
+                    message_uuid = str(body.get("message_uuid") or "")
+                    sender = str(body.get("sender") or "")
+                    presentation = str(body.get("presentation") or "")
+                    if not channel_uuid:
+                        self._send_json({"error": "channel_uuid_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if not message_uuid:
+                        self._send_json({"error": "message_uuid_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if not sender:
+                        self._send_json({"error": "sender_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if not presentation:
+                        self._send_json({"error": "presentation_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    raw_refs = body.get("raw_refs")
+                    metadata = body.get("metadata")
+                    if raw_refs is None:
+                        raw_refs = ()
+                    if not isinstance(raw_refs, list):
+                        self._send_json({"error": "raw_refs_must_be_array"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if metadata is None:
+                        metadata = {}
+                    if not isinstance(metadata, dict):
+                        self._send_json({"error": "metadata_must_be_object"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    block = ConversationBlock(
+                        block_id=str(body.get("block_id") or f"message:{message_uuid}"),
+                        channel_uuid=channel_uuid,
+                        message_uuid=message_uuid,
+                        sender=sender,
+                        sender_type=str(body.get("sender_type") or "user"),
+                        created_at=str(body.get("created_at") or ""),
+                        payload_kind=str(body.get("payload_kind") or "text"),
+                        presentation=presentation,
+                        raw_refs=tuple(raw_refs),
+                        metadata=metadata,
+                    )
+                    with ConversationRefinementStore(owner.refinement_db_path) as store:
+                        stored_block = store.add_block(block)
+                    self._send_json({"block": stored_block.to_dict()}, HTTPStatus.CREATED)
                     return True
                 if parts == (*REFINEMENT_PATH_PREFIX, "chapters"):
                     body = self._read_json_body()
@@ -1099,6 +1147,27 @@ def run_app_thelounge_refinement_workbench_proof(
             },
             access_token=access_token,
         )
+        live_block_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/blocks",
+            {
+                "block_id": f"thelounge:{channel_uuid}:1",
+                "channel_uuid": channel_uuid,
+                "created_at": "2026-05-13T13:57:00.000Z",
+                "message_uuid": f"thelounge-{channel_uuid}-1",
+                "metadata": {"source": "runtime_live_source"},
+                "payload_kind": "irc_text",
+                "presentation": "Runtime live IRC source.",
+                "raw_refs": [{"kind": "thelounge_message", "message_id": 1}],
+                "sender": "alienhanduser00",
+                "sender_type": "user",
+            },
+            access_token=access_token,
+        )
+        live_cut_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/cuts",
+            {"position": 1, "source_block_id": live_block_response["json"].get("block", {}).get("block_id")},
+            access_token=access_token,
+        )
         remove_response = _http_delete_json(
             f"{resolver_base_url}/alienhand/refinement/cuts/{cut_id}",
             access_token=access_token,
@@ -1113,6 +1182,10 @@ def run_app_thelounge_refinement_workbench_proof(
         )
         chapters_response = _http_json(
             f"{resolver_base_url}/alienhand/refinement/chapters?channel={channel_uuid}",
+            access_token=access_token,
+        )
+        live_blocks_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/blocks?channel={channel_uuid}",
             access_token=access_token,
         )
         edits_response = _http_json(
@@ -1145,6 +1218,7 @@ def run_app_thelounge_refinement_workbench_proof(
     resolved_payloads = [row for row in replayed if row["payload"].get("event_type") != "payload_error"]
     render_row = render_response["json"]
     search_hits = search_response["json"].get("hits", [])
+    live_blocks = live_blocks_response["json"].get("blocks", [])
     cuts = cuts_response["json"].get("cuts", [])
     active_cuts = active_cuts_response["json"].get("cuts", [])
     chapters = chapters_response["json"].get("chapters", [])
@@ -1165,6 +1239,8 @@ def run_app_thelounge_refinement_workbench_proof(
         and "Unpin" in bundle_js
         and "Apply edit" in bundle_js
         and "Add TOC" in bundle_js
+        and "Stage this message for cuts" in bundle_js
+        and "Select a live chat line" in bundle_js
         and "alienhand-workbench" in bundle_js
     )
     workbench_style_ok = (
@@ -1174,6 +1250,8 @@ def run_app_thelounge_refinement_workbench_proof(
         and "alienhand-workbench__stickies" in style_css
         and "alienhand-workbench__edits" in style_css
         and "alienhand-workbench__toc" in style_css
+        and "alienhand-source-arrow" in style_css
+        and "alienhand-workbench__source-bridge" in style_css
     )
     refinement_api_ok = (
         blocks_response["status"] == 200
@@ -1186,10 +1264,15 @@ def run_app_thelounge_refinement_workbench_proof(
         and edit_response["status"] == 201
         and edit_response["json"].get("edit", {}).get("diff_id") == diff_id
         and toc_response["status"] == 201
+        and live_block_response["status"] == 201
+        and live_cut_response["status"] == 201
+        and live_cut_response["json"].get("cut", {}).get("source_block_id")
+        == live_block_response["json"].get("block", {}).get("block_id")
         and remove_response["status"] == 200
         and remove_response["json"].get("cut", {}).get("status") == "removed"
-        and len(cuts) == 1
-        and len(active_cuts) == 0
+        and len(live_blocks) == 2
+        and len(cuts) == 2
+        and len(active_cuts) == 1
         and len(chapters) == 1
         and chapters[0].get("edit_chain") == [edit_id]
         and len(edits) == 1
@@ -1233,8 +1316,11 @@ def run_app_thelounge_refinement_workbench_proof(
         "thelounge_started": thelounge_started,
         "render_fetch_ok": render_fetch_ok,
         "listed_blocks": len(blocks),
+        "listed_blocks_after_live_source": len(live_blocks),
         "search_hits": len(search_hits),
         "created_cut_id": cut_id,
+        "created_live_block_id": live_block_response["json"].get("block", {}).get("block_id"),
+        "created_live_cut_id": live_cut_response["json"].get("cut", {}).get("cut_id"),
         "created_chapter_id": chapter_id,
         "created_edit_id": edit_id,
         "created_diff_id": diff_id,

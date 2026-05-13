@@ -105,3 +105,32 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: allow normal view to remain simpler than the editorial layer
   = should: let chapter and editorial views coexist without replacing the source
 
+## Split View Editing Model
+
+& [ConversationCutsWorkbench] is the primary refinement UI for composing chapters from live conversation
+  + [left_pane] is the raw conversation stream
+  + [right_pane] is the cuts view that will become the chaptered/refined product
+  + [edits_pane] is the third perspective for editorial transformations
+  + [raw_text_toggle] is the control for showing or hiding raw text detail
+  + [pane_divider] is the adjustable separator between left and right panes
+  + [pointer] is the drag-and-drop insertion target shown in the divider frame and pointing toward the cuts pane
+
+  = must: allow the user to hide or show the raw conversation pane
+  = must: allow the user to hide or show the cuts pane
+  = must: allow the user to hide or show the edits pane
+  = must: hide the divider and pointer whenever either the raw conversation pane or cuts pane is hidden
+  = must: keep the divider and pointer visible only when both source and cuts panes are visible
+  = must: make the visible panes track together while scrolling when linked
+  = must: allow the raw text toggle to independently hide or show raw text detail
+
+& [ConversationCutAction] is the action that promotes one raw conversation block into the cuts pane
+  + [source_block] is the raw conversation block selected on the left pane
+  + [insertion_point] is the divider pointer location in the cuts pane
+  + [remove_button] is the x control on a cut block inside the cuts pane
+  + [tracking_mode] is whether the pane scrolls stay linked
+
+  = must: provide a button on each raw conversation block to inject that block into the cuts pane at the insertion point
+  = must: render an x control on each cut block so the user can remove it from the cuts perspective
+  = must: preserve the raw conversation block when it is added to cuts
+  = must: support toggling scroll tracking on and off for the raw text view
+  = should: keep the cut set and edit set observable as separate working surfaces

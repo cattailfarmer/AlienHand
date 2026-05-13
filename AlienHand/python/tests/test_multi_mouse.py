@@ -15,12 +15,14 @@ from alienhand_ai.multi_mouse import (
     MODE_INDEPENDENT,
     MODE_INTEGRATED,
     PointerInputEvent,
+    RecordingLegacyInjectionBackend,
     TargetIdentity,
     TargetPointerPolicy,
     TargetPolicyRule,
     TargetPolicyTable,
     VirtualPointerRouter,
     effective_target_mode,
+    legacy_injection_actions,
     read_policy_table,
     run_multi_mouse_virtualization_proof,
     write_policy_table,
@@ -122,12 +124,38 @@ class MultiMouseRoutingTests(unittest.TestCase):
         self.assertEqual(loaded.resolve(TargetIdentity("secure-login", "credential-ui.exe")).mode, MODE_BLOCKED)
         self.assertEqual(loaded.resolve(TargetIdentity("note-window", "NOTEPAD.EXE", "Project notes")).mode, MODE_INTEGRATED)
 
+    def test_legacy_injection_actions_are_recorded_without_real_input(self):
+        target = TargetIdentity("legacy-editor", "notepad.exe")
+        policies = TargetPolicyTable()
+        policies.set_policy(target.target_id, TargetPointerPolicy(MODE_INTEGRATED))
+        router = VirtualPointerRouter(captured_device_ids={"mouse-b"}, policy_table=policies)
+
+        down = router.route(PointerInputEvent("mouse-b", "left_down", 11, 22, target, 1))
+        up = router.route(PointerInputEvent("mouse-b", "left_up", 11, 22, target, 2))
+        backend = RecordingLegacyInjectionBackend()
+        actions = backend.inject_many([down, up])
+
+        self.assertEqual([action.action for action in actions], ["move", "button_down", "move", "button_up"])
+        self.assertEqual([action.button for action in actions], ["", "left", "", "left"])
+        self.assertEqual(backend.to_dict()["actions"][0]["pointer_id"], "alienhand:mouse-b")
+
+    def test_non_legacy_events_do_not_create_injection_actions(self):
+        target = TargetIdentity("alienhand-workbench", "AlienHand.exe", supports_independent_pointers=True)
+        policies = TargetPolicyTable()
+        policies.set_policy(target.target_id, TargetPointerPolicy(MODE_INDEPENDENT))
+        router = VirtualPointerRouter(captured_device_ids={"mouse-b"}, policy_table=policies)
+
+        routed = router.route(PointerInputEvent("mouse-b", "left_down", 11, 22, target, 1))
+
+        self.assertEqual(legacy_injection_actions(routed), [])
+
     def test_virtualization_proof_runs_without_hardware(self):
         with tempfile.TemporaryDirectory() as temp:
             result = run_multi_mouse_virtualization_proof(Path(temp))
 
         self.assertTrue(result["hardware_free"])
         self.assertTrue(result["routing_modes_ok"])
+        self.assertEqual(len(result["legacy_injection_actions"]), 6)
         self.assertEqual(result["summary"]["channels"][CHANNEL_WINDOWS], 3)
         self.assertEqual(result["summary"]["channels"][CHANNEL_BLOCKED], 1)
         self.assertEqual(result["summary"]["channels"][CHANNEL_ALIENHAND], 3)

@@ -55,10 +55,13 @@ Description: This specification defines the dual-pointer input substrate for Ali
   + [output] is an anonymous Windows mouse event stream
   + [cursor_policy] is move, restore, hide, or overlay-mask behavior around injection
   + [gesture_owner] is the currently serialized captured pointer gesture
+  + [recording_backend] is the current proof-only backend that records intended legacy injection actions without moving the real cursor
 
   = must: serialize legacy gestures that depend on global cursor capture or button state
   = must: inject only ordinary legacy mouse events into legacy targets
   = must: preserve [virtual_pointer_b] state before and after injection
+  = must: plan move before button or wheel actions so the legacy target receives the action at [virtual_pointer_b] coordinates
+  = must: keep proof backends non-invasive until explicit real-input permission and backend support exist
   = should: coalesce move events when high-frequency alternation would reduce stability
   - never: allow simultaneous independent drags to be promised in legacy mode
 
@@ -77,12 +80,14 @@ Description: This specification defines the dual-pointer input substrate for Ali
   + [proof_command] is multi-mouse-routing-proof
   + [device_scan_command] is multi-mouse-device-scan
   + [policy_persistence] is read_policy_table and write_policy_table
+  + [legacy_injection_plan] is RecordingLegacyInjectionBackend and legacy_injection_actions
 
   = must: simulate [mouse_a] as the Windows pointer
   = must: simulate [mouse_b] as a captured AlienHand pointer
   = must: prove blocked, integrated, independent, and independent-to-legacy fallback routing
   = must: prove app-level and surface-specific policy resolution without hardware
   = must: prove policy table JSON round trip without hardware
+  = must: prove legacy injection action planning without moving the real cursor
   = must: preserve inspectable routed event records
   = must: avoid moving the real cursor or blocking real hardware during simulation
   = should: provide a live Raw Input scan to check how many physical mouse devices Windows exposes

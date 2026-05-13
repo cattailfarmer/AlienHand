@@ -534,6 +534,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is python -m alienhand_ai.cli multi-mouse-device-scan --output runs --name multi-mouse-device-scan
   + [verification_result] is the hardware-free routing proof returned routing_modes_ok true with 3 windows_passthrough events from mouse-a, 1 blocked event from captured mouse-b, 3 alienhand_independent events for an AlienHand-aware target, 4 legacy_injected events including independent-to-integrated fallback for a legacy target, and preserved Windows pointer state at mouse-a coordinates while virtual pointer mouse-b ended at its own coordinates
   + [verification_result] is policy rule tests proved app-level process matching, surface-specific override selection, and JSON policy table round trip through read_policy_table and write_policy_table
+  + [verification_result] is legacy injection planning tests proved RecordingLegacyInjectionBackend records move, button_down, and button_up actions for legacy events while non-legacy independent events create no injection actions
   + [verification_result] is the live Raw Input scan found 2 mouse-class devices and reported multiple_mice_visible true while keeping capture_backend_present false
   + [status] is justified
   + [uncertainty] is this proves target policy routing, virtual pointer state, and Raw Input device visibility; it does not yet implement the capture driver/interception backend, real input blocking, cursor masking, or injected Windows legacy events

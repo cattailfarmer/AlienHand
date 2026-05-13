@@ -280,6 +280,32 @@ class RoutedPointerEvent:
         }
 
 
+@dataclass(frozen=True)
+class LegacyInjectionAction:
+    action: str
+    x: int
+    y: int
+    target_id: str
+    source_device_id: str
+    pointer_id: str
+    timestamp_ms: int
+    button: str = ""
+    wheel_delta: int = 0
+
+    def to_dict(self) -> JsonDict:
+        return {
+            "action": self.action,
+            "x": self.x,
+            "y": self.y,
+            "target_id": self.target_id,
+            "source_device_id": self.source_device_id,
+            "pointer_id": self.pointer_id,
+            "timestamp_ms": self.timestamp_ms,
+            "button": self.button,
+            "wheel_delta": self.wheel_delta,
+        }
+
+
 class VirtualPointerRouter:
     """Hardware-free router for proving AlienHand pointer policy semantics."""
 
@@ -406,6 +432,8 @@ class VirtualPointerRouter:
             "cursor_policy": "move_restore_or_overlay_mask",
             "active_legacy_device_id": self.active_legacy_device_id,
         }
+        if event.action in {"wheel", "horizontal_wheel"}:
+            details["wheel_delta"] = event.wheel_delta
         if fallback_reason is not None:
             details["fallback_reason"] = fallback_reason
         return RoutedPointerEvent(
@@ -458,6 +486,42 @@ def summarize_routed_events(events: Iterable[RoutedPointerEvent]) -> JsonDict:
         "channels": counts,
         "delivered_events": delivered,
     }
+
+
+class RecordingLegacyInjectionBackend:
+    def __init__(self) -> None:
+        self.actions: list[LegacyInjectionAction] = []
+
+    def inject(self, event: RoutedPointerEvent) -> list[LegacyInjectionAction]:
+        actions = legacy_injection_actions(event)
+        self.actions.extend(actions)
+        return actions
+
+    def inject_many(self, events: Iterable[RoutedPointerEvent]) -> list[LegacyInjectionAction]:
+        injected: list[LegacyInjectionAction] = []
+        for event in events:
+            injected.extend(self.inject(event))
+        return injected
+
+    def to_dict(self) -> JsonDict:
+        return {"actions": [action.to_dict() for action in self.actions]}
+
+
+def legacy_injection_actions(event: RoutedPointerEvent) -> list[LegacyInjectionAction]:
+    if event.channel != CHANNEL_LEGACY:
+        return []
+
+    move = _legacy_action(event, "move")
+    if event.action == "move":
+        return [move]
+    if event.action in {"left_down", "right_down", "middle_down"}:
+        return [move, _legacy_action(event, "button_down", button=event.action.removesuffix("_down"))]
+    if event.action in {"left_up", "right_up", "middle_up"}:
+        return [move, _legacy_action(event, "button_up", button=event.action.removesuffix("_up"))]
+    if event.action in {"wheel", "horizontal_wheel"}:
+        wheel_delta = int(event.details.get("wheel_delta", 0))
+        return [move, _legacy_action(event, event.action, wheel_delta=wheel_delta)]
+    return [move, _legacy_action(event, event.action)]
 
 
 def enumerate_windows_raw_input_devices() -> list[RawInputDevice]:
@@ -588,6 +652,8 @@ def run_multi_mouse_virtualization_proof(root: str | Path) -> JsonDict:
         PointerInputEvent("mouse-b", "move", 700, 420, fallback_target, 11),
     ]
     routed = router.route_many(inputs)
+    injection_backend = RecordingLegacyInjectionBackend()
+    legacy_actions = injection_backend.inject_many(routed)
     summary = summarize_routed_events(routed)
     state = router.state_snapshot()
     events_by_channel = summary["channels"]
@@ -600,6 +666,7 @@ def run_multi_mouse_virtualization_proof(root: str | Path) -> JsonDict:
         and state["windows_pointer"]["y"] == 120
         and state["virtual_pointers"]["mouse-b"]["x"] == 700
         and state["virtual_pointers"]["mouse-b"]["y"] == 420
+        and len(legacy_actions) == 6
         and any(event.details.get("fallback_reason") == "target_not_independent_aware" for event in routed)
     )
     result = {
@@ -611,6 +678,7 @@ def run_multi_mouse_virtualization_proof(root: str | Path) -> JsonDict:
         "state": state,
         "inputs": [event.to_dict() for event in inputs],
         "routed": [event.to_dict() for event in routed],
+        "legacy_injection_actions": [action.to_dict() for action in legacy_actions],
         "routing_modes_ok": routing_modes_ok,
     }
     output = root_path / "multi-mouse-virtualization-proof.json"
@@ -641,6 +709,26 @@ def _raw_input_device_name(user32: Any, handle: int) -> str:
     if result == ctypes.c_uint(-1).value:
         raise ctypes.WinError()
     return buffer.value
+
+
+def _legacy_action(
+    event: RoutedPointerEvent,
+    action: str,
+    *,
+    button: str = "",
+    wheel_delta: int = 0,
+) -> LegacyInjectionAction:
+    return LegacyInjectionAction(
+        action=action,
+        x=event.x,
+        y=event.y,
+        target_id=event.target_id,
+        source_device_id=event.source_device_id,
+        pointer_id=event.pointer_id,
+        timestamp_ms=event.timestamp_ms,
+        button=button,
+        wheel_delta=wheel_delta,
+    )
 
 
 def _object_value(value: Any, name: str) -> JsonDict:

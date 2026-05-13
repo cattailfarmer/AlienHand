@@ -91,6 +91,10 @@ class PayloadHTTPTests(unittest.TestCase):
             try:
                 self.assertIsNotNone(service.payload_resolver_base_url)
                 self.assertIsNotNone(service.payload_http_server)
+                self.assertEqual(
+                    service.thelounge_environment()["ALIENHAND_PAYLOAD_RESOLVER"],
+                    service.payload_resolver_base_url,
+                )
                 row, _, status = fetch_json(service.payload_http_server.render_url(str(uuid4())))
             finally:
                 service.stop()
@@ -99,6 +103,13 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(row["status"], "payload_error")
             self.assertIsNone(service.payload_resolver_base_url)
             self.assertIsNone(service.payload_http_server)
+
+    def test_chat_service_requires_payload_resolver_before_thelounge_environment(self):
+        with tempfile.TemporaryDirectory() as temp:
+            service = AlienHandChatService(Path(temp) / "service")
+
+            with self.assertRaises(RuntimeError):
+                service.thelounge_environment()
 
 
 def fetch_json(url: str):

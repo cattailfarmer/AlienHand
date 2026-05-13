@@ -139,9 +139,9 @@ The prototype succeeds only if it can publish an `AHIRC/1` envelope, resolve the
 
 The current runtime slice implements the durable substrate core in `alienhand_ai.chat_platform`.
 
-It verifies compact `AH1` envelope round-trip, 32-character channel UUID hex normalization, payload write-before-history-before-publication ordering, JSONL channel append, cold replay from disk, explicit `payload_error` records for missing payloads, socket-level IRC `JOIN`/`PRIVMSG` publication against a fake server, real local Ergo startup/publication/shutdown through `chat-ergo-proof`, AlienHand-owned service lifecycle startup/publication/shutdown through `chat-app-lifecycle-proof`, app-owned payload resolver startup/fetch/shutdown through `chat-app-resolver-proof`, minimal user IRC client receive plus payload resolution through `chat-user-client-proof`, chunked payload replay plus payload-backed `history_request` recording through `chat-history-proof`, render-model conversion for left/right/system rows plus code/image frames through `chat-render-proof`, thelounge fork rendering support through `chat-thelounge-adapter-proof`, and standalone HTTP payload resolver fetch through `chat-payload-resolver-proof`.
+It verifies compact `AH1` envelope round-trip, 32-character channel UUID hex normalization, payload write-before-history-before-publication ordering, JSONL channel append, cold replay from disk, explicit `payload_error` records for missing payloads, socket-level IRC `JOIN`/`PRIVMSG` publication against a fake server, real local Ergo startup/publication/shutdown through `chat-ergo-proof`, AlienHand-owned service lifecycle startup/publication/shutdown through `chat-app-lifecycle-proof`, app-owned payload resolver startup/fetch/shutdown and thelounge environment export through `chat-app-resolver-proof`, minimal user IRC client receive plus payload resolution through `chat-user-client-proof`, chunked payload replay plus payload-backed `history_request` recording through `chat-history-proof`, render-model conversion for left/right/system rows plus code/image frames through `chat-render-proof`, thelounge fork rendering support through `chat-thelounge-adapter-proof`, and standalone HTTP payload resolver fetch through `chat-payload-resolver-proof`.
 
-The remaining truth-test work is to settle resolver discovery/access control and the final user command syntax for history requests.
+The remaining truth-test work is to settle resolver access control and the final user command syntax for history requests.
 
 ## thelounge Fork Wiring
 
@@ -149,7 +149,9 @@ The thelounge submodule now points at the pushable AlienHand fork `https://githu
 
 The fork branch `alienhand/chat-render-adapter` adds `AlienHandMessage.vue`, `alienhand-chat.css`, and an optional `alienhand` render-row field on the shared message type. `Message.vue` renders that component when a client message carries a resolved AlienHand render row.
 
-The same branch now includes a small AlienHand helper that parses `AH1` envelope messages, discovers a resolver base URL from `window.__ALIENHAND_PAYLOAD_RESOLVER__` or `localStorage.alienhandPayloadResolver`, fetches `/alienhand/payloads/<message_uuid>/render`, and populates `message.alienhand`. If the resolver is missing or the lookup fails, the helper renders an explicit `payload_error` row instead of pretending the payload exists.
+The same branch now includes a small AlienHand helper that parses `AH1` envelope messages, discovers a resolver base URL from The Lounge server configuration, the initial HTML body data attribute, `window.__ALIENHAND_PAYLOAD_RESOLVER__`, or `localStorage.alienhandPayloadResolver`, fetches `/alienhand/payloads/<message_uuid>/render`, and populates `message.alienhand`. If the resolver is missing or the lookup fails, the helper renders an explicit `payload_error` row instead of pretending the payload exists.
+
+The Lounge server accepts `alienhand.payloadResolverBaseUrl` in its config and also maps the `ALIENHAND_PAYLOAD_RESOLVER` environment variable into that setting. `AlienHandChatService.thelounge_environment()` exports the app-owned resolver URL in that environment-variable shape for the future launcher.
 
 ## Payload Resolver HTTP Slice
 

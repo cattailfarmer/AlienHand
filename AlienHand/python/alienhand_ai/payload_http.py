@@ -210,6 +210,7 @@ def run_app_payload_resolver_lifecycle_proof(
         resolver_started = service.payload_http_server is not None
         resolver_base_url = service.payload_resolver_base_url
         resolver_port = service.payload_resolver_port
+        thelounge_environment = service.thelounge_environment()
         ergo_port = service.port
         render_url = service.payload_http_server.render_url(published.envelope.message_uuid)
         render_response = _http_json(render_url)
@@ -234,6 +235,7 @@ def run_app_payload_resolver_lifecycle_proof(
         "ergo_port": ergo_port,
         "resolver_base_url": resolver_base_url,
         "resolver_port": resolver_port,
+        "thelounge_payload_resolver_env": thelounge_environment["ALIENHAND_PAYLOAD_RESOLVER"],
         "render_url": render_url,
         "app_lifecycle_started": process_started,
         "payload_resolver_started": resolver_started,

@@ -524,6 +524,12 @@ class AlienHandChatService:
     def replay_channel(self, channel_uuid: str) -> list[JsonDict]:
         return replay_channel(self.history, self.resolver, channel_uuid)
 
+    def thelounge_environment(self) -> dict[str, str]:
+        base_url = self.payload_resolver_base_url
+        if base_url is None:
+            raise RuntimeError("payload resolver must be started before exporting thelounge environment")
+        return {"ALIENHAND_PAYLOAD_RESOLVER": base_url}
+
     def stop(self) -> None:
         if self.payload_http_server is not None:
             self.payload_http_server.stop()

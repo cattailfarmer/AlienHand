@@ -39,6 +39,11 @@ AlienHand now carries the chat-platform prototype under `AlienHand/`.
 - `AlienHand/python/alienhand_ai/chat_platform.py`: AH1 envelope, payload store, JSONL history, replay, and Ergo lifecycle proofs.
 - `AlienHand/python/alienhand_ai/payload_http.py`: loopback payload resolver that serves render rows by message UUID.
 
+The Lounge discovers the payload resolver from `alienhand.payloadResolverBaseUrl`
+or the `ALIENHAND_PAYLOAD_RESOLVER` environment variable. `AlienHandChatService`
+exports that environment value with `thelounge_environment()` after the resolver
+starts.
+
 Current proof commands for live payload lookup and app-owned resolver lifecycle:
 
 ```powershell

@@ -138,6 +138,75 @@ class RefinementStorageTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     store.list_bookmarks(target_type="unsupported")
 
+    def test_quotes_can_be_listed_by_channel_and_source_type(self):
+        with tempfile.TemporaryDirectory() as temp:
+            first = sample_block("first channel quoted source")
+            second = sample_block("second channel quoted source")
+            with ConversationRefinementStore(Path(temp) / "refinement.sqlite3") as store:
+                store.add_block(first)
+                store.add_block(second)
+                first_cut = store.create_cut(first.block_id)
+                second_cut = store.create_cut(second.block_id)
+                first_chapter = store.create_chapter(
+                    title="First Quote Chapter",
+                    summary="Filtered quote chapter.",
+                    cut_ids=(first_cut.cut_id,),
+                )
+                store.create_chapter(
+                    title="Second Quote Chapter",
+                    summary="Filtered out.",
+                    cut_ids=(second_cut.cut_id,),
+                )
+                block_quote = store.create_quote(
+                    source_type="block",
+                    source_id=first.block_id,
+                    excerpt="quoted source",
+                    provenance={"block_id": first.block_id},
+                )
+                cut_quote = store.create_quote(
+                    source_type="cut",
+                    source_id=first_cut.cut_id,
+                    excerpt="cut quote",
+                    provenance={"cut_id": first_cut.cut_id},
+                )
+                chapter_quote = store.create_quote(
+                    source_type="chapter",
+                    source_id=first_chapter.chapter_id,
+                    excerpt="chapter quote",
+                    provenance={"chapter_id": first_chapter.chapter_id},
+                )
+                store.create_quote(
+                    source_type="block",
+                    source_id=second.block_id,
+                    excerpt="other channel quote",
+                    provenance={"block_id": second.block_id},
+                )
+
+                first_channel_ids = {
+                    quote.quote_id
+                    for quote in store.list_quotes(channel_uuid=first.channel_uuid)
+                }
+                first_channel_block_quotes = store.list_quotes(
+                    channel_uuid=first.channel_uuid,
+                    source_type="block",
+                )
+
+                self.assertEqual(
+                    first_channel_ids,
+                    {block_quote.quote_id, cut_quote.quote_id, chapter_quote.quote_id},
+                )
+                self.assertEqual([quote.quote_id for quote in first_channel_block_quotes], [block_quote.quote_id])
+                self.assertEqual(first_channel_block_quotes[0].excerpt, "quoted source")
+                with self.assertRaises(KeyError):
+                    store.create_quote(
+                        source_type="block",
+                        source_id="missing-block",
+                        excerpt="missing",
+                        provenance={},
+                    )
+                with self.assertRaises(ValueError):
+                    store.list_quotes(source_type="unsupported")
+
     def test_bookmark_note_sticky_quote_edit_and_toc_round_trip(self):
         with tempfile.TemporaryDirectory() as temp:
             block = sample_block("Bookmark this source and echo the note")

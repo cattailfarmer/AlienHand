@@ -386,18 +386,21 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [proof_command] is chat-refinement-http-proof
   + [base_path] is /alienhand/refinement
   + [auth] is the prototype bearer token shared with [PayloadResolverHTTP]
-  + [read_endpoints] are blocks, search, cuts, chapters, and bookmarks
-  + [write_endpoints] are create cut, remove cut, create chapter, and create bookmark
+  + [read_endpoints] are blocks, search, cuts, chapters, bookmarks, and quotes
+  + [write_endpoints] are create cut, remove cut, create chapter, create bookmark, and create quote
 
   = must: expose channel-filtered conversation blocks for the raw pane
   = must: expose search hits that map terms back to source block IDs
   = must: expose channel-filtered cuts and chapters when a channel UUID is supplied
   = must: expose channel-filtered bookmarks and bookmark notes when a channel UUID is supplied
+  = must: expose channel-filtered quotes when a channel UUID is supplied
   = must: allow explicit user-controlled creation of cuts from source blocks
   = must: allow explicit user-controlled soft-removal of cuts
   = must: allow explicit user-controlled chapter creation from selected cuts
   = must: allow explicit user-controlled creation of bookmark notes against source blocks, cuts, or chapters
+  = must: allow explicit user-controlled creation of provenance-preserving quotes against source blocks, cuts, or chapters
   = must: reject bookmark creation when the requested target anchor does not exist
+  = must: reject quote creation when the requested source anchor does not exist
   = must: reject unauthenticated refinement reads and writes when a resolver token is configured
   = should: remain a narrow workbench contract until richer UI behavior is implemented
 
@@ -413,6 +416,19 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: list bookmarks by target type when the UI only needs one layer
   = must: validate that the target block, cut, or chapter exists before inserting the bookmark
   = should: support later hover and popup note presentation without changing the storage object
+
+& [ConversationQuoteHTTPV1] is the first runtime contract for provenance-preserving quote capture
+  + [implementation] is AlienHand/python/alienhand_ai/refinement_storage.py create_quote and list_quotes
+  + [implementation] is AlienHand/python/alienhand_ai/payload_http.py /alienhand/refinement/quotes
+  + [source_types] are block, cut, and chapter
+  + [excerpt] is the preserved text selected from the source anchor
+  + [channel_filter] resolves quotes through the channel membership of the source block, cut source block, or chapter member blocks
+
+  = must: preserve the quote excerpt and provenance object
+  = must: list quotes by channel so raw and refined panes can cite the same source
+  = must: list quotes by source type when the UI only needs one layer
+  = must: validate that the source block, cut, or chapter exists before inserting the quote
+  = should: support later quote controls without changing the storage object
 
 & [TheLoungeRefinementWorkbenchV1] is the first browser-facing refinement workbench in the AlienHand The Lounge fork
   + [implementation] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue

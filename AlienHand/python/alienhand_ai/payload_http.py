@@ -169,6 +169,18 @@ class PayloadResolverHTTPServer:
                         return True
                     self._send_json({"bookmarks": [bookmark.to_dict() for bookmark in bookmarks]}, HTTPStatus.OK)
                     return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "quotes"):
+                    try:
+                        with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            quotes = store.list_quotes(
+                                channel_uuid=query.get("channel"),
+                                source_type=query.get("source_type"),
+                            )
+                    except ValueError as error:
+                        self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    self._send_json({"quotes": [quote.to_dict() for quote in quotes]}, HTTPStatus.OK)
+                    return True
                 return False
 
             def _handle_refinement_post(self) -> bool:
@@ -253,6 +265,42 @@ class PayloadResolverHTTPServer:
                         self._send_json({"error": "bookmark_target_not_found"}, HTTPStatus.NOT_FOUND)
                         return True
                     self._send_json({"bookmark": bookmark.to_dict()}, HTTPStatus.CREATED)
+                    return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "quotes"):
+                    body = self._read_json_body()
+                    if body is None:
+                        return True
+                    source_type = str(body.get("source_type") or "")
+                    source_id = str(body.get("source_id") or "")
+                    excerpt = str(body.get("excerpt") or "")
+                    if not source_type:
+                        self._send_json({"error": "source_type_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if not source_id:
+                        self._send_json({"error": "source_id_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if not excerpt:
+                        self._send_json({"error": "excerpt_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    provenance = body.get("provenance")
+                    if not isinstance(provenance, dict):
+                        provenance = {}
+                    try:
+                        with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            quote = store.create_quote(
+                                source_type=source_type,
+                                source_id=source_id,
+                                excerpt=excerpt,
+                                provenance=provenance,
+                                display_mode=str(body.get("display_mode") or "inline"),
+                            )
+                    except ValueError as error:
+                        self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    except KeyError:
+                        self._send_json({"error": "quote_source_not_found"}, HTTPStatus.NOT_FOUND)
+                        return True
+                    self._send_json({"quote": quote.to_dict()}, HTTPStatus.CREATED)
                     return True
                 return False
 
@@ -438,6 +486,16 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
             },
             access_token=access_token,
         )
+        quote_response = _http_post_json(
+            f"{server.base_url}/alienhand/refinement/quotes",
+            {
+                "source_type": "block",
+                "source_id": imported_blocks[0].block_id,
+                "excerpt": "searchable workbench source",
+                "provenance": {"block_id": imported_blocks[0].block_id},
+            },
+            access_token=access_token,
+        )
         remove_response = _http_delete_json(
             f"{server.base_url}/alienhand/refinement/cuts/{cut_id}",
             access_token=access_token,
@@ -454,6 +512,10 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
             f"{server.base_url}/alienhand/refinement/bookmarks?channel={channel_uuid}",
             access_token=access_token,
         )
+        quotes_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/quotes?channel={channel_uuid}",
+            access_token=access_token,
+        )
         base_url = server.base_url
 
     blocks = blocks_response["json"].get("blocks", [])
@@ -461,6 +523,7 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
     cuts = cuts_response["json"].get("cuts", [])
     chapters = chapters_response["json"].get("chapters", [])
     bookmarks = bookmarks_response["json"].get("bookmarks", [])
+    quotes = quotes_response["json"].get("quotes", [])
     refinement_http_ok = (
         blocks_response["status"] == 200
         and len(blocks) == 1
@@ -472,12 +535,16 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         and chapter_response["status"] == 201
         and bookmark_response["status"] == 201
         and bookmark_response["json"].get("bookmark", {}).get("note") == "Bookmark note follows the source block."
+        and quote_response["status"] == 201
+        and quote_response["json"].get("quote", {}).get("excerpt") == "searchable workbench source"
         and remove_response["status"] == 200
         and remove_response["json"].get("cut", {}).get("status") == "removed"
         and len(cuts) == 1
         and len(chapters) == 1
         and len(bookmarks) == 1
         and bookmarks[0].get("target_id") == imported_blocks[0].block_id
+        and len(quotes) == 1
+        and quotes[0].get("source_id") == imported_blocks[0].block_id
     )
     return {
         "resolver_version": PAYLOAD_RESOLVER_VERSION,
@@ -492,10 +559,13 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         "created_chapter_id": chapter_response["json"].get("chapter", {}).get("chapter_id"),
         "created_bookmark_id": bookmark_response["json"].get("bookmark", {}).get("bookmark_id"),
         "bookmark_note": bookmark_response["json"].get("bookmark", {}).get("note"),
+        "created_quote_id": quote_response["json"].get("quote", {}).get("quote_id"),
+        "quote_excerpt": quote_response["json"].get("quote", {}).get("excerpt"),
         "removed_cut_status": remove_response["json"].get("cut", {}).get("status"),
         "listed_cuts": len(cuts),
         "listed_chapters": len(chapters),
         "listed_bookmarks": len(bookmarks),
+        "listed_quotes": len(quotes),
         "unauthorized_status": unauthorized_response["status"],
         "refinement_http_ok": refinement_http_ok,
         "root": str(chat_root.resolve()),

@@ -14,6 +14,7 @@ JsonDict = dict[str, Any]
 SCHEMA_VERSION = 1
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
 BOOKMARK_TARGET_TYPES = {"block", "cut", "chapter"}
+QUOTE_SOURCE_TYPES = BOOKMARK_TARGET_TYPES
 
 
 @dataclass(frozen=True)
@@ -474,6 +475,7 @@ class ConversationRefinementStore:
         display_mode: str = "inline",
         quote_id: str | None = None,
     ) -> ConversationQuote:
+        self._require_quote_source(source_type, source_id)
         quote = ConversationQuote(
             quote_id=quote_id or str(uuid4()),
             source_type=source_type,
@@ -491,6 +493,31 @@ class ConversationRefinementStore:
                 (quote.quote_id, quote.source_type, quote.source_id, quote.excerpt, dumps(quote.provenance), quote.display_mode),
             )
         return quote
+
+    def list_quotes(
+        self,
+        *,
+        channel_uuid: str | None = None,
+        source_type: str | None = None,
+    ) -> list[ConversationQuote]:
+        if source_type is not None and source_type not in QUOTE_SOURCE_TYPES:
+            raise ValueError(f"unsupported quote source_type: {source_type}")
+        params: list[Any] = []
+        query = "SELECT * FROM conversation_quotes"
+        if source_type is not None:
+            query += " WHERE source_type = ?"
+            params.append(source_type)
+        query += " ORDER BY source_type, source_id, quote_id"
+        rows = self.connection.execute(query, tuple(params)).fetchall()
+        quotes = [quote_from_row(row) for row in rows]
+        if channel_uuid is None:
+            return quotes
+        source_ids = self._target_ids_for_channel(channel_uuid)
+        return [
+            quote
+            for quote in quotes
+            if quote.source_id in source_ids.get(quote.source_type, set())
+        ]
 
     def apply_edit(
         self,
@@ -645,6 +672,12 @@ class ConversationRefinementStore:
         return row
 
     def _require_bookmark_target(self, target_type: str, target_id: str) -> None:
+        self._require_refinement_target(target_type, target_id, "bookmark target_type")
+
+    def _require_quote_source(self, source_type: str, source_id: str) -> None:
+        self._require_refinement_target(source_type, source_id, "quote source_type")
+
+    def _require_refinement_target(self, target_type: str, target_id: str, name: str) -> None:
         if target_type == "block":
             self.get_block(target_id)
         elif target_type == "cut":
@@ -652,9 +685,12 @@ class ConversationRefinementStore:
         elif target_type == "chapter":
             self.get_chapter(target_id)
         else:
-            raise ValueError(f"unsupported bookmark target_type: {target_type}")
+            raise ValueError(f"unsupported {name}: {target_type}")
 
     def _bookmark_target_ids_for_channel(self, channel_uuid: str) -> dict[str, set[str]]:
+        return self._target_ids_for_channel(channel_uuid)
+
+    def _target_ids_for_channel(self, channel_uuid: str) -> dict[str, set[str]]:
         block_rows = self.connection.execute(
             "SELECT block_id FROM conversation_blocks WHERE channel_uuid = ?",
             (channel_uuid,),
@@ -994,6 +1030,17 @@ def bookmark_from_row(row: sqlite3.Row) -> ConversationBookmark:
         note=row["note"],
         persistence=row["persistence"],
         promotion_state=row["promotion_state"],
+    )
+
+
+def quote_from_row(row: sqlite3.Row) -> ConversationQuote:
+    return ConversationQuote(
+        quote_id=row["quote_id"],
+        source_type=row["source_type"],
+        source_id=row["source_id"],
+        excerpt=row["excerpt"],
+        provenance=loads(row["provenance_json"], {}),
+        display_mode=row["display_mode"],
     )
 
 

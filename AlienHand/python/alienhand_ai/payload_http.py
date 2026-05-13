@@ -4,9 +4,11 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+import secrets
 import threading
 from typing import Any
 from urllib.parse import unquote, urlparse
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
@@ -36,10 +38,12 @@ class PayloadResolverHTTPServer:
         *,
         host: str = "127.0.0.1",
         port: int | None = None,
+        access_token: str | None = None,
     ) -> None:
         self.root = Path(root)
         self.host = host
         self.port = 0 if port is None else port
+        self.access_token = access_token
         self.store = PayloadStore(self.root)
         self.resolver = PayloadResolver(self.store)
         self._server: ThreadingHTTPServer | None = None
@@ -93,6 +97,9 @@ class PayloadResolverHTTPServer:
                 if message_uuid is None:
                     self._send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
                     return
+                if not owner._is_authorized(self):
+                    self._send_json({"error": "unauthorized"}, HTTPStatus.UNAUTHORIZED)
+                    return
                 payload = owner.resolver.resolve_render_model(message_uuid)
                 self._send_json(payload_to_render_model(payload), HTTPStatus.OK)
 
@@ -111,9 +118,19 @@ class PayloadResolverHTTPServer:
             def _send_cors_headers(self) -> None:
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
-                self.send_header("Access-Control-Allow-Headers", "Content-Type, Accept")
+                self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
 
         return PayloadResolverHandler
+
+    def _is_authorized(self, handler: BaseHTTPRequestHandler) -> bool:
+        if not self.access_token:
+            return True
+        authorization = handler.headers.get("Authorization", "")
+        token = ""
+        scheme, separator, value = authorization.partition(" ")
+        if separator and scheme.lower() == "bearer":
+            token = value.strip()
+        return secrets.compare_digest(token, self.access_token)
 
 
 def run_payload_resolver_http_proof(root: str | Path, *, app_id: int = 1) -> JsonDict:
@@ -141,9 +158,12 @@ def run_payload_resolver_http_proof(root: str | Path, *, app_id: int = 1) -> Jso
     )
     missing_uuid = str(uuid4())
 
-    with PayloadResolverHTTPServer(chat_root) as server:
-        render_response = _http_json(server.render_url(published.envelope.message_uuid))
-        missing_response = _http_json(server.render_url(missing_uuid))
+    access_token = "payload-resolver-proof-token"
+
+    with PayloadResolverHTTPServer(chat_root, access_token=access_token) as server:
+        render_response = _http_json(server.render_url(published.envelope.message_uuid), access_token=access_token)
+        missing_response = _http_json(server.render_url(missing_uuid), access_token=access_token)
+        unauthorized_response = _http_json(server.render_url(published.envelope.message_uuid))
         options_response = _http_options(server.render_url(published.envelope.message_uuid))
         base_url = server.base_url
         render_url = server.render_url(published.envelope.message_uuid)
@@ -169,11 +189,13 @@ def run_payload_resolver_http_proof(root: str | Path, *, app_id: int = 1) -> Jso
         "frame_kinds": frame_kinds,
         "missing_status": missing_row.get("status"),
         "missing_reason": missing_row.get("content", {}).get("reason"),
+        "unauthorized_status": unauthorized_response["status"],
         "cors_ok": cors_ok,
         "payload_resolver_fetch_ok": render_row.get("status") == "resolved"
         and render_row.get("orientation") == "right"
         and frame_kinds == ["code", "link"]
         and missing_row.get("status") == "payload_error"
+        and unauthorized_response["status"] == 401
         and cors_ok,
         "root": str(chat_root.resolve()),
     }
@@ -213,7 +235,7 @@ def run_app_payload_resolver_lifecycle_proof(
         thelounge_environment = service.thelounge_environment()
         ergo_port = service.port
         render_url = service.payload_http_server.render_url(published.envelope.message_uuid)
-        render_response = _http_json(render_url)
+        render_response = _http_json(render_url, access_token=service.payload_resolver_token)
 
     replayed = replay_channel(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
     resolved_payloads = [row for row in replayed if row["payload"].get("event_type") != "payload_error"]
@@ -236,6 +258,7 @@ def run_app_payload_resolver_lifecycle_proof(
         "resolver_base_url": resolver_base_url,
         "resolver_port": resolver_port,
         "thelounge_payload_resolver_env": thelounge_environment["ALIENHAND_PAYLOAD_RESOLVER"],
+        "thelounge_payload_resolver_token_present": bool(thelounge_environment["ALIENHAND_PAYLOAD_RESOLVER_TOKEN"]),
         "render_url": render_url,
         "app_lifecycle_started": process_started,
         "payload_resolver_started": resolver_started,
@@ -296,7 +319,7 @@ def run_app_thelounge_runtime_group_proof(
         if service.payload_http_server is None or thelounge_base_url is None:
             raise RuntimeError("runtime group proof requires payload resolver and The Lounge to be running")
         render_url = service.payload_http_server.render_url(published.envelope.message_uuid)
-        render_response = _http_json(render_url)
+        render_response = _http_json(render_url, access_token=service.payload_resolver_token)
         index_response = _http_text(f"{thelounge_base_url}/")
 
     replayed = replay_channel(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
@@ -304,7 +327,9 @@ def run_app_thelounge_runtime_group_proof(
     index_html = index_response["text"]
     render_row = render_response["json"]
     resolver_data_attribute = f'data-alienhand-payload-resolver="{resolver_base_url}"'
+    resolver_token_attribute = f'data-alienhand-payload-resolver-token="{service.payload_resolver_token}"'
     thelounge_html_has_resolver = resolver_data_attribute in index_html
+    thelounge_html_has_resolver_token = resolver_token_attribute in index_html
     fetch_ok = (
         render_response["status"] == 200
         and render_row.get("status") == "resolved"
@@ -324,12 +349,14 @@ def run_app_thelounge_runtime_group_proof(
         "thelounge_base_url": thelounge_base_url,
         "thelounge_port": resolved_thelounge_port,
         "thelounge_payload_resolver_env": thelounge_environment["ALIENHAND_PAYLOAD_RESOLVER"],
+        "thelounge_payload_resolver_token_present": bool(thelounge_environment["ALIENHAND_PAYLOAD_RESOLVER_TOKEN"]),
         "render_url": render_url,
         "app_lifecycle_started": process_started,
         "payload_resolver_started": resolver_started,
         "thelounge_started": thelounge_started,
         "payload_resolver_fetch_ok": fetch_ok,
         "thelounge_html_has_resolver": thelounge_html_has_resolver,
+        "thelounge_html_has_resolver_token": thelounge_html_has_resolver_token,
         "payload_resolver_stopped": service.payload_http_server is None,
         "thelounge_stopped": service.thelounge_process is None,
         "history_events": len(replayed),
@@ -340,6 +367,7 @@ def run_app_thelounge_runtime_group_proof(
         and thelounge_started
         and fetch_ok
         and thelounge_html_has_resolver
+        and thelounge_html_has_resolver_token
         and service.payload_http_server is None
         and service.thelounge_process is None
         and len(resolved_payloads) == 1,
@@ -355,11 +383,18 @@ def _message_uuid_from_render_path(path: str) -> str | None:
     return None
 
 
-def _http_json(url: str) -> JsonDict:
-    request = Request(url, headers={"Accept": "application/json", "Origin": "http://127.0.0.1"})
-    with urlopen(request, timeout=5.0) as response:
-        body = response.read().decode("utf-8")
-        return {"json": json.loads(body), "headers": dict(response.headers), "status": response.status}
+def _http_json(url: str, *, access_token: str | None = None) -> JsonDict:
+    headers = {"Accept": "application/json", "Origin": "http://127.0.0.1"}
+    if access_token:
+        headers["Authorization"] = f"Bearer {access_token}"
+    request = Request(url, headers=headers)
+    try:
+        with urlopen(request, timeout=5.0) as response:
+            body = response.read().decode("utf-8")
+            return {"json": json.loads(body), "headers": dict(response.headers), "status": response.status}
+    except HTTPError as error:
+        body = error.read().decode("utf-8")
+        return {"json": json.loads(body), "headers": dict(error.headers), "status": error.code}
 
 
 def _http_options(url: str) -> JsonDict:

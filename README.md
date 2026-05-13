@@ -40,10 +40,11 @@ AlienHand now carries the chat-platform prototype under `AlienHand/`.
 - `AlienHand/python/alienhand_ai/payload_http.py`: loopback payload resolver that serves render rows by message UUID.
 
 The Lounge discovers the payload resolver from `alienhand.payloadResolverBaseUrl`
-or the `ALIENHAND_PAYLOAD_RESOLVER` environment variable. `AlienHandChatService`
-exports that environment value with `thelounge_environment()` after the resolver
-starts, and can launch the nested The Lounge fork as part of the app-owned chat
-runtime group.
+or the `ALIENHAND_PAYLOAD_RESOLVER` environment variable. It also receives the
+prototype resolver bearer token from `alienhand.payloadResolverToken` or
+`ALIENHAND_PAYLOAD_RESOLVER_TOKEN`. `AlienHandChatService` exports both values
+with `thelounge_environment()` after the resolver starts, and can launch the
+nested The Lounge fork as part of the app-owned chat runtime group.
 
 Current proof commands for live payload lookup, app-owned resolver lifecycle, and
 the app-owned The Lounge runtime group:

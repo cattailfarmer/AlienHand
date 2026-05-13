@@ -3,6 +3,7 @@ import json
 import sys
 import tempfile
 import unittest
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
@@ -37,8 +38,8 @@ class PayloadHTTPTests(unittest.TestCase):
                 publisher=EnvelopeOutbox(),
             )
 
-            with PayloadResolverHTTPServer(root) as server:
-                row, headers, status = fetch_json(server.render_url(published.envelope.message_uuid))
+            with PayloadResolverHTTPServer(root, access_token="secret") as server:
+                row, headers, status = fetch_json(server.render_url(published.envelope.message_uuid), token="secret")
 
             self.assertEqual(status, 200)
             self.assertEqual(headers["Access-Control-Allow-Origin"], "*")
@@ -49,12 +50,21 @@ class PayloadHTTPTests(unittest.TestCase):
 
     def test_http_resolver_returns_payload_error_for_missing_payload(self):
         with tempfile.TemporaryDirectory() as temp:
-            with PayloadResolverHTTPServer(Path(temp)) as server:
-                row, _, status = fetch_json(server.render_url(str(uuid4())))
+            with PayloadResolverHTTPServer(Path(temp), access_token="secret") as server:
+                row, _, status = fetch_json(server.render_url(str(uuid4())), token="secret")
 
             self.assertEqual(status, 200)
             self.assertEqual(row["status"], "payload_error")
             self.assertEqual(row["content"]["reason"], "payload_not_found")
+
+    def test_http_resolver_rejects_unauthorized_payload_lookup(self):
+        with tempfile.TemporaryDirectory() as temp:
+            with PayloadResolverHTTPServer(Path(temp), access_token="secret") as server:
+                row, headers, status = fetch_json(server.render_url(str(uuid4())))
+
+            self.assertEqual(status, 401)
+            self.assertEqual(headers["Access-Control-Allow-Origin"], "*")
+            self.assertEqual(row["error"], "unauthorized")
 
     def test_http_resolver_supports_browser_options_preflight(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -72,6 +82,7 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(status, 204)
             self.assertEqual(headers["Access-Control-Allow-Origin"], "*")
             self.assertIn("GET", headers["Access-Control-Allow-Methods"])
+            self.assertIn("Authorization", headers["Access-Control-Allow-Headers"])
 
     def test_payload_resolver_http_proof_fetches_resolved_and_missing_rows(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -82,6 +93,7 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(result["resolved_orientation"], "right")
             self.assertEqual(result["frame_kinds"], ["code", "link"])
             self.assertEqual(result["missing_status"], "payload_error")
+            self.assertEqual(result["unauthorized_status"], 401)
             self.assertTrue(result["cors_ok"])
 
     def test_chat_service_owns_payload_resolver_lifecycle(self):
@@ -95,7 +107,11 @@ class PayloadHTTPTests(unittest.TestCase):
                     service.thelounge_environment()["ALIENHAND_PAYLOAD_RESOLVER"],
                     service.payload_resolver_base_url,
                 )
-                row, _, status = fetch_json(service.payload_http_server.render_url(str(uuid4())))
+                self.assertTrue(service.thelounge_environment()["ALIENHAND_PAYLOAD_RESOLVER_TOKEN"])
+                row, _, status = fetch_json(
+                    service.payload_http_server.render_url(str(uuid4())),
+                    token=service.payload_resolver_token,
+                )
             finally:
                 service.stop()
 
@@ -143,10 +159,16 @@ class PayloadHTTPTests(unittest.TestCase):
                 service._require_thelounge_build()
 
 
-def fetch_json(url: str):
-    request = Request(url, headers={"Accept": "application/json", "Origin": "http://localhost"})
-    with urlopen(request, timeout=5.0) as response:
-        return json.loads(response.read().decode("utf-8")), dict(response.headers), response.status
+def fetch_json(url: str, *, token: str | None = None):
+    headers = {"Accept": "application/json", "Origin": "http://localhost"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = Request(url, headers=headers)
+    try:
+        with urlopen(request, timeout=5.0) as response:
+            return json.loads(response.read().decode("utf-8")), dict(response.headers), response.status
+    except HTTPError as error:
+        return json.loads(error.read().decode("utf-8")), dict(error.headers), error.code
 
 
 if __name__ == "__main__":

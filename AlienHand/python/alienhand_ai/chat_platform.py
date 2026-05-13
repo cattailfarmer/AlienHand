@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import json
 import os
 from pathlib import Path
+import secrets
 import socket
 import subprocess
 from time import time
@@ -429,6 +430,7 @@ class AlienHandChatService:
         port: int | None = None,
         payload_resolver_host: str = "127.0.0.1",
         payload_resolver_port: int | None = None,
+        payload_resolver_token: str | None = None,
         start_payload_resolver: bool = True,
         thelounge_root: str | Path | None = None,
         thelounge_host: str = "127.0.0.1",
@@ -444,6 +446,7 @@ class AlienHandChatService:
         self.port = port
         self.payload_resolver_host = payload_resolver_host
         self.payload_resolver_port = payload_resolver_port
+        self.payload_resolver_token = payload_resolver_token or secrets.token_urlsafe(32)
         self.start_payload_resolver = start_payload_resolver
         self.thelounge_root = Path(thelounge_root) if thelounge_root else default_thelounge_root()
         self.thelounge_host = thelounge_host
@@ -546,7 +549,10 @@ class AlienHandChatService:
         base_url = self.payload_resolver_base_url
         if base_url is None:
             raise RuntimeError("payload resolver must be started before exporting thelounge environment")
-        return {"ALIENHAND_PAYLOAD_RESOLVER": base_url}
+        return {
+            "ALIENHAND_PAYLOAD_RESOLVER": base_url,
+            "ALIENHAND_PAYLOAD_RESOLVER_TOKEN": self.payload_resolver_token,
+        }
 
     @property
     def thelounge_base_url(self) -> str | None:
@@ -595,6 +601,7 @@ class AlienHandChatService:
             self.root,
             host=self.payload_resolver_host,
             port=self.payload_resolver_port,
+            access_token=self.payload_resolver_token,
         ).start()
         self.payload_resolver_port = int(self.payload_http_server.port)
 

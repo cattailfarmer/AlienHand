@@ -142,6 +142,15 @@ Description: SOP description of the justification step, called "jusitification" 
   + [status] is justified
   + [uncertainty] is schema serialization and runtime UI implementation still remain future work
 
+& [JustificationEntry: ConversationSchemaModelSpecification] is justified
+  + [work_type] is protocol
+  + [requirement_anchor] is user request to define the serialization/schema for the frozen refinement terms so UI and storage can share the same object model
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop Schema Model section
+  + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-refinement.sop
+  + [verification_result] is the refinement spec now defines serializable schema objects for blocks, cuts, chapters, edits, bookmarks, stickies, and quotes with references, state, and provenance fields
+  + [status] is justified
+  + [uncertainty] is concrete code-level schema serialization and persistence implementation remain future work
+
 & [JustificationEntry: ChatRuntimeTruthTestCore] is partially_justified
   + [work_type] is runtime_code
   + [requirement_anchor] is [AlienHandIRCTruthTest], [MessageCommitOrder], [PayloadStore], [PayloadResolver], [ChannelJSONLHistory], and [ChannelContextReplay]

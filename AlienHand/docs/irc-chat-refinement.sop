@@ -231,3 +231,91 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: retain exact source traceability
   = must: not mutate the source content
   = should: be usable in both raw review and editorial output
+
+## Schema Model
+
+& [ConversationBlockSchema] is the serializable object model for a raw conversation block
+  + [block_id] is the stable identifier
+  + [channel_uuid] is the source channel
+  + [message_uuid] is the underlying message UUID or message set UUID
+  + [sender] is the display or actor identity
+  + [sender_type] is user, ai_agent, system, or service
+  + [created_at] is the UTC timestamp with milliseconds
+  + [payload_kind] is the content classification
+  + [presentation] is the rendered summary of the block for the raw pane
+  + [raw_refs] is the source reference list for the underlying payloads
+
+  = must: be serializable without requiring chapter or edit state
+  = must: be the smallest source-facing object the refinement layer consumes
+  = should: preserve enough data to recreate the raw block in the UI
+
+& [ConversationCutSchema] is the serializable object model for a selected cut
+  + [cut_id] is the stable identifier
+  + [source_block_id] is the linked raw block
+  + [position] is the ordering within the cuts pane
+  + [status] is active, removed, or superseded
+  + [annotations] are bookmarks, notes, quotes, or sticky references attached to the cut
+
+  = must: preserve a backlink to [ConversationBlockSchema]
+  = must: not rewrite the underlying raw block
+  = should: support drag-and-drop reordering and removal
+
+& [ConversationChapterSchema] is the serializable object model for a refined chapter
+  + [chapter_id] is the stable identifier
+  + [title] is the editorial label
+  + [summary] is the chapter-level synopsis
+  + [member_cut_ids] are the contributing cut identifiers
+  + [member_block_ids] are the contributing raw block identifiers
+  + [bookmarks] are the chapter-visible bookmark objects
+  + [quotes] are the chapter-visible quote objects
+  + [edit_chain] is the ordered list of edits applied to the chapter
+
+  = must: represent a derived artifact, not the source record
+  = must: preserve provenance back to the contributing cuts and blocks
+  = should: be regenerable from the source and cut history
+
+& [ConversationEditSchema] is the serializable object model for an editorial transformation
+  + [edit_id] is the stable identifier
+  + [input_ref] is the chapter or cuts set being transformed
+  + [output_ref] is the resulting chapter or refined artifact
+  + [edit_type] is reorder, condense, expand, redact, annotate, or reframe
+  + [reason] is the optional explanation for the edit
+  + [author] is the user, AI, or system that produced the edit
+
+  = must: preserve the input state for review
+  = must: preserve lineage from input to output
+  = should: serialize as a change record that can be replayed or inspected
+
+& [ConversationBookmarkSchema] is the serializable object model for a bookmark
+  + [bookmark_id] is the stable identifier
+  + [target_ref] is the raw block, cut, or chapter reference
+  + [scope] is raw_only, refined_only, or both
+  + [label] is optional display text
+  + [persistence] is ephemeral_session or durable_channel
+  + [promotion_state] is raw, promoted, mirrored, or retired
+
+  = must: support both raw and refined targets
+  = must: preserve enough target identity to survive regeneration when possible
+  = should: be safe to store as a light reference object
+
+& [ConversationStickySchema] is the serializable object model for a sticky reference
+  + [sticky_id] is the stable identifier
+  + [target_ref] is the block, cut, chapter, or bookmark reference
+  + [visibility] is visible, collapsed, or hidden
+  + [retention] is session-scoped by default
+  + [clear_state] is active, dismissed, or expired
+
+  = must: act as a persistent working reminder
+  = must: be removable without mutating the target
+  = should: serialize independently from the target content
+
+& [ConversationQuoteSchema] is the serializable object model for a quote
+  + [quote_id] is the stable identifier
+  + [source_ref] is the block, cut, or chapter reference
+  + [excerpt] is the quoted text or frame reference
+  + [provenance] is the source identity metadata
+  + [display_mode] is inline, block, or anchored
+
+  = must: keep exact source traceability
+  = must: remain a derivative view, not a content mutation
+  = should: be easy to render in raw, chaptered, or editorial views

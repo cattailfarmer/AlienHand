@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup, the first runtime substrate proof, and the separate chat conversation refinement specification
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, refinement HTTP workbench API proof, bookmark-note HTTP API proof, first The Lounge refinement workbench UI proof, app-owned workbench runtime proof, workbench live-review launcher, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but polished split-pane interaction, bookmark hover controls, quote/editorial controls, browser-click automation, and production authentication hardening are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, refinement HTTP workbench API proof, bookmark-note HTTP API proof, first The Lounge refinement workbench UI proof, workbench bookmark-note UI proof, app-owned workbench runtime proof, workbench live-review launcher, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but polished split-pane interaction, polished bookmark hover controls, quote/editorial controls, browser-click automation, and production authentication hardening are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -230,25 +230,25 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is python -m alienhand_ai.cli chat-refinement-http-proof --output runs --name chat-refinement-http-proof
   + [verification_result] is bookmark creation validates that block, cut, or chapter targets exist, missing targets return bookmark_target_not_found through HTTP, a bookmark note rooted in a raw block is created with status 201, the note is preserved in the returned object, channel-filtered bookmark listing returns that bookmark, target_type filtering returns the same block bookmark, and the CLI proof returned listed_bookmarks 1 with refinement_http_ok true
   + [status] is justified
-  + [uncertainty] is this proves bookmark-note persistence and API visibility; The Lounge hover/popup controls and refined-layer visual mirroring remain future work
+  + [uncertainty] is this proves bookmark-note persistence and API visibility; The Lounge first-pass bookmark-note controls are covered by [TheLoungeRefinementWorkbenchProof], while polished hover/popup behavior and refined-layer visual mirroring remain future work
 
 & [JustificationEntry: TheLoungeRefinementWorkbenchProof] is justified
   + [work_type] is runtime_code
-  + [requirement_anchor] is [TheLoungeRefinementWorkbenchV1], [ConversationCutsWorkbench], [ConversationRefinementHTTPV1], and [ConversationRefinementState]
-  + [implemented_artifact] is AlienHand/thelounge client fork commit 9252cb34
+  + [requirement_anchor] is [TheLoungeRefinementWorkbenchV1], [ConversationCutsWorkbench], [ConversationRefinementHTTPV1], [ConversationBookmarkHTTPV1], [ConversationAnnotationSemantics], and [ConversationRefinementState]
+  + [implemented_artifact] is AlienHand/thelounge client fork commit ba02227d
   + [implemented_artifact] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue
   + [implemented_artifact] is AlienHand/thelounge/client/components/Chat.vue Cuts toggle wiring
-  + [implemented_artifact] is AlienHand/thelounge/client/js/helpers/alienhand.ts refinement API helpers
+  + [implemented_artifact] is AlienHand/thelounge/client/js/helpers/alienhand.ts refinement API and bookmark-note helpers
   + [implemented_artifact] is AlienHand/thelounge/client/css/alienhand-chat.css refinement workbench styling
   + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop TheLoungeRefinementWorkbenchV1
   + [implemented_artifact] is README.md workbench note
-  + [evidence_anchor] is npx eslint client/js/helpers/alienhand.ts client/components/AlienHandRefinementWorkbench.vue client/components/Chat.vue --color
+  + [evidence_anchor] is npx eslint client/js/helpers/alienhand.ts client/components/AlienHandRefinementWorkbench.vue --color
   + [evidence_anchor] is npx tsc -b server/tsconfig.json --force
   + [evidence_anchor] is yarn build:client
-  + [evidence_anchor] is git push cattailfarmer alienhand/chat-render-adapter commit 9252cb34
-  + [verification_result] is the AlienHand The Lounge fork now shows a Cuts toggle only for 32-character hexadecimal UUID channels, opens a refinement workbench that fetches channel-scoped blocks, searches raw blocks, injects blocks into active cuts, removes active cuts with an x control, creates chapters from active cuts, shows raw JSON debug state, and passes lint, TypeScript server build, and client webpack build
+  + [evidence_anchor] is git push cattailfarmer alienhand/chat-render-adapter commit ba02227d
+  + [verification_result] is the AlienHand The Lounge fork now shows a Cuts toggle only for 32-character hexadecimal UUID channels, opens a refinement workbench that fetches channel-scoped blocks, cuts, chapters, and bookmarks, searches raw blocks, injects blocks into active cuts, removes active cuts with an x control, creates chapters from active cuts, displays bookmark notes on raw blocks, cuts, and chapters, creates bookmark notes through the refinement API, includes bookmarks in raw JSON debug state, and passes lint, TypeScript server build, and client webpack build
   + [status] is justified
-  + [uncertainty] is this first workbench is not yet browser-interaction tested in a running The Lounge session and does not yet implement adjustable divider drag motion, bookmark hover notes, quote controls, or polished editorial edit UI
+  + [uncertainty] is this first workbench is not yet browser-interaction tested in a running The Lounge session and does not yet implement adjustable divider drag motion, polished bookmark hover/popover behavior, quote controls, or polished editorial edit UI
 
 & [JustificationEntry: TheLoungeWorkbenchRuntimeProof] is justified
   + [work_type] is runtime_code
@@ -259,7 +259,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [implemented_artifact] is README.md proof command reference
   + [evidence_anchor] is python -m unittest tests.test_payload_http tests.test_refinement_storage
   + [evidence_anchor] is python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-runtime-proof
-  + [verification_result] is the runtime proof started local Ergo on port 62625, payload resolver at http://127.0.0.1:62667, and The Lounge at http://127.0.0.1:62668; published one app message to channel #eeadb76978fa435c86ae2dbe0b04bb0a; fetched the render row; listed one channel block; searched workbench to one hit; created one cut; created one chapter; soft-removed the cut; confirmed zero active cuts after removal; verified The Lounge served bundle strings for AlienHand refinement and workbench CSS; stopped resolver and The Lounge; cold replay returned one resolved payload; and workbench_runtime_ok returned true
+  + [verification_result] is the runtime proof started local Ergo on port 51503, payload resolver at http://127.0.0.1:51536, and The Lounge at http://127.0.0.1:51537; published one app message to channel #5bf302b75cab4bd280bba4de0e5dde56; fetched the render row; listed one channel block; searched workbench to one hit; created one cut; created one chapter; soft-removed the cut; confirmed zero active cuts after removal; verified The Lounge served bundle strings for AlienHand refinement, Inject into cuts, Bookmark note, Bookmark:, workbench CSS, and bookmark-note workbench CSS; stopped resolver and The Lounge; cold replay returned one resolved payload; and workbench_runtime_ok returned true
   + [status] is justified
   + [uncertainty] is this is a runtime HTTP/static-asset smoke test; actual browser click automation and human-visible interaction review remain future work
 

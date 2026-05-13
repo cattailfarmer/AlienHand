@@ -53,7 +53,8 @@ blocks, search them, inject blocks into the cuts pane, soft-remove cuts, create
 chapters from active cuts, and show a raw JSON debug view of the workbench state.
 The authenticated refinement API also supports bookmark-attached notes rooted in
 raw blocks, cuts, or chapters and listed back by channel for future hover/popup
-presentation.
+presentation, and the The Lounge workbench has first-pass controls for creating
+and displaying those notes.
 
 Current proof commands for live payload lookup, app-owned resolver lifecycle, and
 the app-owned The Lounge runtime group:

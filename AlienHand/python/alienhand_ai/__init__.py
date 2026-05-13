@@ -11,6 +11,7 @@ __all__ = [
     "learning_memory",
     "learning_packets",
     "learning",
+    "multi_mouse",
     "novelty",
     "payload_http",
     "refinement_storage",

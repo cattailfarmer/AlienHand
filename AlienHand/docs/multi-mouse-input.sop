@@ -1,0 +1,107 @@
+Subject: AlienHand Multi-Mouse Input
+
+Description: This specification defines the dual-pointer input substrate for AlienHand. Mouse A remains the ordinary Windows pointer. Mouse B is intended to be captured before Windows merges device input into the global cursor, then routed through per-target policy as blocked, integrated, or independent behavior.
+
+@ [source] platform/source/SOP_Markdown.md
+@ [reasoning] platform/refinement/Dual_Hemisphere_Thinking.sop
+@ [programming] platform/source/ProgrammingGuide.md
+
+& [AlienHandMultiMouseInput] is the input platform where one physical mouse can remain the Windows-owned pointer while another physical mouse becomes an AlienHand-owned virtual hand
+  + [mouse_a] is the normal Windows pointer device
+  + [mouse_b] is the AlienHand captured device
+  + [capture_layer] is the lower-level backend that prevents [mouse_b] from moving the Windows cursor
+  + [virtual_pointer_b] is the AlienHand state for [mouse_b]
+  + [target_policy] is [TargetPointerMode] selected for the current target app, window, or surface
+  + [legacy_output] is anonymous injected Windows mouse behavior for non-AlienHand surfaces
+  + [independent_output] is source-aware AlienHand pointer behavior for AlienHand-aware surfaces
+
+  = must: preserve [mouse_a] as the ordinary system pointer unless the user explicitly configures otherwise
+  = must: identify [mouse_b] through a stable device identity before capture rules are applied
+  = must: keep [mouse_b] from reaching the Windows pointer stream when it is captured
+  = must: route captured [mouse_b] events through [TargetPointerMode]
+  = must: distinguish true AlienHand independent pointer behavior from legacy Windows event injection
+  = should: support per-target and later per-surface policy overrides
+  - never: claim that legacy Windows apps receive a true second OS pointer
+
+| [TargetPointerMode] is (blocked | integrated | independent)
+  + [use_layer] is exclusive [TargetPointerMode]
+  = must: keep the value vocabulary closed until a new mode has a defined runtime contract
+
+& [TargetPointerPolicy] is the per-target decision record for captured pointer behavior
+  + [mode] is exclusive [TargetPointerMode]
+  + [legacy_fallback] is blocked or integrated when [mode] is independent but the target cannot receive source-aware AlienHand events
+  + [target_identity] is app, process, window, and optional AlienHand surface identity
+
+  = must: default unknown targets to a safe behavior
+  = must: apply [legacy_fallback] when independent mode is configured for a legacy target
+  = should: support policy persistence after the prototype router is proven
+
+& [TwoPointerHybridInput] is the working model for real operation
+  + [windows_pointer] follows [mouse_a]
+  + [alienhand_pointer] follows [mouse_b]
+  + [alienhand_surface] receives [alienhand_pointer] as independent source-aware events
+  + [legacy_surface] receives [alienhand_pointer] through [LegacyMouseMultiplexing] when policy is integrated
+
+  = must: update [virtual_pointer_b] even when delivery is blocked
+  = must: render or expose [virtual_pointer_b] state independently from the Windows pointer
+  = should: hide, restore, or mask cursor jumps when integrated legacy injection is used
+
+& [LegacyMouseMultiplexing] is the compatibility strategy for non-AlienHand apps
+  + [input] is captured [mouse_b] virtual pointer state
+  + [output] is an anonymous Windows mouse event stream
+  + [cursor_policy] is move, restore, hide, or overlay-mask behavior around injection
+  + [gesture_owner] is the currently serialized captured pointer gesture
+
+  = must: serialize legacy gestures that depend on global cursor capture or button state
+  = must: inject only ordinary legacy mouse events into legacy targets
+  = must: preserve [virtual_pointer_b] state before and after injection
+  = should: coalesce move events when high-frequency alternation would reduce stability
+  - never: allow simultaneous independent drags to be promised in legacy mode
+
+& [CaptureLayerBoundary] is the driver/interception seam not implemented by the current Python proof
+  + [raw_input_scan] is the user-mode ability to observe distinct Raw Input devices
+  + [capture_backend] is a future driver, filter, or interception backend that can consume a chosen device before Windows cursor merge
+  + [injection_backend] is the future implementation that converts integrated events into Windows-compatible input
+
+  = must: treat Raw Input device discovery as identity evidence, not capture
+  = must: keep capture/block claims provisional until a backend proves consumed input no longer reaches the system pointer
+  = should: keep the router independent from the eventual capture backend
+
+& [VirtualizedInputTestLayer] is the hardware-free proof layer for target policy and routing behavior
+  + [implementation] is AlienHand/python/alienhand_ai/multi_mouse.py
+  + [tests] are AlienHand/python/tests/test_multi_mouse.py
+  + [proof_command] is multi-mouse-routing-proof
+  + [device_scan_command] is multi-mouse-device-scan
+
+  = must: simulate [mouse_a] as the Windows pointer
+  = must: simulate [mouse_b] as a captured AlienHand pointer
+  = must: prove blocked, integrated, independent, and independent-to-legacy fallback routing
+  = must: preserve inspectable routed event records
+  = must: avoid moving the real cursor or blocking real hardware during simulation
+  = should: provide a live Raw Input scan to check how many physical mouse devices Windows exposes
+
+& [MultiMouseVirtualRoutingProof] is the current smallest truth test for the dual-pointer architecture
+  + [one_windows_mouse] is mouse-a
+  + [one_captured_mouse] is mouse-b
+  + [one_blocked_target] is secure-login
+  + [one_legacy_target] is legacy-editor
+  + [one_alienhand_target] is alienhand-workbench
+  + [one_fallback_target] is legacy-independent-request
+
+  = must: route [mouse_a] to windows_passthrough
+  = must: route blocked [mouse_b] events to blocked with delivered false
+  = must: route independent [mouse_b] events to alienhand_independent with pointer identity
+  = must: route integrated [mouse_b] events to legacy_injected
+  = must: route independent [mouse_b] events for a legacy target through legacy_fallback
+  = must: leave the Windows pointer state controlled only by [mouse_a]
+  = verify: routing_modes_ok is true
+
+& [MultiMouseDeviceScanProof] is the non-invasive hardware visibility check
+  + [implementation] is AlienHand/python/alienhand_ai/multi_mouse.py enumerate_windows_raw_input_devices
+  + [proof_command] is multi-mouse-device-scan
+  + [evidence] is Raw Input device list grouped by mouse, keyboard, hid, or unknown
+
+  = must: list Raw Input devices without capture or blocking
+  = must: report [multiple_mice_visible] when two or more mouse-class devices are visible
+  = must: report [capture_backend_present] false until a real capture backend exists
+  - never: use this scan as proof that AlienHand can consume one mouse before Windows cursor merge

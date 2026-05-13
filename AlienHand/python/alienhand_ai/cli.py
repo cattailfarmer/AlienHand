@@ -26,6 +26,7 @@ from .interface_probe import probe_godot_interfaces, summarize_interface_map
 from .interaction_trace import summarize_interaction_trace, write_interaction_trace
 from .learning_memory import ingest_learning_digest, summarize_learning_memory
 from .learning_packets import summarize_learning_packets, write_learning_packets
+from .multi_mouse import run_multi_mouse_device_scan, run_multi_mouse_virtualization_proof
 from .payload_http import (
     run_app_payload_resolver_lifecycle_proof,
     run_app_thelounge_refinement_workbench_proof,
@@ -236,6 +237,14 @@ def main() -> None:
     chat_refinement_http.add_argument("--output", default="runs")
     chat_refinement_http.add_argument("--name", default="chat-refinement-http-proof")
 
+    multi_mouse = sub.add_parser("multi-mouse-routing-proof")
+    multi_mouse.add_argument("--output", default="runs")
+    multi_mouse.add_argument("--name", default="multi-mouse-routing-proof")
+
+    multi_mouse_scan = sub.add_parser("multi-mouse-device-scan")
+    multi_mouse_scan.add_argument("--output", default="runs")
+    multi_mouse_scan.add_argument("--name", default="multi-mouse-device-scan")
+
     args = parser.parse_args()
     if args.command == "record-process":
         command = _normalize_remainder(args.command_args)
@@ -441,6 +450,12 @@ def main() -> None:
         print(json.dumps(result, indent=2))
     elif args.command == "chat-refinement-http-proof":
         result = run_refinement_http_api_proof(Path(args.output) / args.name, app_id=args.app_id)
+        print(json.dumps(result, indent=2))
+    elif args.command == "multi-mouse-routing-proof":
+        result = run_multi_mouse_virtualization_proof(Path(args.output) / args.name)
+        print(json.dumps(result, indent=2))
+    elif args.command == "multi-mouse-device-scan":
+        result = run_multi_mouse_device_scan(Path(args.output) / args.name)
         print(json.dumps(result, indent=2))
 
 

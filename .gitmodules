@@ -6,4 +6,5 @@
 	url = https://github.com/ergochat/ergo.git
 [submodule "AlienHand/thelounge"]
 	path = AlienHand/thelounge
-	url = https://github.com/thelounge/thelounge.git
+	url = https://github.com/cattailfarmer/thelounge.git
+	branch = alienhand/chat-render-adapter

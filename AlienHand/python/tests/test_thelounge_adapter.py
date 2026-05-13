@@ -39,7 +39,7 @@ class TheLoungeAdapterTests(unittest.TestCase):
         self.assertIn("alienhand-frame--code", html)
         self.assertIn("alienhand-frame--image", html)
         self.assertIn("alienhand-frame--link", html)
-        self.assertIn("../../../thelounge-alienhand/client/css/alienhand-chat.css", html)
+        self.assertIn("../../../thelounge/client/css/alienhand-chat.css", html)
         self.assertIn("&lt;script&gt;alert(&#x27;no&#x27;)&lt;/script&gt;", html)
         self.assertNotIn("<script>alert", html)
 

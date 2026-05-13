@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup and the first runtime substrate proof
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, minimal user-client receive proof, chunked history replay, render-model conversion, and thelounge adapter overlay are implemented and verified, but pushable thelounge fork wiring, live payload resolver fetch, and final history command syntax are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, minimal user-client receive proof, chunked history replay, render-model conversion, and thelounge fork rendering support are implemented and verified, but live payload resolver fetch and final history command syntax are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -71,10 +71,10 @@ Description: SOP description of the justification step, called "jusitification" 
   + [work_type] is dependency
   + [requirement_anchor] is [AlienHandIRCChatPlatform.human_client] and [RichChatClientSurface]
   + [implemented_artifact] is AlienHand/thelounge
-  + [evidence_anchor] is git submodule status a63b7b45b7bdfaf4e137e09f2c16e2508979dc50 AlienHand/thelounge
-  + [verification_result] is thelounge exists under AlienHand/thelounge and provides the planned human client dependency
+  + [evidence_anchor] is git submodule status 66385ee4 AlienHand/thelounge
+  + [verification_result] is thelounge exists under AlienHand/thelounge from the pushable AlienHand fork and provides the planned human client dependency
   + [status] is justified
-  + [uncertainty] is AlienHand-specific rendering adaptation is deferred until transport, payload, and replay are verified
+  + [uncertainty] is live payload resolver fetch and user command syntax remain unfinished
 
 & [JustificationEntry: ChatFoundationDocument] is justified
   + [work_type] is documentation
@@ -92,7 +92,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-platform.sop
   + [verification_result] is SOP spec defines envelope, payload store, payload resolver, commit order, replay, protocol review, truth test, and progress graph
   + [status] is justified
-  + [uncertainty] is pushable thelounge fork wiring, live payload resolver fetch, and final history command syntax remain unfinished
+  + [uncertainty] is live payload resolver fetch and final history command syntax remain unfinished
 
 & [JustificationEntry: WorkJustificationLayer] is justified
   + [work_type] is documentation
@@ -197,19 +197,24 @@ Description: SOP description of the justification step, called "jusitification" 
   + [status] is justified
   + [uncertainty] is this proves the data contract for rich rendering, not the final thelounge UI implementation
 
-& [JustificationEntry: TheLoungeAdapterOverlayProof] is justified
+& [JustificationEntry: TheLoungeForkWiringProof] is justified
   + [work_type] is runtime_code
   + [requirement_anchor] is [RichChatClientSurface], [thelounge_adapter_node], [client_node], and [RuntimePrototypeSlice]
-  + [implemented_artifact] is AlienHand/thelounge-alienhand/client/components/AlienHandMessage.vue
-  + [implemented_artifact] is AlienHand/thelounge-alienhand/client/css/alienhand-chat.css
+  + [implemented_artifact] is AlienHand/thelounge/client/components/AlienHandMessage.vue
+  + [implemented_artifact] is AlienHand/thelounge/client/css/alienhand-chat.css
+  + [implemented_artifact] is AlienHand/thelounge/client/components/Message.vue message.alienhand render branch
+  + [implemented_artifact] is AlienHand/thelounge/shared/types/msg.ts AlienHandRenderRow and SharedMsg.alienhand
+  + [implemented_artifact] is .gitmodules AlienHand/thelounge fork URL and branch
   + [implemented_artifact] is AlienHand/python/alienhand_ai/thelounge_adapter.py
   + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-thelounge-adapter-proof command
   + [implemented_artifact] is AlienHand/python/tests/test_thelounge_adapter.py
   + [evidence_anchor] is python -m unittest tests.test_thelounge_adapter
   + [evidence_anchor] is python -m alienhand_ai.cli chat-thelounge-adapter-proof --output runs --name chat-thelounge-adapter-proof
-  + [verification_result] is adapter version AH-THELOUNGE/1 wrote render_rows.json and preview.html with 3 rows, orientation sequence left/right/system, frame kinds code/image/link, 1 payload_error row, and adapter_ok true
+  + [evidence_anchor] is yarn build:client in AlienHand/thelounge
+  + [evidence_anchor] is git push cattailfarmer alienhand/chat-render-adapter
+  + [verification_result] is thelounge fork commit 66385ee4 builds successfully, renders message.alienhand rows through AlienHandMessage, imports alienhand-chat.css, and adapter version AH-THELOUNGE/1 writes preview data with left/right/system rows, code/image/link frames, 1 payload_error row, and adapter_ok true
   + [status] is justified
-  + [uncertainty] is the adapter is intentionally outside the upstream thelounge submodule until an AlienHand-owned thelounge fork can receive and publish the integrated client commit
+  + [uncertainty] is the live payload resolver fetch path still needs to populate message.alienhand at runtime
 
 ## Future Work Behavior
 

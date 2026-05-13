@@ -102,9 +102,8 @@ final user command syntax; it proves the replay substrate that syntax will call.
 client surface: user rows orient left, AI-agent rows orient right, service/error
 rows render as system rows, and code/image frames are normalized for the UI.
 `chat-thelounge-adapter-proof` writes a render-row fixture and static preview
-HTML for the AlienHand-owned thelounge adapter overlay. This keeps the UI
-contract reviewable before the upstream thelounge submodule is pointed at a
-pushable AlienHand fork.
+HTML against the fork-wired thelounge AlienHand CSS. This keeps the UI contract
+reviewable while the live payload resolver fetch path is still being wired.
 
 If `--name` is omitted or set to `auto`, AlienHand stores the run in the next
 numeric folder under `--output`: `runs\1`, `runs\2`, `runs\3`, and so on. It

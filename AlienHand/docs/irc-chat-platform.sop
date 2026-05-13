@@ -302,7 +302,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
 & [ChatPlatformIntegration] is the current feasibility and path assessment
   + [concept] is [AlienHandIRCChatPlatform]
   + [available_support] is Ergo submodule, thelounge submodule, AlienHand Python AI layer, existing JSONL run artifacts, and current docs
-  + [missing_support] is pushable thelounge fork wiring, live payload resolver fetch, final history command syntax, access control, and production lifecycle hardening
+  + [missing_support] is live payload resolver fetch, final history command syntax, access control, and production lifecycle hardening
   + [hidden_constraints] are IRC framing limits, authentication, service discovery, client extension strategy, concurrent writes, payload immutability, and cross-app isolation
   + [feasibility_gradient] is prototypeable
   + [next_step] is [ChatPlatformProtocolReview] followed by [AlienHandIRCTruthTest]
@@ -330,7 +330,7 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [app_lifecycle_node] is AlienHand app-owned Ergo startup and shutdown
   + [user_client_probe_node] is minimal user IRC client receive and payload resolution
   + [render_model_node] is payload-to-client render model conversion
-  + [thelounge_adapter_node] is AlienHand-owned thelounge render overlay and preview proof
+  + [thelounge_adapter_node] is AlienHand-owned thelounge fork render-row integration and preview proof
   + [client_node] is thelounge bubble and frame rendering
   + [ai_node] is one AI connection per agent plus context replay
   + [pm_node] is ephemeral private-message context
@@ -357,8 +357,8 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [app_lifecycle_node] is verified_app_service_proof
   + [user_client_probe_node] is verified_real_ergo
   + [render_model_node] is verified
-  + [thelounge_adapter_node] is verified_overlay
-  + [client_node] is adapter_overlay_verified
+  + [thelounge_adapter_node] is verified_fork_branch
+  + [client_node] is wired_to_fork_render_rows
   + [ai_node] is not_started
   + [pm_node] is specified
   + [security_node] is deferred
@@ -378,11 +378,11 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [cli_entry] is "python -m alienhand_ai.cli chat-history-proof --output runs --name chat-history-proof"
   + [cli_entry] is "python -m alienhand_ai.cli chat-render-proof --output runs --name chat-render-proof"
   + [cli_entry] is "python -m alienhand_ai.cli chat-thelounge-adapter-proof --output runs --name chat-thelounge-adapter-proof"
-  + [verified_behavior] is AH1 envelope round-trip, 32-character channel UUID hex normalization, payload durability, JSONL append, blocked publication on history failure, cold replay, payload_error on missing payload, socket-level IRC JOIN/PRIVMSG publication against a fake server, real local Ergo startup/publication/shutdown, AlienHand-owned service lifecycle startup/publication/shutdown, minimal user IRC client receive plus payload resolution through real local Ergo, payload-backed history_request recording, recent-first chunked replay of full resolved payloads, render-model conversion for user-left, AI-right, system rows, code frames, and image frames, and thelounge adapter overlay preview for left/right/system bubbles plus code/image/link frames
-  + [remaining_truth_test] is pushable thelounge fork wiring, live payload resolver fetch, and final history command syntax
+  + [verified_behavior] is AH1 envelope round-trip, 32-character channel UUID hex normalization, payload durability, JSONL append, blocked publication on history failure, cold replay, payload_error on missing payload, socket-level IRC JOIN/PRIVMSG publication against a fake server, real local Ergo startup/publication/shutdown, AlienHand-owned service lifecycle startup/publication/shutdown, minimal user IRC client receive plus payload resolution through real local Ergo, payload-backed history_request recording, recent-first chunked replay of full resolved payloads, render-model conversion for user-left, AI-right, system rows, code frames, and image frames, thelounge adapter preview for left/right/system bubbles plus code/image/link frames, and thelounge fork branch rendering support for message.alienhand rows
+  + [remaining_truth_test] is live payload resolver fetch and final history command syntax
 
   = must: treat this as verified local proof, not as complete user-facing chat integration
-  = must: use this slice as the base for the next thelounge fork-wiring and history-command steps
+  = must: use this slice as the base for the next payload-resolver-fetch and history-command steps
 
 ## Dual-Hemisphere Settlement
 

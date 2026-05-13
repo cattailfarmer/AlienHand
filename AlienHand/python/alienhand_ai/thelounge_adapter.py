@@ -71,7 +71,7 @@ def build_thelounge_preview_html(rows: list[JsonDict], *, title: str = "AlienHan
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{escape(title)}</title>
-<link rel="stylesheet" href="../../../thelounge-alienhand/client/css/alienhand-chat.css">
+<link rel="stylesheet" href="../../../thelounge/client/css/alienhand-chat.css">
 </head>
 <body>
 <main class="alienhand-preview" data-adapter-version="{ADAPTER_VERSION}">

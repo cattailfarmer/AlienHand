@@ -474,7 +474,7 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [style] is AlienHand/thelounge/client/css/alienhand-chat.css workbench styling
   + [entrypoint] is AlienHand/thelounge/client/components/Chat.vue Cuts toggle
   + [proof_command] is chat-workbench-runtime-proof
-  + [fork_commit] is 138005da
+  + [fork_commit] is 82ea2680
 
   = must: appear only for channel names that resolve to a 32-character hexadecimal UUID
   = must: provide a visible Cuts control at the top chat frame
@@ -490,9 +490,12 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: list sticky references for raw blocks, cuts, chapters, and bookmarks
   = must: let a user create a sticky reference against a raw block, cut, chapter, or bookmark
   = must: let a user clear a sticky reference without deleting the durable sticky record
+  = must: list editorial edits, edit diffs, and refined table-of-contents entries for chapters
+  = must: let a user apply a first-pass editorial edit to a chapter
+  = must: let a user add a chapter to the refined table of contents
   = must: expose a raw JSON/debug view for the workbench state
   = should: keep this first UI slice intentionally rough until runtime interaction is reviewed
-  ? [not_yet_done] is adjustable divider, drag pointer motion, polished quote selection, polished sticky presentation, and polished editorial edit UI
+  ? [not_yet_done] is adjustable divider, drag pointer motion, polished quote selection, polished sticky presentation, and polished editorial edit review UI
 
 & [TheLoungeRefinementWorkbenchRuntimeProof] is the app-owned runtime verification for the first refinement workbench
   + [implementation] is AlienHand/python/alienhand_ai/payload_http.py run_app_thelounge_refinement_workbench_proof

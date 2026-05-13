@@ -1072,6 +1072,33 @@ def run_app_thelounge_refinement_workbench_proof(
             },
             access_token=access_token,
         )
+        chapter_id = chapter_response["json"].get("chapter", {}).get("chapter_id")
+        edit_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/edits",
+            {
+                "input_ref": {"type": "chapter", "id": chapter_id},
+                "output_ref": {"type": "chapter", "id": chapter_id, "revision": 1},
+                "edit_type": "annotate",
+                "reason": "Runtime workbench editorial proof.",
+                "author": "alienhand",
+                "diff_content": {"add": [{"path": "/summary", "value": "Runtime editorial proof."}]},
+            },
+            access_token=access_token,
+        )
+        edit_id = edit_response["json"].get("edit", {}).get("edit_id")
+        diff_id = edit_response["json"].get("diff", {}).get("diff_id")
+        toc_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/toc",
+            {
+                "entry_type": "chapter",
+                "ordinal": 0,
+                "source_scope": {"block_ids": [block_id], "cut_ids": [cut_id]},
+                "target_id": chapter_id,
+                "title": "Workbench Runtime",
+                "toc_id": "main",
+            },
+            access_token=access_token,
+        )
         remove_response = _http_delete_json(
             f"{resolver_base_url}/alienhand/refinement/cuts/{cut_id}",
             access_token=access_token,
@@ -1086,6 +1113,22 @@ def run_app_thelounge_refinement_workbench_proof(
         )
         chapters_response = _http_json(
             f"{resolver_base_url}/alienhand/refinement/chapters?channel={channel_uuid}",
+            access_token=access_token,
+        )
+        edits_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/edits?edit_type=annotate",
+            access_token=access_token,
+        )
+        diffs_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/edit-diffs?edit_id={edit_id}",
+            access_token=access_token,
+        )
+        diff_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/edit-diffs/{diff_id}",
+            access_token=access_token,
+        )
+        toc_list_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/toc?toc_id=main",
             access_token=access_token,
         )
         render_response = _http_json(
@@ -1105,6 +1148,9 @@ def run_app_thelounge_refinement_workbench_proof(
     cuts = cuts_response["json"].get("cuts", [])
     active_cuts = active_cuts_response["json"].get("cuts", [])
     chapters = chapters_response["json"].get("chapters", [])
+    edits = edits_response["json"].get("edits", [])
+    diffs = diffs_response["json"].get("diffs", [])
+    toc_entries = toc_list_response["json"].get("entries", [])
     index_html = index_response["text"]
     bundle_js = bundle_response["text"]
     style_css = style_response["text"]
@@ -1117,6 +1163,8 @@ def run_app_thelounge_refinement_workbench_proof(
         and "Quote excerpt" in bundle_js
         and "Pinned reminder" in bundle_js
         and "Unpin" in bundle_js
+        and "Apply edit" in bundle_js
+        and "Add TOC" in bundle_js
         and "alienhand-workbench" in bundle_js
     )
     workbench_style_ok = (
@@ -1124,6 +1172,8 @@ def run_app_thelounge_refinement_workbench_proof(
         and "alienhand-workbench__bookmarks" in style_css
         and "alienhand-workbench__quotes" in style_css
         and "alienhand-workbench__stickies" in style_css
+        and "alienhand-workbench__edits" in style_css
+        and "alienhand-workbench__toc" in style_css
     )
     refinement_api_ok = (
         blocks_response["status"] == 200
@@ -1133,11 +1183,22 @@ def run_app_thelounge_refinement_workbench_proof(
         and [hit.get("block_id") for hit in search_hits] == [block_id]
         and cut_response["status"] == 201
         and chapter_response["status"] == 201
+        and edit_response["status"] == 201
+        and edit_response["json"].get("edit", {}).get("diff_id") == diff_id
+        and toc_response["status"] == 201
         and remove_response["status"] == 200
         and remove_response["json"].get("cut", {}).get("status") == "removed"
         and len(cuts) == 1
         and len(active_cuts) == 0
         and len(chapters) == 1
+        and chapters[0].get("edit_chain") == [edit_id]
+        and len(edits) == 1
+        and edits[0].get("edit_id") == edit_id
+        and len(diffs) == 1
+        and diffs[0].get("diff_id") == diff_id
+        and diff_response["json"].get("diff", {}).get("diff_id") == diff_id
+        and len(toc_entries) == 1
+        and toc_entries[0].get("target_id") == chapter_id
     )
     render_fetch_ok = (
         render_response["status"] == 200
@@ -1174,10 +1235,16 @@ def run_app_thelounge_refinement_workbench_proof(
         "listed_blocks": len(blocks),
         "search_hits": len(search_hits),
         "created_cut_id": cut_id,
+        "created_chapter_id": chapter_id,
+        "created_edit_id": edit_id,
+        "created_diff_id": diff_id,
         "removed_cut_status": remove_response["json"].get("cut", {}).get("status"),
         "listed_cuts": len(cuts),
         "active_cuts_after_remove": len(active_cuts),
         "listed_chapters": len(chapters),
+        "listed_edits": len(edits),
+        "listed_diffs": len(diffs),
+        "listed_toc_entries": len(toc_entries),
         "workbench_bundle_ok": workbench_bundle_ok,
         "workbench_style_ok": workbench_style_ok,
         "refinement_api_ok": refinement_api_ok,

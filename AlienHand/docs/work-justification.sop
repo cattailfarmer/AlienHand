@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup, the first runtime substrate proof, and the separate chat conversation refinement specification
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but live history presentation, refinement workbench UI, and production authentication hardening are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, refinement HTTP workbench API proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but split-pane refinement workbench UI and production authentication hardening are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -199,6 +199,22 @@ Description: SOP description of the justification step, called "jusitification" 
   + [verification_result] is AlienHandChatService published one searchable app message into live refinement.sqlite3, cold sync rebuilt one matching message:<uuid> block into cold-refinement.sqlite3 from JSONL plus payload files, live and cold search each returned one hit, and app_refinement_lifecycle_ok returned true
   + [status] is justified
   + [uncertainty] is live The Lounge workbench presentation and multi-channel background sync remain future work
+
+& [JustificationEntry: RefinementHTTPWorkbenchAPIProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [ConversationRefinementHTTPV1], [ConversationStorageModel], [ConversationRefinementState], and [ConversationAnnotationSemantics]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/payload_http.py authenticated refinement HTTP routes
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/refinement_storage.py list_blocks and list_chapters query helpers
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-refinement-http-proof command
+  + [implemented_artifact] is AlienHand/python/tests/test_payload_http.py refinement HTTP API tests
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop ConversationRefinementHTTPV1
+  + [implemented_artifact] is README.md proof command reference
+  + [evidence_anchor] is python -m unittest tests.test_payload_http tests.test_refinement_storage
+  + [evidence_anchor] is python -m unittest discover -s tests
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-refinement-http-proof --output runs --name chat-refinement-http-proof
+  + [verification_result] is one committed chat payload was imported into refinement.sqlite3, the HTTP API listed the channel-filtered source block, searched the term workbench back to the source block, rejected unauthenticated access with 401, created one cut from the block, created one chapter from the cut, listed one cut and one chapter, returned refinement_http_ok true, and full test discovery passed with 81 tests
+  + [status] is justified
+  + [uncertainty] is this proves the browser-facing API contract for the future workbench, not the split-pane visual UI, drag pointer, bookmark hover UI, or production authorization policy
 
 & [JustificationEntry: ChatRuntimeTruthTestCore] is partially_justified
   + [work_type] is runtime_code

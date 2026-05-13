@@ -7,11 +7,12 @@ from pathlib import Path
 import secrets
 import threading
 from typing import Any
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 from uuid import uuid4
 
+from .refinement_storage import ConversationRefinementStore, import_replay_rows
 from .chat_platform import (
     AlienHandChatService,
     ChannelJSONLHistory,
@@ -29,6 +30,7 @@ from .chat_platform import (
 
 PAYLOAD_RESOLVER_VERSION = "AH-PAYLOAD-RESOLVER/1"
 RENDER_PATH_PREFIX = ("alienhand", "payloads")
+REFINEMENT_PATH_PREFIX = ("alienhand", "refinement")
 
 
 class PayloadResolverHTTPServer:
@@ -46,6 +48,7 @@ class PayloadResolverHTTPServer:
         self.access_token = access_token
         self.store = PayloadStore(self.root)
         self.resolver = PayloadResolver(self.store)
+        self.refinement_db_path = self.root / "refinement.sqlite3"
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
 
@@ -93,18 +96,132 @@ class PayloadResolverHTTPServer:
                 self.end_headers()
 
             def do_GET(self) -> None:
-                message_uuid = _message_uuid_from_render_path(self.path)
-                if message_uuid is None:
-                    self._send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
-                    return
                 if not owner._is_authorized(self):
                     self._send_json({"error": "unauthorized"}, HTTPStatus.UNAUTHORIZED)
                     return
-                payload = owner.resolver.resolve_render_model(message_uuid)
-                self._send_json(payload_to_render_model(payload), HTTPStatus.OK)
+                message_uuid = _message_uuid_from_render_path(self.path)
+                if message_uuid is not None:
+                    payload = owner.resolver.resolve_render_model(message_uuid)
+                    self._send_json(payload_to_render_model(payload), HTTPStatus.OK)
+                    return
+                if self._handle_refinement_get():
+                    return
+                self._send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+
+            def do_POST(self) -> None:
+                if not owner._is_authorized(self):
+                    self._send_json({"error": "unauthorized"}, HTTPStatus.UNAUTHORIZED)
+                    return
+                if self._handle_refinement_post():
+                    return
+                self._send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
 
             def log_message(self, format: str, *args: Any) -> None:
                 return
+
+            def _handle_refinement_get(self) -> bool:
+                parsed = urlparse(self.path)
+                parts = _path_parts(parsed.path)
+                query = _query_params(parsed.query)
+                if parts == (*REFINEMENT_PATH_PREFIX, "blocks"):
+                    try:
+                        limit = _optional_positive_int(query.get("limit"), "limit")
+                    except ValueError as error:
+                        self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    with ConversationRefinementStore(owner.refinement_db_path) as store:
+                        blocks = store.list_blocks(channel_uuid=query.get("channel"), limit=limit)
+                    self._send_json({"blocks": [block.to_dict() for block in blocks]}, HTTPStatus.OK)
+                    return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "search"):
+                    term = query.get("q", "")
+                    with ConversationRefinementStore(owner.refinement_db_path) as store:
+                        hits = store.search(term)
+                    self._send_json({"query": term, "hits": [hit.to_dict() for hit in hits]}, HTTPStatus.OK)
+                    return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "cuts"):
+                    with ConversationRefinementStore(owner.refinement_db_path) as store:
+                        cuts = store.list_cuts(status=query.get("status"))
+                    self._send_json({"cuts": [cut.to_dict() for cut in cuts]}, HTTPStatus.OK)
+                    return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "chapters"):
+                    with ConversationRefinementStore(owner.refinement_db_path) as store:
+                        chapters = store.list_chapters()
+                    self._send_json({"chapters": [chapter.to_dict() for chapter in chapters]}, HTTPStatus.OK)
+                    return True
+                return False
+
+            def _handle_refinement_post(self) -> bool:
+                parts = _path_parts(urlparse(self.path).path)
+                if parts == (*REFINEMENT_PATH_PREFIX, "cuts"):
+                    body = self._read_json_body()
+                    if body is None:
+                        return True
+                    source_block_id = str(body.get("source_block_id") or "")
+                    if not source_block_id:
+                        self._send_json({"error": "source_block_id_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    position = body.get("position")
+                    try:
+                        resolved_position = (
+                            None
+                            if position is None
+                            else _positive_int_value(position, "position", allow_zero=True)
+                        )
+                        with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            cut = store.create_cut(source_block_id, position=resolved_position)
+                    except ValueError as error:
+                        self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    except KeyError:
+                        self._send_json({"error": "source_block_not_found"}, HTTPStatus.NOT_FOUND)
+                        return True
+                    self._send_json({"cut": cut.to_dict()}, HTTPStatus.CREATED)
+                    return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "chapters"):
+                    body = self._read_json_body()
+                    if body is None:
+                        return True
+                    title = str(body.get("title") or "")
+                    summary = str(body.get("summary") or "")
+                    cut_ids = body.get("cut_ids") or ()
+                    if not title:
+                        self._send_json({"error": "title_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if not isinstance(cut_ids, list) or not cut_ids:
+                        self._send_json({"error": "cut_ids_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    try:
+                        with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            chapter = store.create_chapter(
+                                title=title,
+                                summary=summary,
+                                cut_ids=tuple(str(cut_id) for cut_id in cut_ids),
+                            )
+                    except KeyError:
+                        self._send_json({"error": "cut_not_found"}, HTTPStatus.NOT_FOUND)
+                        return True
+                    self._send_json({"chapter": chapter.to_dict()}, HTTPStatus.CREATED)
+                    return True
+                return False
+
+            def _read_json_body(self) -> JsonDict | None:
+                try:
+                    length = int(self.headers.get("Content-Length") or "0")
+                except ValueError:
+                    self._send_json({"error": "invalid_content_length"}, HTTPStatus.BAD_REQUEST)
+                    return None
+                if length <= 0:
+                    return {}
+                try:
+                    parsed = json.loads(self.rfile.read(length).decode("utf-8"))
+                except json.JSONDecodeError:
+                    self._send_json({"error": "invalid_json"}, HTTPStatus.BAD_REQUEST)
+                    return None
+                if not isinstance(parsed, dict):
+                    self._send_json({"error": "json_object_required"}, HTTPStatus.BAD_REQUEST)
+                    return None
+                return parsed
 
             def _send_json(self, body: JsonDict, status: HTTPStatus) -> None:
                 encoded = json.dumps(body, sort_keys=True).encode("utf-8")
@@ -117,7 +234,7 @@ class PayloadResolverHTTPServer:
 
             def _send_cors_headers(self) -> None:
                 self.send_header("Access-Control-Allow-Origin", "*")
-                self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+                self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
                 self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
 
         return PayloadResolverHandler
@@ -197,6 +314,90 @@ def run_payload_resolver_http_proof(root: str | Path, *, app_id: int = 1) -> Jso
         and missing_row.get("status") == "payload_error"
         and unauthorized_response["status"] == 401
         and cors_ok,
+        "root": str(chat_root.resolve()),
+    }
+
+
+def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonDict:
+    chat_root = Path(root)
+    store = PayloadStore(chat_root)
+    history = ChannelJSONLHistory(chat_root)
+    outbox = EnvelopeOutbox(chat_root / "irc_outbox.jsonl")
+    channel_uuid = uuid4().hex
+
+    published = commit_message(
+        app_id=app_id,
+        channel_uuid=channel_uuid,
+        nick="user",
+        sender_type="user",
+        payload_kind="text",
+        content={"text": "searchable workbench source block"},
+        metadata={"proof": "refinement_http_api"},
+        store=store,
+        history=history,
+        publisher=outbox,
+    )
+    replayed = replay_channel(history, PayloadResolver(store), channel_uuid)
+    with ConversationRefinementStore(chat_root / "refinement.sqlite3") as refinement_store:
+        imported_blocks = import_replay_rows(refinement_store, replayed)
+
+    access_token = "refinement-http-proof-token"
+    with PayloadResolverHTTPServer(chat_root, access_token=access_token) as server:
+        blocks_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/blocks?channel={channel_uuid}",
+            access_token=access_token,
+        )
+        search_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/search?q=workbench",
+            access_token=access_token,
+        )
+        unauthorized_response = _http_json(f"{server.base_url}/alienhand/refinement/blocks")
+        cut_response = _http_post_json(
+            f"{server.base_url}/alienhand/refinement/cuts",
+            {"source_block_id": imported_blocks[0].block_id},
+            access_token=access_token,
+        )
+        cut_id = cut_response["json"].get("cut", {}).get("cut_id")
+        chapter_response = _http_post_json(
+            f"{server.base_url}/alienhand/refinement/chapters",
+            {"title": "Workbench Sources", "summary": "User-selected proof cut.", "cut_ids": [cut_id]},
+            access_token=access_token,
+        )
+        cuts_response = _http_json(f"{server.base_url}/alienhand/refinement/cuts", access_token=access_token)
+        chapters_response = _http_json(f"{server.base_url}/alienhand/refinement/chapters", access_token=access_token)
+        base_url = server.base_url
+
+    blocks = blocks_response["json"].get("blocks", [])
+    hits = search_response["json"].get("hits", [])
+    cuts = cuts_response["json"].get("cuts", [])
+    chapters = chapters_response["json"].get("chapters", [])
+    refinement_http_ok = (
+        blocks_response["status"] == 200
+        and len(blocks) == 1
+        and blocks[0].get("block_id") == imported_blocks[0].block_id
+        and search_response["status"] == 200
+        and [hit.get("block_id") for hit in hits] == [imported_blocks[0].block_id]
+        and unauthorized_response["status"] == 401
+        and cut_response["status"] == 201
+        and chapter_response["status"] == 201
+        and len(cuts) == 1
+        and len(chapters) == 1
+    )
+    return {
+        "resolver_version": PAYLOAD_RESOLVER_VERSION,
+        "app_id": app_id,
+        "channel_uuid": channel_uuid,
+        "message_uuid": published.envelope.message_uuid,
+        "refinement_base_url": base_url,
+        "imported_blocks": len(imported_blocks),
+        "listed_blocks": len(blocks),
+        "search_hits": len(hits),
+        "created_cut_id": cut_id,
+        "created_chapter_id": chapter_response["json"].get("chapter", {}).get("chapter_id"),
+        "listed_cuts": len(cuts),
+        "listed_chapters": len(chapters),
+        "unauthorized_status": unauthorized_response["status"],
+        "refinement_http_ok": refinement_http_ok,
         "root": str(chat_root.resolve()),
     }
 
@@ -383,6 +584,32 @@ def _message_uuid_from_render_path(path: str) -> str | None:
     return None
 
 
+def _path_parts(path: str) -> tuple[str, ...]:
+    return tuple(unquote(part) for part in path.split("/") if part)
+
+
+def _query_params(query: str) -> dict[str, str]:
+    parsed = parse_qs(query, keep_blank_values=True)
+    return {key: values[-1] for key, values in parsed.items() if values}
+
+
+def _optional_positive_int(value: str | None, name: str) -> int | None:
+    if value is None or value == "":
+        return None
+    return _positive_int_value(value, name)
+
+
+def _positive_int_value(value: Any, name: str, *, allow_zero: bool = False) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(f"{name} must be an integer") from error
+    minimum = 0 if allow_zero else 1
+    if parsed < minimum:
+        raise ValueError(f"{name} must be at least {minimum}")
+    return parsed
+
+
 def _http_json(url: str, *, access_token: str | None = None) -> JsonDict:
     headers = {"Accept": "application/json", "Origin": "http://127.0.0.1"}
     if access_token:
@@ -395,6 +622,21 @@ def _http_json(url: str, *, access_token: str | None = None) -> JsonDict:
     except HTTPError as error:
         body = error.read().decode("utf-8")
         return {"json": json.loads(body), "headers": dict(error.headers), "status": error.code}
+
+
+def _http_post_json(url: str, body: JsonDict, *, access_token: str | None = None) -> JsonDict:
+    headers = {"Accept": "application/json", "Content-Type": "application/json", "Origin": "http://127.0.0.1"}
+    if access_token:
+        headers["Authorization"] = f"Bearer {access_token}"
+    encoded = json.dumps(body, sort_keys=True).encode("utf-8")
+    request = Request(url, data=encoded, headers=headers, method="POST")
+    try:
+        with urlopen(request, timeout=5.0) as response:
+            response_body = response.read().decode("utf-8")
+            return {"json": json.loads(response_body), "headers": dict(response.headers), "status": response.status}
+    except HTTPError as error:
+        response_body = error.read().decode("utf-8")
+        return {"json": json.loads(response_body), "headers": dict(error.headers), "status": error.code}
 
 
 def _http_options(url: str) -> JsonDict:

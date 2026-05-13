@@ -378,6 +378,21 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: allow cold replay sync to rebuild refinement blocks from durable chat history
   = should: treat refinement storage as derived state that can be recovered from source history
 
+& [ConversationRefinementHTTPV1] is the local authenticated HTTP API for the future split-pane workbench
+  + [implementation] is AlienHand/python/alienhand_ai/payload_http.py refinement routes
+  + [proof_command] is chat-refinement-http-proof
+  + [base_path] is /alienhand/refinement
+  + [auth] is the prototype bearer token shared with [PayloadResolverHTTP]
+  + [read_endpoints] are blocks, search, cuts, and chapters
+  + [write_endpoints] are create cut and create chapter
+
+  = must: expose channel-filtered conversation blocks for the raw pane
+  = must: expose search hits that map terms back to source block IDs
+  = must: allow explicit user-controlled creation of cuts from source blocks
+  = must: allow explicit user-controlled chapter creation from selected cuts
+  = must: reject unauthenticated refinement reads and writes when a resolver token is configured
+  = should: remain a narrow workbench contract until richer UI behavior is implemented
+
 & [ConversationEditDiffArtifact] is the change record for an editorial edit
   + [diff_id] is the stable identifier
   + [edit_id] is the parent edit identifier

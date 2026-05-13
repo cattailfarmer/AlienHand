@@ -237,6 +237,21 @@ class ConversationRefinementStore:
         row = self._required_row("SELECT * FROM conversation_blocks WHERE block_id = ?", (block_id,))
         return block_from_row(row)
 
+    def list_blocks(self, *, channel_uuid: str | None = None, limit: int | None = None) -> list[ConversationBlock]:
+        query = "SELECT * FROM conversation_blocks"
+        params: list[Any] = []
+        if channel_uuid is not None:
+            query += " WHERE channel_uuid = ?"
+            params.append(channel_uuid)
+        query += " ORDER BY created_at, block_id"
+        if limit is not None:
+            if limit < 1:
+                raise ValueError("limit must be at least 1")
+            query += " LIMIT ?"
+            params.append(limit)
+        rows = self.connection.execute(query, tuple(params)).fetchall()
+        return [block_from_row(row) for row in rows]
+
     def create_cut(self, source_block_id: str, *, position: int | None = None, cut_id: str | None = None) -> ConversationCut:
         self.get_block(source_block_id)
         if position is None:
@@ -319,6 +334,10 @@ class ConversationRefinementStore:
     def get_chapter(self, chapter_id: str) -> ConversationChapter:
         row = self._required_row("SELECT * FROM conversation_chapters WHERE chapter_id = ?", (chapter_id,))
         return chapter_from_row(row)
+
+    def list_chapters(self) -> list[ConversationChapter]:
+        rows = self.connection.execute("SELECT * FROM conversation_chapters ORDER BY title, chapter_id").fetchall()
+        return [chapter_from_row(row) for row in rows]
 
     def create_bookmark(
         self,

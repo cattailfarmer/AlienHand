@@ -14,10 +14,17 @@ from alienhand_ai.chat_platform import (
     AlienHandChatService,
     ChannelJSONLHistory,
     EnvelopeOutbox,
+    PayloadResolver,
     PayloadStore,
     commit_message,
+    replay_channel,
 )
-from alienhand_ai.payload_http import PayloadResolverHTTPServer, run_payload_resolver_http_proof
+from alienhand_ai.payload_http import (
+    PayloadResolverHTTPServer,
+    run_payload_resolver_http_proof,
+    run_refinement_http_api_proof,
+)
+from alienhand_ai.refinement_storage import ConversationRefinementStore, import_replay_rows
 
 
 class PayloadHTTPTests(unittest.TestCase):
@@ -96,6 +103,84 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(result["unauthorized_status"], 401)
             self.assertTrue(result["cors_ok"])
 
+    def test_refinement_http_api_lists_searches_and_creates_user_controlled_objects(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            channel_uuid = uuid4().hex
+            payload_store = PayloadStore(root)
+            history = ChannelJSONLHistory(root)
+            published = commit_message(
+                app_id=7,
+                channel_uuid=channel_uuid,
+                nick="user",
+                sender_type="user",
+                payload_kind="text",
+                content={"text": "searchable refinement API block"},
+                store=payload_store,
+                history=history,
+                publisher=EnvelopeOutbox(),
+            )
+            replayed = replay_channel(history, PayloadResolver(payload_store), channel_uuid)
+            with ConversationRefinementStore(root / "refinement.sqlite3") as store:
+                blocks = import_replay_rows(store, replayed)
+
+            with PayloadResolverHTTPServer(root, access_token="secret") as server:
+                listed, _, listed_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/blocks?channel={channel_uuid}",
+                    token="secret",
+                )
+                search, _, search_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/search?q=api",
+                    token="secret",
+                )
+                unauthorized, _, unauthorized_status = fetch_json(f"{server.base_url}/alienhand/refinement/blocks")
+                cut, _, cut_status = post_json(
+                    f"{server.base_url}/alienhand/refinement/cuts",
+                    {"source_block_id": blocks[0].block_id},
+                    token="secret",
+                )
+                chapter, _, chapter_status = post_json(
+                    f"{server.base_url}/alienhand/refinement/chapters",
+                    {
+                        "title": "Refinement API",
+                        "summary": "User-selected cut from raw conversation.",
+                        "cut_ids": [cut["cut"]["cut_id"]],
+                    },
+                    token="secret",
+                )
+                cuts, _, cuts_status = fetch_json(f"{server.base_url}/alienhand/refinement/cuts", token="secret")
+                chapters, _, chapters_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/chapters",
+                    token="secret",
+                )
+
+            self.assertEqual(listed_status, 200)
+            self.assertEqual(listed["blocks"][0]["block_id"], f"message:{published.envelope.message_uuid}")
+            self.assertEqual(search_status, 200)
+            self.assertEqual([hit["block_id"] for hit in search["hits"]], [blocks[0].block_id])
+            self.assertEqual(unauthorized_status, 401)
+            self.assertEqual(unauthorized["error"], "unauthorized")
+            self.assertEqual(cut_status, 201)
+            self.assertEqual(cut["cut"]["source_block_id"], blocks[0].block_id)
+            self.assertEqual(chapter_status, 201)
+            self.assertEqual(chapter["chapter"]["member_cut_ids"], [cut["cut"]["cut_id"]])
+            self.assertEqual(cuts_status, 200)
+            self.assertEqual(len(cuts["cuts"]), 1)
+            self.assertEqual(chapters_status, 200)
+            self.assertEqual(len(chapters["chapters"]), 1)
+
+    def test_refinement_http_api_proof_exercises_workbench_contract(self):
+        with tempfile.TemporaryDirectory() as temp:
+            result = run_refinement_http_api_proof(Path(temp) / "refinement-http")
+
+            self.assertTrue(result["refinement_http_ok"])
+            self.assertEqual(result["imported_blocks"], 1)
+            self.assertEqual(result["listed_blocks"], 1)
+            self.assertEqual(result["search_hits"], 1)
+            self.assertEqual(result["listed_cuts"], 1)
+            self.assertEqual(result["listed_chapters"], 1)
+            self.assertEqual(result["unauthorized_status"], 401)
+
     def test_chat_service_owns_payload_resolver_lifecycle(self):
         with tempfile.TemporaryDirectory() as temp:
             service = AlienHandChatService(Path(temp) / "service")
@@ -164,6 +249,18 @@ def fetch_json(url: str, *, token: str | None = None):
     if token:
         headers["Authorization"] = f"Bearer {token}"
     request = Request(url, headers=headers)
+    try:
+        with urlopen(request, timeout=5.0) as response:
+            return json.loads(response.read().decode("utf-8")), dict(response.headers), response.status
+    except HTTPError as error:
+        return json.loads(error.read().decode("utf-8")), dict(error.headers), error.code
+
+
+def post_json(url: str, body: dict[str, object], *, token: str | None = None):
+    headers = {"Accept": "application/json", "Content-Type": "application/json", "Origin": "http://localhost"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
     try:
         with urlopen(request, timeout=5.0) as response:
             return json.loads(response.read().decode("utf-8")), dict(response.headers), response.status

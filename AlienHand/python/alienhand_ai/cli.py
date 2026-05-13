@@ -27,6 +27,7 @@ from .payload_http import (
     run_app_payload_resolver_lifecycle_proof,
     run_app_thelounge_runtime_group_proof,
     run_payload_resolver_http_proof,
+    run_refinement_http_api_proof,
 )
 from .refinement_storage import run_refinement_replay_import_proof, run_refinement_storage_proof
 from .runner import ProcessRunConfig, record_process
@@ -198,6 +199,11 @@ def main() -> None:
     chat_refinement_replay.add_argument("--app-id", type=int, default=1)
     chat_refinement_replay.add_argument("--output", default="runs")
     chat_refinement_replay.add_argument("--name", default="chat-refinement-replay-proof")
+
+    chat_refinement_http = sub.add_parser("chat-refinement-http-proof")
+    chat_refinement_http.add_argument("--app-id", type=int, default=1)
+    chat_refinement_http.add_argument("--output", default="runs")
+    chat_refinement_http.add_argument("--name", default="chat-refinement-http-proof")
 
     args = parser.parse_args()
     if args.command == "record-process":
@@ -384,6 +390,9 @@ def main() -> None:
         print(json.dumps(result, indent=2))
     elif args.command == "chat-refinement-replay-proof":
         result = run_refinement_replay_import_proof(Path(args.output) / args.name, app_id=args.app_id)
+        print(json.dumps(result, indent=2))
+    elif args.command == "chat-refinement-http-proof":
+        result = run_refinement_http_api_proof(Path(args.output) / args.name, app_id=args.app_id)
         print(json.dumps(result, indent=2))
 
 

@@ -31,9 +31,13 @@ Description: This specification defines the dual-pointer input substrate for Ali
   + [mode] is exclusive [TargetPointerMode]
   + [legacy_fallback] is blocked or integrated when [mode] is independent but the target cannot receive source-aware AlienHand events
   + [target_identity] is app, process, window, and optional AlienHand surface identity
+  + [policy_rule] is a reusable selector for target_id, process_name, window_title_contains, or surface_id
+  + [specificity] is the rule-ranking policy that lets surface-specific rules override app-level rules
 
   = must: default unknown targets to a safe behavior
   = must: apply [legacy_fallback] when independent mode is configured for a legacy target
+  = must: allow process-level app policy and surface-specific override policy
+  = must: serialize and reload policy tables as JSON for prototype scope
   = should: support policy persistence after the prototype router is proven
 
 & [TwoPointerHybridInput] is the working model for real operation
@@ -72,10 +76,13 @@ Description: This specification defines the dual-pointer input substrate for Ali
   + [tests] are AlienHand/python/tests/test_multi_mouse.py
   + [proof_command] is multi-mouse-routing-proof
   + [device_scan_command] is multi-mouse-device-scan
+  + [policy_persistence] is read_policy_table and write_policy_table
 
   = must: simulate [mouse_a] as the Windows pointer
   = must: simulate [mouse_b] as a captured AlienHand pointer
   = must: prove blocked, integrated, independent, and independent-to-legacy fallback routing
+  = must: prove app-level and surface-specific policy resolution without hardware
+  = must: prove policy table JSON round trip without hardware
   = must: preserve inspectable routed event records
   = must: avoid moving the real cursor or blocking real hardware during simulation
   = should: provide a live Raw Input scan to check how many physical mouse devices Windows exposes

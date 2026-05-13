@@ -17,10 +17,13 @@ from alienhand_ai.multi_mouse import (
     PointerInputEvent,
     TargetIdentity,
     TargetPointerPolicy,
+    TargetPolicyRule,
     TargetPolicyTable,
     VirtualPointerRouter,
     effective_target_mode,
+    read_policy_table,
     run_multi_mouse_virtualization_proof,
+    write_policy_table,
 )
 
 
@@ -71,6 +74,53 @@ class MultiMouseRoutingTests(unittest.TestCase):
 
         self.assertEqual(mode, MODE_INTEGRATED)
         self.assertEqual(reason, "target_not_independent_aware")
+
+    def test_policy_rules_select_by_process_and_surface_specificity(self):
+        table = TargetPolicyTable()
+        table.add_rule(
+            TargetPolicyRule(
+                rule_id="alienhand-app",
+                process_name="AlienHand.exe",
+                policy=TargetPointerPolicy(MODE_INTEGRATED),
+            )
+        )
+        table.add_rule(
+            TargetPolicyRule(
+                rule_id="alienhand-chat-surface",
+                process_name="AlienHand.exe",
+                surface_id="chat",
+                policy=TargetPointerPolicy(MODE_INDEPENDENT),
+            )
+        )
+
+        workbench = TargetIdentity(
+            "alienhand-workbench",
+            "alienhand.exe",
+            surface_id="chat",
+            supports_independent_pointers=True,
+        )
+        settings = TargetIdentity("alienhand-settings", "alienhand.exe", surface_id="settings")
+
+        self.assertEqual(table.resolve(workbench).mode, MODE_INDEPENDENT)
+        self.assertEqual(table.resolve(settings).mode, MODE_INTEGRATED)
+
+    def test_policy_table_round_trips_to_json(self):
+        table = TargetPolicyTable(default_captured_policy=TargetPointerPolicy(MODE_BLOCKED))
+        table.set_policy("secure-login", TargetPointerPolicy(MODE_BLOCKED))
+        table.add_rule(
+            TargetPolicyRule(
+                rule_id="legacy-editors",
+                process_name="notepad.exe",
+                window_title_contains="notes",
+                policy=TargetPointerPolicy(MODE_INTEGRATED),
+            )
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            path = write_policy_table(Path(temp) / "pointer-policy.json", table)
+            loaded = read_policy_table(path)
+
+        self.assertEqual(loaded.resolve(TargetIdentity("secure-login", "credential-ui.exe")).mode, MODE_BLOCKED)
+        self.assertEqual(loaded.resolve(TargetIdentity("note-window", "NOTEPAD.EXE", "Project notes")).mode, MODE_INTEGRATED)
 
     def test_virtualization_proof_runs_without_hardware(self):
         with tempfile.TemporaryDirectory() as temp:

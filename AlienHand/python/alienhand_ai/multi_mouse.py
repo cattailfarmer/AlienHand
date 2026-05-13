@@ -78,22 +78,124 @@ class TargetPointerPolicy:
         return {"mode": self.mode, "legacy_fallback": self.legacy_fallback}
 
 
+@dataclass(frozen=True)
+class TargetPolicyRule:
+    rule_id: str
+    policy: TargetPointerPolicy
+    target_id: str = ""
+    process_name: str = ""
+    window_title_contains: str = ""
+    surface_id: str = ""
+
+    def matches(self, target: TargetIdentity) -> bool:
+        if self.target_id and target.target_id != self.target_id:
+            return False
+        if self.process_name and target.process_name.lower() != self.process_name.lower():
+            return False
+        if self.window_title_contains and self.window_title_contains.lower() not in target.window_title.lower():
+            return False
+        if self.surface_id and target.surface_id != self.surface_id:
+            return False
+        return any((self.target_id, self.process_name, self.window_title_contains, self.surface_id))
+
+    def specificity(self) -> tuple[int, int]:
+        score = 0
+        score += 8 if self.target_id else 0
+        score += 4 if self.surface_id else 0
+        score += 2 if self.process_name else 0
+        score += 1 if self.window_title_contains else 0
+        return score, len(self.rule_id)
+
+    def to_dict(self) -> JsonDict:
+        return {
+            "rule_id": self.rule_id,
+            "policy": self.policy.to_dict(),
+            "target_id": self.target_id,
+            "process_name": self.process_name,
+            "window_title_contains": self.window_title_contains,
+            "surface_id": self.surface_id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: JsonDict) -> TargetPolicyRule:
+        policy_data = _object_value(data.get("policy"), "policy")
+        return cls(
+            rule_id=_string_value(data.get("rule_id"), "rule_id"),
+            policy=TargetPointerPolicy(
+                mode=_string_value(policy_data.get("mode"), "policy.mode"),
+                legacy_fallback=_string_value(
+                    policy_data.get("legacy_fallback", MODE_BLOCKED),
+                    "policy.legacy_fallback",
+                ),
+            ),
+            target_id=_optional_string_value(data.get("target_id"), "target_id"),
+            process_name=_optional_string_value(data.get("process_name"), "process_name"),
+            window_title_contains=_optional_string_value(data.get("window_title_contains"), "window_title_contains"),
+            surface_id=_optional_string_value(data.get("surface_id"), "surface_id"),
+        )
+
+
 @dataclass
 class TargetPolicyTable:
     default_captured_policy: TargetPointerPolicy = field(default_factory=lambda: TargetPointerPolicy(MODE_BLOCKED))
     policies: dict[str, TargetPointerPolicy] = field(default_factory=dict)
+    rules: list[TargetPolicyRule] = field(default_factory=list)
 
     def set_policy(self, target_id: str, policy: TargetPointerPolicy) -> None:
         self.policies[target_id] = policy
 
+    def add_rule(self, rule: TargetPolicyRule) -> None:
+        self.rules.append(rule)
+
     def resolve(self, target: TargetIdentity) -> TargetPointerPolicy:
-        return self.policies.get(target.target_id, self.default_captured_policy)
+        if target.target_id in self.policies:
+            return self.policies[target.target_id]
+        matched_rules = [rule for rule in self.rules if rule.matches(target)]
+        if matched_rules:
+            return max(matched_rules, key=lambda rule: rule.specificity()).policy
+        return self.default_captured_policy
 
     def to_dict(self) -> JsonDict:
         return {
             "default_captured_policy": self.default_captured_policy.to_dict(),
             "policies": {target_id: policy.to_dict() for target_id, policy in sorted(self.policies.items())},
+            "rules": [rule.to_dict() for rule in self.rules],
         }
+
+    @classmethod
+    def from_dict(cls, data: JsonDict) -> TargetPolicyTable:
+        default_policy_data = _object_value(data.get("default_captured_policy", {}), "default_captured_policy")
+        table = cls(
+            default_captured_policy=TargetPointerPolicy(
+                mode=_string_value(default_policy_data.get("mode", MODE_BLOCKED), "default_captured_policy.mode"),
+                legacy_fallback=_string_value(
+                    default_policy_data.get("legacy_fallback", MODE_BLOCKED),
+                    "default_captured_policy.legacy_fallback",
+                ),
+            )
+        )
+        policies = _object_value(data.get("policies", {}), "policies")
+        for target_id, policy_data in policies.items():
+            if not isinstance(policy_data, dict):
+                raise ValueError(f"policies.{target_id} must be an object")
+            table.set_policy(
+                target_id,
+                TargetPointerPolicy(
+                    mode=_string_value(policy_data.get("mode"), f"policies.{target_id}.mode"),
+                    legacy_fallback=_string_value(
+                        policy_data.get("legacy_fallback", MODE_BLOCKED),
+                        f"policies.{target_id}.legacy_fallback",
+                    ),
+                ),
+            )
+        rules = data.get("rules", [])
+        if not isinstance(rules, list):
+            raise ValueError("rules must be a list")
+        for rule_data in rules:
+            if not isinstance(rule_data, dict):
+                raise ValueError("each rule must be an object")
+            table.add_rule(TargetPolicyRule.from_dict(rule_data))
+        return table
 
 
 @dataclass(frozen=True)
@@ -421,6 +523,20 @@ def run_multi_mouse_device_scan(root: str | Path) -> JsonDict:
     return result
 
 
+def read_policy_table(path: str | Path) -> TargetPolicyTable:
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("policy table document must be an object")
+    return TargetPolicyTable.from_dict(data)
+
+
+def write_policy_table(path: str | Path, policy_table: TargetPolicyTable) -> Path:
+    output = Path(path)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(policy_table.to_dict(), indent=2, sort_keys=True), encoding="utf-8")
+    return output
+
+
 def run_multi_mouse_virtualization_proof(root: str | Path) -> JsonDict:
     root_path = Path(root)
     root_path.mkdir(parents=True, exist_ok=True)
@@ -525,3 +641,23 @@ def _raw_input_device_name(user32: Any, handle: int) -> str:
     if result == ctypes.c_uint(-1).value:
         raise ctypes.WinError()
     return buffer.value
+
+
+def _object_value(value: Any, name: str) -> JsonDict:
+    if not isinstance(value, dict):
+        raise ValueError(f"{name} must be an object")
+    return value
+
+
+def _string_value(value: Any, name: str) -> str:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{name} must be a non-empty string")
+    return value
+
+
+def _optional_string_value(value: Any, name: str) -> str:
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        raise ValueError(f"{name} must be a string")
+    return value

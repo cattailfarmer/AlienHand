@@ -15,6 +15,7 @@ SCHEMA_VERSION = 1
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
 BOOKMARK_TARGET_TYPES = {"block", "cut", "chapter"}
 QUOTE_SOURCE_TYPES = BOOKMARK_TARGET_TYPES
+STICKY_TARGET_TYPES = {"block", "cut", "chapter", "bookmark"}
 
 
 @dataclass(frozen=True)
@@ -447,6 +448,7 @@ class ConversationRefinementStore:
         clear_state: str = "active",
         sticky_id: str | None = None,
     ) -> ConversationSticky:
+        self._require_sticky_target(target_type, target_id)
         sticky = ConversationSticky(
             sticky_id=sticky_id or str(uuid4()),
             target_type=target_type,
@@ -464,6 +466,31 @@ class ConversationRefinementStore:
                 (sticky.sticky_id, sticky.target_type, sticky.target_id, sticky.visibility, sticky.retention, sticky.clear_state),
             )
         return sticky
+
+    def list_stickies(
+        self,
+        *,
+        channel_uuid: str | None = None,
+        target_type: str | None = None,
+    ) -> list[ConversationSticky]:
+        if target_type is not None and target_type not in STICKY_TARGET_TYPES:
+            raise ValueError(f"unsupported sticky target_type: {target_type}")
+        params: list[Any] = []
+        query = "SELECT * FROM conversation_stickies"
+        if target_type is not None:
+            query += " WHERE target_type = ?"
+            params.append(target_type)
+        query += " ORDER BY target_type, target_id, sticky_id"
+        rows = self.connection.execute(query, tuple(params)).fetchall()
+        stickies = [sticky_from_row(row) for row in rows]
+        if channel_uuid is None:
+            return stickies
+        target_ids = self._target_ids_for_channel(channel_uuid)
+        return [
+            sticky
+            for sticky in stickies
+            if sticky.target_id in target_ids.get(sticky.target_type, set())
+        ]
 
     def create_quote(
         self,
@@ -677,6 +704,12 @@ class ConversationRefinementStore:
     def _require_quote_source(self, source_type: str, source_id: str) -> None:
         self._require_refinement_target(source_type, source_id, "quote source_type")
 
+    def _require_sticky_target(self, target_type: str, target_id: str) -> None:
+        if target_type == "bookmark":
+            self.get_bookmark(target_id)
+            return
+        self._require_refinement_target(target_type, target_id, "sticky target_type")
+
     def _require_refinement_target(self, target_type: str, target_id: str, name: str) -> None:
         if target_type == "block":
             self.get_block(target_id)
@@ -712,7 +745,16 @@ class ConversationRefinementStore:
             chapter.chapter_id
             for chapter in self.list_chapters(channel_uuid=channel_uuid)
         }
-        return {"block": block_ids, "cut": cut_ids, "chapter": chapter_ids}
+        bookmark_rows = self.connection.execute(
+            "SELECT bookmark_id, target_type, target_id FROM conversation_bookmarks"
+        ).fetchall()
+        source_ids = {"block": block_ids, "cut": cut_ids, "chapter": chapter_ids}
+        bookmark_ids = {
+            row["bookmark_id"]
+            for row in bookmark_rows
+            if row["target_id"] in source_ids.get(row["target_type"], set())
+        }
+        return {"block": block_ids, "cut": cut_ids, "chapter": chapter_ids, "bookmark": bookmark_ids}
 
 
 def import_replay_rows(
@@ -1041,6 +1083,17 @@ def quote_from_row(row: sqlite3.Row) -> ConversationQuote:
         excerpt=row["excerpt"],
         provenance=loads(row["provenance_json"], {}),
         display_mode=row["display_mode"],
+    )
+
+
+def sticky_from_row(row: sqlite3.Row) -> ConversationSticky:
+    return ConversationSticky(
+        sticky_id=row["sticky_id"],
+        target_type=row["target_type"],
+        target_id=row["target_id"],
+        visibility=row["visibility"],
+        retention=row["retention"],
+        clear_state=row["clear_state"],
     )
 
 

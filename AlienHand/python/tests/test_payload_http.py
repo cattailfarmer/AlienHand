@@ -178,6 +178,19 @@ class PayloadHTTPTests(unittest.TestCase):
                     {"source_type": "block", "source_id": "missing-block", "excerpt": "missing"},
                     token="secret",
                 )
+                sticky, _, sticky_status = post_json(
+                    f"{server.base_url}/alienhand/refinement/stickies",
+                    {
+                        "target_type": "bookmark",
+                        "target_id": bookmark["bookmark"]["bookmark_id"],
+                    },
+                    token="secret",
+                )
+                missing_sticky, _, missing_sticky_status = post_json(
+                    f"{server.base_url}/alienhand/refinement/stickies",
+                    {"target_type": "bookmark", "target_id": "missing-bookmark"},
+                    token="secret",
+                )
                 removed, _, removed_status = delete_json(
                     f"{server.base_url}/alienhand/refinement/cuts/{cut['cut']['cut_id']}",
                     token="secret",
@@ -210,6 +223,14 @@ class PayloadHTTPTests(unittest.TestCase):
                     f"{server.base_url}/alienhand/refinement/quotes?channel={channel_uuid}&source_type=block",
                     token="secret",
                 )
+                stickies, _, stickies_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}",
+                    token="secret",
+                )
+                bookmark_stickies, _, bookmark_stickies_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}&target_type=bookmark",
+                    token="secret",
+                )
 
             self.assertEqual(listed_status, 200)
             self.assertEqual(listed["blocks"][0]["block_id"], f"message:{published.envelope.message_uuid}")
@@ -231,6 +252,11 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(quote["quote"]["excerpt"], "searchable refinement API")
             self.assertEqual(missing_quote_status, 404)
             self.assertEqual(missing_quote["error"], "quote_source_not_found")
+            self.assertEqual(sticky_status, 201)
+            self.assertEqual(sticky["sticky"]["target_type"], "bookmark")
+            self.assertEqual(sticky["sticky"]["target_id"], bookmark["bookmark"]["bookmark_id"])
+            self.assertEqual(missing_sticky_status, 404)
+            self.assertEqual(missing_sticky["error"], "sticky_target_not_found")
             self.assertEqual(removed_status, 200)
             self.assertEqual(removed["cut"]["status"], "removed")
             self.assertEqual(cuts_status, 200)
@@ -248,6 +274,13 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual([row["quote_id"] for row in quotes["quotes"]], [quote["quote"]["quote_id"]])
             self.assertEqual(block_quotes_status, 200)
             self.assertEqual([row["quote_id"] for row in block_quotes["quotes"]], [quote["quote"]["quote_id"]])
+            self.assertEqual(stickies_status, 200)
+            self.assertEqual([row["sticky_id"] for row in stickies["stickies"]], [sticky["sticky"]["sticky_id"]])
+            self.assertEqual(bookmark_stickies_status, 200)
+            self.assertEqual(
+                [row["sticky_id"] for row in bookmark_stickies["stickies"]],
+                [sticky["sticky"]["sticky_id"]],
+            )
 
     def test_refinement_http_api_proof_exercises_workbench_contract(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -263,6 +296,8 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(result["bookmark_note"], "Bookmark note follows the source block.")
             self.assertEqual(result["listed_quotes"], 1)
             self.assertEqual(result["quote_excerpt"], "searchable workbench source")
+            self.assertEqual(result["listed_stickies"], 1)
+            self.assertEqual(result["sticky_target_type"], "bookmark")
             self.assertEqual(result["removed_cut_status"], "removed")
             self.assertEqual(result["unauthorized_status"], 401)
 

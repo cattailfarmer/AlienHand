@@ -386,21 +386,24 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [proof_command] is chat-refinement-http-proof
   + [base_path] is /alienhand/refinement
   + [auth] is the prototype bearer token shared with [PayloadResolverHTTP]
-  + [read_endpoints] are blocks, search, cuts, chapters, bookmarks, and quotes
-  + [write_endpoints] are create cut, remove cut, create chapter, create bookmark, and create quote
+  + [read_endpoints] are blocks, search, cuts, chapters, bookmarks, quotes, and stickies
+  + [write_endpoints] are create cut, remove cut, create chapter, create bookmark, create quote, and create sticky
 
   = must: expose channel-filtered conversation blocks for the raw pane
   = must: expose search hits that map terms back to source block IDs
   = must: expose channel-filtered cuts and chapters when a channel UUID is supplied
   = must: expose channel-filtered bookmarks and bookmark notes when a channel UUID is supplied
   = must: expose channel-filtered quotes when a channel UUID is supplied
+  = must: expose channel-filtered sticky references when a channel UUID is supplied
   = must: allow explicit user-controlled creation of cuts from source blocks
   = must: allow explicit user-controlled soft-removal of cuts
   = must: allow explicit user-controlled chapter creation from selected cuts
   = must: allow explicit user-controlled creation of bookmark notes against source blocks, cuts, or chapters
   = must: allow explicit user-controlled creation of provenance-preserving quotes against source blocks, cuts, or chapters
+  = must: allow explicit user-controlled creation of sticky references against source blocks, cuts, chapters, or bookmarks
   = must: reject bookmark creation when the requested target anchor does not exist
   = must: reject quote creation when the requested source anchor does not exist
+  = must: reject sticky creation when the requested target anchor does not exist
   = must: reject unauthenticated refinement reads and writes when a resolver token is configured
   = should: remain a narrow workbench contract until richer UI behavior is implemented
 
@@ -429,6 +432,19 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: list quotes by source type when the UI only needs one layer
   = must: validate that the source block, cut, or chapter exists before inserting the quote
   = should: support later quote controls without changing the storage object
+
+& [ConversationStickyHTTPV1] is the first runtime contract for persistent working reminders
+  + [implementation] is AlienHand/python/alienhand_ai/refinement_storage.py create_sticky and list_stickies
+  + [implementation] is AlienHand/python/alienhand_ai/payload_http.py /alienhand/refinement/stickies
+  + [target_types] are block, cut, chapter, and bookmark
+  + [retention] is session by default for the first prototype
+  + [channel_filter] resolves stickies through the channel membership of the target block, cut source block, chapter member blocks, or bookmark target
+
+  = must: preserve sticky visibility, retention, and clear state
+  = must: list stickies by channel so active reminders can be restored with the workbench
+  = must: list stickies by target type when the UI only needs one layer
+  = must: validate that the target block, cut, chapter, or bookmark exists before inserting the sticky
+  = should: support later pin/unpin UI without changing the storage object
 
 & [TheLoungeRefinementWorkbenchV1] is the first browser-facing refinement workbench in the AlienHand The Lounge fork
   + [implementation] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue

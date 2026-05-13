@@ -207,6 +207,47 @@ class RefinementStorageTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     store.list_quotes(source_type="unsupported")
 
+    def test_stickies_can_be_listed_by_channel_and_target_type(self):
+        with tempfile.TemporaryDirectory() as temp:
+            first = sample_block("first channel sticky source")
+            second = sample_block("second channel sticky source")
+            with ConversationRefinementStore(Path(temp) / "refinement.sqlite3") as store:
+                store.add_block(first)
+                store.add_block(second)
+                first_bookmark = store.create_bookmark(
+                    target_type="block",
+                    target_id=first.block_id,
+                    label="Sticky anchor",
+                )
+                second_bookmark = store.create_bookmark(
+                    target_type="block",
+                    target_id=second.block_id,
+                    label="Other anchor",
+                )
+                block_sticky = store.create_sticky(target_type="block", target_id=first.block_id)
+                bookmark_sticky = store.create_sticky(target_type="bookmark", target_id=first_bookmark.bookmark_id)
+                store.create_sticky(target_type="bookmark", target_id=second_bookmark.bookmark_id)
+
+                first_channel_ids = {
+                    sticky.sticky_id
+                    for sticky in store.list_stickies(channel_uuid=first.channel_uuid)
+                }
+                first_channel_bookmark_stickies = store.list_stickies(
+                    channel_uuid=first.channel_uuid,
+                    target_type="bookmark",
+                )
+
+                self.assertEqual(first_channel_ids, {block_sticky.sticky_id, bookmark_sticky.sticky_id})
+                self.assertEqual(
+                    [sticky.sticky_id for sticky in first_channel_bookmark_stickies],
+                    [bookmark_sticky.sticky_id],
+                )
+                self.assertEqual(first_channel_bookmark_stickies[0].clear_state, "active")
+                with self.assertRaises(KeyError):
+                    store.create_sticky(target_type="bookmark", target_id="missing-bookmark")
+                with self.assertRaises(ValueError):
+                    store.list_stickies(target_type="unsupported")
+
     def test_bookmark_note_sticky_quote_edit_and_toc_round_trip(self):
         with tempfile.TemporaryDirectory() as temp:
             block = sample_block("Bookmark this source and echo the note")

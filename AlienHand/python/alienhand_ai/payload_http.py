@@ -181,6 +181,18 @@ class PayloadResolverHTTPServer:
                         return True
                     self._send_json({"quotes": [quote.to_dict() for quote in quotes]}, HTTPStatus.OK)
                     return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "stickies"):
+                    try:
+                        with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            stickies = store.list_stickies(
+                                channel_uuid=query.get("channel"),
+                                target_type=query.get("target_type"),
+                            )
+                    except ValueError as error:
+                        self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    self._send_json({"stickies": [sticky.to_dict() for sticky in stickies]}, HTTPStatus.OK)
+                    return True
                 return False
 
             def _handle_refinement_post(self) -> bool:
@@ -301,6 +313,35 @@ class PayloadResolverHTTPServer:
                         self._send_json({"error": "quote_source_not_found"}, HTTPStatus.NOT_FOUND)
                         return True
                     self._send_json({"quote": quote.to_dict()}, HTTPStatus.CREATED)
+                    return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "stickies"):
+                    body = self._read_json_body()
+                    if body is None:
+                        return True
+                    target_type = str(body.get("target_type") or "")
+                    target_id = str(body.get("target_id") or "")
+                    if not target_type:
+                        self._send_json({"error": "target_type_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    if not target_id:
+                        self._send_json({"error": "target_id_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    try:
+                        with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            sticky = store.create_sticky(
+                                target_type=target_type,
+                                target_id=target_id,
+                                visibility=str(body.get("visibility") or "visible"),
+                                retention=str(body.get("retention") or "session"),
+                                clear_state=str(body.get("clear_state") or "active"),
+                            )
+                    except ValueError as error:
+                        self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    except KeyError:
+                        self._send_json({"error": "sticky_target_not_found"}, HTTPStatus.NOT_FOUND)
+                        return True
+                    self._send_json({"sticky": sticky.to_dict()}, HTTPStatus.CREATED)
                     return True
                 return False
 
@@ -496,6 +537,14 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
             },
             access_token=access_token,
         )
+        sticky_response = _http_post_json(
+            f"{server.base_url}/alienhand/refinement/stickies",
+            {
+                "target_type": "bookmark",
+                "target_id": bookmark_response["json"].get("bookmark", {}).get("bookmark_id"),
+            },
+            access_token=access_token,
+        )
         remove_response = _http_delete_json(
             f"{server.base_url}/alienhand/refinement/cuts/{cut_id}",
             access_token=access_token,
@@ -516,6 +565,10 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
             f"{server.base_url}/alienhand/refinement/quotes?channel={channel_uuid}",
             access_token=access_token,
         )
+        stickies_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}",
+            access_token=access_token,
+        )
         base_url = server.base_url
 
     blocks = blocks_response["json"].get("blocks", [])
@@ -524,6 +577,7 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
     chapters = chapters_response["json"].get("chapters", [])
     bookmarks = bookmarks_response["json"].get("bookmarks", [])
     quotes = quotes_response["json"].get("quotes", [])
+    stickies = stickies_response["json"].get("stickies", [])
     refinement_http_ok = (
         blocks_response["status"] == 200
         and len(blocks) == 1
@@ -537,6 +591,9 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         and bookmark_response["json"].get("bookmark", {}).get("note") == "Bookmark note follows the source block."
         and quote_response["status"] == 201
         and quote_response["json"].get("quote", {}).get("excerpt") == "searchable workbench source"
+        and sticky_response["status"] == 201
+        and sticky_response["json"].get("sticky", {}).get("target_id")
+        == bookmark_response["json"].get("bookmark", {}).get("bookmark_id")
         and remove_response["status"] == 200
         and remove_response["json"].get("cut", {}).get("status") == "removed"
         and len(cuts) == 1
@@ -545,6 +602,7 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         and bookmarks[0].get("target_id") == imported_blocks[0].block_id
         and len(quotes) == 1
         and quotes[0].get("source_id") == imported_blocks[0].block_id
+        and len(stickies) == 1
     )
     return {
         "resolver_version": PAYLOAD_RESOLVER_VERSION,
@@ -561,11 +619,14 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         "bookmark_note": bookmark_response["json"].get("bookmark", {}).get("note"),
         "created_quote_id": quote_response["json"].get("quote", {}).get("quote_id"),
         "quote_excerpt": quote_response["json"].get("quote", {}).get("excerpt"),
+        "created_sticky_id": sticky_response["json"].get("sticky", {}).get("sticky_id"),
+        "sticky_target_type": sticky_response["json"].get("sticky", {}).get("target_type"),
         "removed_cut_status": remove_response["json"].get("cut", {}).get("status"),
         "listed_cuts": len(cuts),
         "listed_chapters": len(chapters),
         "listed_bookmarks": len(bookmarks),
         "listed_quotes": len(quotes),
+        "listed_stickies": len(stickies),
         "unauthorized_status": unauthorized_response["status"],
         "refinement_http_ok": refinement_http_ok,
         "root": str(chat_root.resolve()),

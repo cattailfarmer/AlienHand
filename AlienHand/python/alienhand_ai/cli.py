@@ -10,6 +10,7 @@ from .chat_platform import (
     IRCNetworkPublisher,
     PayloadStore,
     commit_message,
+    run_app_refinement_lifecycle_proof,
     run_app_lifecycle_proof,
     run_chat_truth_test,
     run_ergo_lifecycle_proof,
@@ -128,6 +129,12 @@ def main() -> None:
     chat_app.add_argument("--text", default="hello app-owned Ergo")
     chat_app.add_argument("--output", default="runs")
     chat_app.add_argument("--name", default="chat-app-lifecycle-proof")
+
+    chat_app_refinement = sub.add_parser("chat-app-refinement-proof")
+    chat_app_refinement.add_argument("--app-id", type=int, default=1)
+    chat_app_refinement.add_argument("--text", default="hello searchable refinement")
+    chat_app_refinement.add_argument("--output", default="runs")
+    chat_app_refinement.add_argument("--name", default="chat-app-refinement-proof")
 
     chat_user = sub.add_parser("chat-user-client-proof")
     chat_user.add_argument("--ergo-root")
@@ -311,6 +318,13 @@ def main() -> None:
             nick=args.nick,
             text=args.text,
             port=args.port,
+        )
+        print(json.dumps(result, indent=2))
+    elif args.command == "chat-app-refinement-proof":
+        result = run_app_refinement_lifecycle_proof(
+            Path(args.output) / args.name,
+            app_id=args.app_id,
+            text=args.text,
         )
         print(json.dumps(result, indent=2))
     elif args.command == "chat-user-client-proof":

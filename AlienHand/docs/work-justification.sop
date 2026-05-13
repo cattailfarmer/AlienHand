@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup, the first runtime substrate proof, and the separate chat conversation refinement specification
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but live history presentation, refinement workbench UI, and production authentication hardening are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but live history presentation, refinement workbench UI, and production authentication hardening are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -185,7 +185,20 @@ Description: SOP description of the justification step, called "jusitification" 
   + [evidence_anchor] is python -m alienhand_ai.cli chat-refinement-replay-proof --output runs --name chat-refinement-replay-proof
   + [verification_result] is two real committed chat payloads replayed from JSONL plus payload store into two stable message:<uuid> conversation blocks, repeated import stayed idempotent at two blocks, search for searchable returned one source block, one cut and one chapter were created from the imported block, and replay_import_ok returned true
   + [status] is justified
-  + [uncertainty] is automatic live ingestion from the running chat service and The Lounge workbench presentation remain future work
+  + [uncertainty] is service-owned live ingestion is covered by [AppOwnedRefinementStorageLifecycleProof], while The Lounge workbench presentation remains future work
+
+& [JustificationEntry: AppOwnedRefinementStorageLifecycleProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [AppOwnedRefinementStorageLifecycle], [ConversationSQLiteStorageV1], [ConversationReplayImportV1], and [AlienHandIRCChatPlatform.app_instance]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/chat_platform.py AlienHandChatService refinement store ownership, publish_text ingestion, sync_refinement_channel, and run_app_refinement_lifecycle_proof
+  + [implemented_artifact] is AlienHand/python/tests/test_chat_platform.py app refinement lifecycle tests
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-app-refinement-proof command
+  + [implemented_artifact] is AlienHand/README.md proof command reference
+  + [evidence_anchor] is python -m unittest tests.test_chat_platform tests.test_refinement_storage
+  + [evidence_anchor] is python -m alienhand_ai.cli chat-app-refinement-proof --output runs --name chat-app-refinement-proof
+  + [verification_result] is AlienHandChatService published one searchable app message into live refinement.sqlite3, cold sync rebuilt one matching message:<uuid> block into cold-refinement.sqlite3 from JSONL plus payload files, live and cold search each returned one hit, and app_refinement_lifecycle_ok returned true
+  + [status] is justified
+  + [uncertainty] is live The Lounge workbench presentation and multi-channel background sync remain future work
 
 & [JustificationEntry: ChatRuntimeTruthTestCore] is partially_justified
   + [work_type] is runtime_code

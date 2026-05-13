@@ -365,6 +365,19 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: preserve raw history and payload references in block metadata
   = should: let imported blocks seed user-controlled cuts and chapters
 
+& [AppOwnedRefinementStorageLifecycle] is the app service ownership path for live refinement storage
+  + [implementation] is AlienHand/python/alienhand_ai/chat_platform.py AlienHandChatService refinement store fields
+  + [proof_command] is chat-app-refinement-proof
+  + [live_ingest] is app publication immediately upserting the published payload into [ConversationSQLiteStorageV1]
+  + [cold_sync] is rebuilding refinement blocks from [ConversationReplayImportV1]
+  + [source_of_truth] remains JSONL history plus payload files
+
+  = must: keep the refinement SQLite database app-owned
+  = must: ingest newly published app messages into refinement blocks
+  = must: close the refinement store with app service shutdown
+  = must: allow cold replay sync to rebuild refinement blocks from durable chat history
+  = should: treat refinement storage as derived state that can be recovered from source history
+
 & [ConversationEditDiffArtifact] is the change record for an editorial edit
   + [diff_id] is the stable identifier
   + [edit_id] is the parent edit identifier

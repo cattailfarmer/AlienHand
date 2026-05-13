@@ -12,6 +12,13 @@ from time import time
 from typing import Any, Protocol
 from uuid import UUID, uuid4
 
+from .refinement_storage import (
+    ConversationBlock,
+    ConversationRefinementStore,
+    conversation_block_from_replay_row,
+    import_replay_rows,
+)
+
 
 JsonDict = dict[str, Any]
 IRC_BODY_BUDGET_BYTES = 400
@@ -442,6 +449,8 @@ class AlienHandChatService:
         thelounge_host: str = "127.0.0.1",
         thelounge_port: int | None = None,
         start_thelounge: bool = False,
+        start_refinement_store: bool = True,
+        refinement_db_path: str | Path | None = None,
         startup_timeout: float = 30.0,
         build_timeout: float = 120.0,
     ) -> None:
@@ -458,14 +467,17 @@ class AlienHandChatService:
         self.thelounge_host = thelounge_host
         self.thelounge_port = thelounge_port
         self.start_thelounge = start_thelounge
+        self.start_refinement_store = start_refinement_store
         self.startup_timeout = startup_timeout
         self.build_timeout = build_timeout
         self.runtime_dir = self.root / "ergo-runtime"
         self.thelounge_runtime_dir = self.root / "thelounge-runtime"
+        self.refinement_db_path = Path(refinement_db_path) if refinement_db_path else self.root / "refinement.sqlite3"
         self.store = PayloadStore(self.root)
         self.history = ChannelJSONLHistory(self.root)
         self.resolver = PayloadResolver(self.store)
-        self.publisher: IRCNetworkPublisher | None = None
+        self.publisher: EnvelopePublisher | None = None
+        self.refinement_store: ConversationRefinementStore | None = None
         self.payload_http_server: Any | None = None
         self.thelounge_process: subprocess.Popen | None = None
         self.process: subprocess.Popen | None = None
@@ -534,7 +546,7 @@ class AlienHandChatService:
     ) -> PublishedMessage:
         if self.publisher is None:
             raise RuntimeError("AlienHandChatService must be started before publishing")
-        return commit_message(
+        published = commit_message(
             app_id=self.app_id,
             channel_uuid=channel_uuid or uuid4().hex,
             nick=nick or self.nick,
@@ -547,9 +559,26 @@ class AlienHandChatService:
             history=self.history,
             publisher=self.publisher,
         )
+        self.ingest_published_message(published)
+        return published
 
     def replay_channel(self, channel_uuid: str) -> list[JsonDict]:
         return replay_channel(self.history, self.resolver, channel_uuid)
+
+    def ingest_published_message(self, published: PublishedMessage) -> ConversationBlock | None:
+        if not self.start_refinement_store:
+            return None
+        block = conversation_block_from_replay_row(
+            {"event": published.history_event, "payload": published.payload.to_dict()}
+        )
+        if block is None:
+            return None
+        return self._ensure_refinement_store().upsert_block(block)
+
+    def sync_refinement_channel(self, channel_uuid: str) -> list[ConversationBlock]:
+        if not self.start_refinement_store:
+            return []
+        return import_replay_rows(self._ensure_refinement_store(), self.replay_channel(channel_uuid))
 
     def thelounge_environment(self) -> dict[str, str]:
         base_url = self.payload_resolver_base_url
@@ -579,9 +608,14 @@ class AlienHandChatService:
         if self.payload_http_server is not None:
             self.payload_http_server.stop()
             self.payload_http_server = None
-        if self.publisher is not None:
+        if self.publisher is not None and hasattr(self.publisher, "close"):
             self.publisher.close()
             self.publisher = None
+        else:
+            self.publisher = None
+        if self.refinement_store is not None:
+            self.refinement_store.close()
+            self.refinement_store = None
         if self.process is not None:
             stop_process(self.process, timeout=5.0)
             self.process = None
@@ -610,6 +644,11 @@ class AlienHandChatService:
             access_token=self.payload_resolver_token,
         ).start()
         self.payload_resolver_port = int(self.payload_http_server.port)
+
+    def _ensure_refinement_store(self) -> ConversationRefinementStore:
+        if self.refinement_store is None:
+            self.refinement_store = ConversationRefinementStore(self.refinement_db_path)
+        return self.refinement_store
 
     def _start_thelounge_process(self) -> None:
         if self.thelounge_process is not None and self.thelounge_process.poll() is None:
@@ -721,6 +760,70 @@ def run_app_lifecycle_proof(
         "history_events": len(replayed),
         "resolved_payloads": len(resolved_payloads),
         "cold_replay_ok": len(resolved_payloads) == 1 and payload_resolver_started and service.payload_http_server is None,
+        "root": str(chat_root.resolve()),
+    }
+
+
+def run_app_refinement_lifecycle_proof(
+    root: str | Path,
+    *,
+    app_id: int = 1,
+    text: str = "hello searchable refinement",
+) -> JsonDict:
+    chat_root = Path(root)
+    channel_uuid = uuid4().hex
+    live_service = AlienHandChatService(chat_root, app_id=app_id, start_payload_resolver=False)
+    live_service.publisher = EnvelopeOutbox(chat_root / "irc_outbox.jsonl")
+    try:
+        published = live_service.publish_text(
+            text,
+            channel_uuid=channel_uuid,
+            nick="user",
+            sender_type="user",
+            metadata={"proof": "app_refinement_lifecycle"},
+        )
+        live_store = live_service._ensure_refinement_store()
+        live_hits = live_store.search("searchable")
+        live_blocks = live_store.count("conversation_blocks")
+        live_db_path = live_service.refinement_db_path
+    finally:
+        live_service.stop()
+
+    cold_db_path = chat_root / "cold-refinement.sqlite3"
+    cold_service = AlienHandChatService(
+        chat_root,
+        app_id=app_id,
+        start_payload_resolver=False,
+        refinement_db_path=cold_db_path,
+    )
+    try:
+        cold_blocks = cold_service.sync_refinement_channel(channel_uuid)
+        cold_store = cold_service._ensure_refinement_store()
+        cold_hits = cold_store.search("searchable")
+        cold_block_count = cold_store.count("conversation_blocks")
+    finally:
+        cold_service.stop()
+
+    expected_block_id = f"message:{published.envelope.message_uuid}"
+    return {
+        "app_id": app_id,
+        "channel_uuid": channel_uuid,
+        "message_uuid": published.envelope.message_uuid,
+        "live_database": str(live_db_path.resolve()),
+        "cold_database": str(cold_db_path.resolve()),
+        "live_blocks": live_blocks,
+        "cold_blocks": cold_block_count,
+        "cold_imported_blocks": len(cold_blocks),
+        "live_search_hits": len(live_hits),
+        "cold_search_hits": len(cold_hits),
+        "expected_block_id": expected_block_id,
+        "cold_block_ids": [block.block_id for block in cold_blocks],
+        "app_refinement_lifecycle_ok": live_blocks == 1
+        and cold_block_count == 1
+        and len(cold_blocks) == 1
+        and len(live_hits) == 1
+        and len(cold_hits) == 1
+        and cold_blocks[0].block_id == expected_block_id,
         "root": str(chat_root.resolve()),
     }
 

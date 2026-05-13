@@ -28,6 +28,7 @@ from alienhand_ai.chat_platform import (
     payload_to_render_model,
     parse_history_command,
     record_history_request,
+    run_app_refinement_lifecycle_proof,
     replay_channel,
     replay_channel_chunks,
     replay_channel_render_models,
@@ -454,6 +455,38 @@ languages:
                 service.publish_text("hello before start")
 
             service.stop()
+
+    def test_app_chat_service_ingests_published_text_into_refinement_store(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp) / "app-chat"
+            channel_uuid = uuid4().hex
+            service = AlienHandChatService(root, start_payload_resolver=False)
+            service.publisher = EnvelopeOutbox(root / "irc_outbox.jsonl")
+            try:
+                published = service.publish_text(
+                    "searchable live app message",
+                    channel_uuid=channel_uuid,
+                    nick="user",
+                    sender_type="user",
+                )
+                store = service._ensure_refinement_store()
+                hits = store.search("searchable")
+                block_count = store.count("conversation_blocks")
+            finally:
+                service.stop()
+
+            self.assertEqual(block_count, 1)
+            self.assertEqual(hits[0].block_id, f"message:{published.envelope.message_uuid}")
+
+    def test_app_refinement_lifecycle_proof_live_ingests_and_cold_syncs(self):
+        with tempfile.TemporaryDirectory() as temp:
+            result = run_app_refinement_lifecycle_proof(Path(temp) / "app-refinement")
+
+            self.assertTrue(result["app_refinement_lifecycle_ok"])
+            self.assertEqual(result["live_blocks"], 1)
+            self.assertEqual(result["cold_blocks"], 1)
+            self.assertEqual(result["live_search_hits"], 1)
+            self.assertEqual(result["cold_search_hits"], 1)
 
 
 class FakeIRCServer:

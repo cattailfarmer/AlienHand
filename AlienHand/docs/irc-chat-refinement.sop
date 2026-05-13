@@ -99,11 +99,30 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [debug_view] is the raw conversation and annotation surface
   + [chapter_view] is the curated narrative surface
   + [editorial_view] is the post-processed publication surface
+  + [user_visible_actions] are inject, remove, bookmark, note, sticky, quote, and toggle views
+  + [internal_actions] are chapter regeneration, cut promotion, and edit application
+  + [admin_actions] are override, export, and schema repair operations
 
   = must: keep raw conversation available for inspection
   = must: allow debug view to show source messages, bookmarks, quotes, and edits
   = must: allow normal view to remain simpler than the editorial layer
   = should: let chapter and editorial views coexist without replacing the source
+  = must: show command execution text only in raw or debug views when the command itself is part of the record
+  = should: suppress routine directive text from the normal conversation view when it is only operational metadata
+
+## Directive Model
+
+& [ConversationDirective] is a structured instruction that changes refinement state rather than ordinary conversation content
+  + [directive_id] is the stable identifier
+  + [directive_kind] is history_request, create_cut, remove_cut, create_bookmark, add_note, pin_sticky, quote_span, regenerate_chapter, or apply_edit
+  + [source] is user action, AI action, or internal system action
+  + [payload] is the directive parameters
+  + [visibility] is normal, raw_only, debug_only, or internal
+
+  = must: keep directives explicit and auditable
+  = must: allow directives to be rendered in raw/debug history without polluting the normal chat story
+  = must: support the `!ah history` family while leaving room for UI-driven actions
+  = should: permit `=`-prefixed directive notation when a textual directive is emitted
 
 ## Split View Editing Model
 
@@ -182,25 +201,32 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [target] is a ConversationBlock, ConversationCut, or ConversationChapter
   + [scope] is raw_only, refined_only, or both
   + [label] is optional human-readable text
+  + [persistence] is ephemeral_session or durable_channel
+  + [promotion_rule] is how a raw bookmark becomes visible in the refined layer
 
   = must: help users and agents return to important conversation points
   = must: survive refinement when the target still exists
   = should: be visible in both the raw and editorial interfaces where relevant
+  = should: promote to the refined layer when the target becomes part of a chapter or cut set
 
 & [ConversationSticky] is a persistent reference that is intended to remain visible while the session continues
   + [sticky_id] is the stable identifier
   + [target] is a block, cut, chapter, or bookmark
   + [visibility] is visible, collapsed, or hidden
+  + [retention] is session-scoped by default
+  + [clear_action] is the user or system action that removes the sticky reference
 
   = must: act as a durable working reminder during refinement
   = must: be easy to surface again when the user returns to the thread
   = should: support pinned constraints, open questions, or standing instructions
+  = should: be manually cleared unless a session policy says otherwise
 
 & [ConversationQuote] is a preserved excerpt with explicit source provenance
   + [quote_id] is the stable identifier
   + [source_target] is the originating block, cut, or chapter
   + [excerpt] is the copied text or frame reference
   + [provenance] is the source identity, timestamp, and actor metadata
+  + [use_case] is citation, review, comparison, or editorial grounding
 
   = must: retain exact source traceability
   = must: not mutate the source content

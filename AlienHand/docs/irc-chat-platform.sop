@@ -234,6 +234,9 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   = must: preserve chronological reconstruction when presenting history
   = must: expose missing payloads as payload_error events
   = should: load recent chunks first for AI usefulness, then expand backward as needed
+  = should: treat AI context loading as budget-constrained replay for the agent's working window
+  = should: treat user history display as request-scoped replay that may be chunked or expanded into refined presentation later
+  = should: stop replay when the requested range is satisfied or the context budget is reached
 
 & [HistoryCommand] is the user-triggered request for channel history
   + [syntax] is "!ah history [all|<messages>] [chunk <chunk_size>]"
@@ -241,12 +244,15 @@ Description: SOP specification for the AlienHand chat substrate that uses Ergo a
   + [requester] is the user nick or actor id
   + [range] is requested chunk count, message count, time span, or all
   + [response_mode] is chunked replay rows for the prototype and live UI presentation later
+  + [directive_form] is the structured event representation of the request
+  + [render_visibility] is raw_only unless the user explicitly requests a refined presentation
 
   = must: parse before normal AI response generation
   = must: record [history_request] as a payload-backed structured event
   = must: call [ChannelContextReplay]
   = must: reject ambiguous requests that combine all with a message count
   = should: support default recent history, explicit message counts, all history, and chunk-size override
+  = should: keep command execution text out of the normal conversation stream unless raw/debug history is requested
 
   ~ [live_presentation] is provisional until The Lounge command capture and transcript display are connected
   ~ [refined_presentation] is specified in [AlienHandChatConversationRefinement] for chapters, bookmarks, notes, sticky references, quotes, and editorial edits

@@ -132,6 +132,16 @@ Description: SOP description of the justification step, called "jusitification" 
   + [status] is justified
   + [uncertainty] is detailed runtime UI affordances and object schema serialization remain future work
 
+& [JustificationEntry: LooseEndRefactorSpecification] is justified
+  + [work_type] is protocol
+  + [requirement_anchor] is user request to refactor the loose ends after the refinement layer tied together chaptering, UI separation, directives, bookmarks, replay policy, and operational boundaries
+  + [implemented_artifact] is AlienHand/docs/irc-chat-platform.sop replay and history command policy updates
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop directive and presentation updates
+  + [evidence_anchor] is local uncommitted files AlienHand/docs/irc-chat-platform.sop and AlienHand/docs/irc-chat-refinement.sop
+  + [verification_result] is the specs now explicitly split replay policy from editorial refinement, define directive visibility, and clarify where command text is shown or suppressed
+  + [status] is justified
+  + [uncertainty] is schema serialization and runtime UI implementation still remain future work
+
 & [JustificationEntry: ChatRuntimeTruthTestCore] is partially_justified
   + [work_type] is runtime_code
   + [requirement_anchor] is [AlienHandIRCTruthTest], [MessageCommitOrder], [PayloadStore], [PayloadResolver], [ChannelJSONLHistory], and [ChannelContextReplay]

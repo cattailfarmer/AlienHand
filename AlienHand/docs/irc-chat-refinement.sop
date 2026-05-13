@@ -134,3 +134,74 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: preserve the raw conversation block when it is added to cuts
   = must: support toggling scroll tracking on and off for the raw text view
   = should: keep the cut set and edit set observable as separate working surfaces
+
+## Frozen Terms
+
+& [ConversationBlock] is one atomic visible unit of live conversation in the raw pane
+  + [source] is the underlying message or grouped message span
+  + [presentation] is the text, media, or rich payload currently shown to the user
+  + [block_id] is the stable identifier for the visible unit
+  + [provenance] is the raw message UUIDs and actor identity that produced the block
+
+  = must: represent the smallest practical unit the user can promote into cuts
+  = must: remain intact in the raw pane even when copied into cuts
+  = should: support text, code, image, link, and mixed payload frames
+
+& [ConversationCut] is a block that has been selected into the cuts pane as part of a refined working set
+  + [cut_id] is the stable identifier for the cut instance
+  + [source_block] is the original conversation block
+  + [position] is the insertion order inside the cuts pane
+  + [state] is active or removed_from_cuts
+
+  = must: preserve linkage back to [ConversationBlock]
+  = must: be removable from the cuts perspective without destroying the source block
+  = must: support reordering as the user refines the narrative
+
+& [ConversationChapter] is the editorial product formed from one or more cuts
+  + [chapter_id] is the stable identifier for the chapter
+  + [title] is the editorial name for the refined narrative segment
+  + [summary] is a concise description of the chapter's intent
+  + [members] are the cuts and source spans that compose the chapter
+
+  = must: group related cuts into a coherent presentation artifact
+  = must: allow non-contiguous source material when the conversation jumps around
+  = must: remain a derivative view rather than replacing the raw stream
+
+& [ConversationEdit] is a transformation applied to a chapter or cuts set
+  + [edit_id] is the stable identifier
+  + [edit_type] is reorder, condense, expand, redact, annotate, or reframe
+  + [input_target] is the chapter or cuts set being edited
+  + [output_target] is the revised presentation
+
+  = must: preserve the pre-edit state as evidence
+  = must: record the reason for the edit when available
+  = must: support review of the before and after forms
+
+& [ConversationBookmark] is a navigational marker that can point into raw or refined conversation
+  + [bookmark_id] is the stable identifier
+  + [target] is a ConversationBlock, ConversationCut, or ConversationChapter
+  + [scope] is raw_only, refined_only, or both
+  + [label] is optional human-readable text
+
+  = must: help users and agents return to important conversation points
+  = must: survive refinement when the target still exists
+  = should: be visible in both the raw and editorial interfaces where relevant
+
+& [ConversationSticky] is a persistent reference that is intended to remain visible while the session continues
+  + [sticky_id] is the stable identifier
+  + [target] is a block, cut, chapter, or bookmark
+  + [visibility] is visible, collapsed, or hidden
+
+  = must: act as a durable working reminder during refinement
+  = must: be easy to surface again when the user returns to the thread
+  = should: support pinned constraints, open questions, or standing instructions
+
+& [ConversationQuote] is a preserved excerpt with explicit source provenance
+  + [quote_id] is the stable identifier
+  + [source_target] is the originating block, cut, or chapter
+  + [excerpt] is the copied text or frame reference
+  + [provenance] is the source identity, timestamp, and actor metadata
+
+  = must: retain exact source traceability
+  = must: not mutate the source content
+  = should: be usable in both raw review and editorial output

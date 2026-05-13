@@ -123,6 +123,15 @@ Description: SOP description of the justification step, called "jusitification" 
   + [status] is justified
   + [uncertainty] is visual implementation and interaction fidelity remain future work
 
+& [JustificationEntry: ConversationTermFreezeSpecification] is justified
+  + [work_type] is protocol
+  + [requirement_anchor] is user request to freeze the terms block, cut, chapter, edit, bookmark, sticky, and quote with articulated meaning and use cases
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop Frozen Terms section
+  + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-refinement.sop
+  + [verification_result] is the refinement spec now defines ConversationBlock, ConversationCut, ConversationChapter, ConversationEdit, ConversationBookmark, ConversationSticky, and ConversationQuote with stable identity and behavioral rules
+  + [status] is justified
+  + [uncertainty] is detailed runtime UI affordances and object schema serialization remain future work
+
 & [JustificationEntry: ChatRuntimeTruthTestCore] is partially_justified
   + [work_type] is runtime_code
   + [requirement_anchor] is [AlienHandIRCTruthTest], [MessageCommitOrder], [PayloadStore], [PayloadResolver], [ChannelJSONLHistory], and [ChannelContextReplay]

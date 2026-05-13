@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup, the first runtime substrate proof, and the separate chat conversation refinement specification
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, refinement HTTP workbench API proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but split-pane refinement workbench UI and production authentication hardening are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, refinement HTTP workbench API proof, first The Lounge refinement workbench UI proof, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but polished split-pane interaction, bookmark/quote/editorial controls, and production authentication hardening are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -204,17 +204,36 @@ Description: SOP description of the justification step, called "jusitification" 
   + [work_type] is runtime_code
   + [requirement_anchor] is [ConversationRefinementHTTPV1], [ConversationStorageModel], [ConversationRefinementState], and [ConversationAnnotationSemantics]
   + [implemented_artifact] is AlienHand/python/alienhand_ai/payload_http.py authenticated refinement HTTP routes
-  + [implemented_artifact] is AlienHand/python/alienhand_ai/refinement_storage.py list_blocks and list_chapters query helpers
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/refinement_storage.py list_blocks, channel-filtered list_cuts, and channel-filtered list_chapters query helpers
   + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py chat-refinement-http-proof command
   + [implemented_artifact] is AlienHand/python/tests/test_payload_http.py refinement HTTP API tests
+  + [implemented_artifact] is AlienHand/python/tests/test_refinement_storage.py channel-filtered cut and chapter tests
   + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop ConversationRefinementHTTPV1
   + [implemented_artifact] is README.md proof command reference
   + [evidence_anchor] is python -m unittest tests.test_payload_http tests.test_refinement_storage
   + [evidence_anchor] is python -m unittest discover -s tests
   + [evidence_anchor] is python -m alienhand_ai.cli chat-refinement-http-proof --output runs --name chat-refinement-http-proof
-  + [verification_result] is one committed chat payload was imported into refinement.sqlite3, the HTTP API listed the channel-filtered source block, searched the term workbench back to the source block, rejected unauthenticated access with 401, created one cut from the block, created one chapter from the cut, listed one cut and one chapter, returned refinement_http_ok true, and full test discovery passed with 81 tests
+  + [verification_result] is one committed chat payload was imported into refinement.sqlite3, the HTTP API listed the channel-filtered source block, searched the term workbench back to the source block, rejected unauthenticated access with 401, created one cut from the block, created one chapter from the cut, soft-removed the cut with DELETE, listed one removed cut and one chapter scoped to the channel, returned refinement_http_ok true, and full test discovery passed with 82 tests
   + [status] is justified
-  + [uncertainty] is this proves the browser-facing API contract for the future workbench, not the split-pane visual UI, drag pointer, bookmark hover UI, or production authorization policy
+  + [uncertainty] is this proves the browser-facing API contract; rough visual workbench wiring is covered by [TheLoungeRefinementWorkbenchProof], while polished split-pane interaction, drag pointer, bookmark hover UI, and production authorization policy remain future work
+
+& [JustificationEntry: TheLoungeRefinementWorkbenchProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [TheLoungeRefinementWorkbenchV1], [ConversationCutsWorkbench], [ConversationRefinementHTTPV1], and [ConversationRefinementState]
+  + [implemented_artifact] is AlienHand/thelounge client fork commit 9252cb34
+  + [implemented_artifact] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue
+  + [implemented_artifact] is AlienHand/thelounge/client/components/Chat.vue Cuts toggle wiring
+  + [implemented_artifact] is AlienHand/thelounge/client/js/helpers/alienhand.ts refinement API helpers
+  + [implemented_artifact] is AlienHand/thelounge/client/css/alienhand-chat.css refinement workbench styling
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop TheLoungeRefinementWorkbenchV1
+  + [implemented_artifact] is README.md workbench note
+  + [evidence_anchor] is npx eslint client/js/helpers/alienhand.ts client/components/AlienHandRefinementWorkbench.vue client/components/Chat.vue --color
+  + [evidence_anchor] is npx tsc -b server/tsconfig.json --force
+  + [evidence_anchor] is yarn build:client
+  + [evidence_anchor] is git push cattailfarmer alienhand/chat-render-adapter commit 9252cb34
+  + [verification_result] is the AlienHand The Lounge fork now shows a Cuts toggle only for 32-character hexadecimal UUID channels, opens a refinement workbench that fetches channel-scoped blocks, searches raw blocks, injects blocks into active cuts, removes active cuts with an x control, creates chapters from active cuts, shows raw JSON debug state, and passes lint, TypeScript server build, and client webpack build
+  + [status] is justified
+  + [uncertainty] is this first workbench is not yet browser-interaction tested in a running The Lounge session and does not yet implement adjustable divider drag motion, bookmark hover notes, quote controls, or polished editorial edit UI
 
 & [JustificationEntry: ChatRuntimeTruthTestCore] is partially_justified
   + [work_type] is runtime_code

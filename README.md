@@ -47,6 +47,11 @@ prototype resolver bearer token from `alienhand.payloadResolverToken` or
 with `thelounge_environment()` after the resolver starts, and can launch the
 nested The Lounge fork as part of the app-owned chat runtime group.
 
+In 32-character hexadecimal UUID channels, the nested The Lounge fork now shows
+an AlienHand `Cuts` control. The first rough workbench can fetch raw channel
+blocks, search them, inject blocks into the cuts pane, soft-remove cuts, create
+chapters from active cuts, and show a raw JSON debug view of the workbench state.
+
 Current proof commands for live payload lookup, app-owned resolver lifecycle, and
 the app-owned The Lounge runtime group:
 

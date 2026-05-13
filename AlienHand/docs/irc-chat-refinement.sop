@@ -384,14 +384,34 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [base_path] is /alienhand/refinement
   + [auth] is the prototype bearer token shared with [PayloadResolverHTTP]
   + [read_endpoints] are blocks, search, cuts, and chapters
-  + [write_endpoints] are create cut and create chapter
+  + [write_endpoints] are create cut, remove cut, and create chapter
 
   = must: expose channel-filtered conversation blocks for the raw pane
   = must: expose search hits that map terms back to source block IDs
+  = must: expose channel-filtered cuts and chapters when a channel UUID is supplied
   = must: allow explicit user-controlled creation of cuts from source blocks
+  = must: allow explicit user-controlled soft-removal of cuts
   = must: allow explicit user-controlled chapter creation from selected cuts
   = must: reject unauthenticated refinement reads and writes when a resolver token is configured
   = should: remain a narrow workbench contract until richer UI behavior is implemented
+
+& [TheLoungeRefinementWorkbenchV1] is the first browser-facing refinement workbench in the AlienHand The Lounge fork
+  + [implementation] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue
+  + [helper] is AlienHand/thelounge/client/js/helpers/alienhand.ts refinement API helpers
+  + [style] is AlienHand/thelounge/client/css/alienhand-chat.css workbench styling
+  + [entrypoint] is AlienHand/thelounge/client/components/Chat.vue Cuts toggle
+  + [fork_commit] is 9252cb34
+
+  = must: appear only for channel names that resolve to a 32-character hexadecimal UUID
+  = must: provide a visible Cuts control at the top chat frame
+  = must: fetch raw conversation blocks for the current channel
+  = must: search raw blocks through [ConversationRefinementHTTPV1]
+  = must: let a user inject a raw block into the cuts pane
+  = must: let a user remove an active cut with an x control
+  = must: let a user create a chapter from the active channel cuts
+  = must: expose a raw JSON/debug view for the workbench state
+  = should: keep this first UI slice intentionally rough until runtime interaction is reviewed
+  ? [not_yet_done] is adjustable divider, drag pointer motion, bookmark hover notes, quote controls, and polished editorial edit UI
 
 & [ConversationEditDiffArtifact] is the change record for an editorial edit
   + [diff_id] is the stable identifier

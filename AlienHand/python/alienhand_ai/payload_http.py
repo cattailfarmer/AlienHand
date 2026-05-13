@@ -116,6 +116,14 @@ class PayloadResolverHTTPServer:
                     return
                 self._send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
 
+            def do_DELETE(self) -> None:
+                if not owner._is_authorized(self):
+                    self._send_json({"error": "unauthorized"}, HTTPStatus.UNAUTHORIZED)
+                    return
+                if self._handle_refinement_delete():
+                    return
+                self._send_json({"error": "not_found"}, HTTPStatus.NOT_FOUND)
+
             def log_message(self, format: str, *args: Any) -> None:
                 return
 
@@ -141,12 +149,12 @@ class PayloadResolverHTTPServer:
                     return True
                 if parts == (*REFINEMENT_PATH_PREFIX, "cuts"):
                     with ConversationRefinementStore(owner.refinement_db_path) as store:
-                        cuts = store.list_cuts(status=query.get("status"))
+                        cuts = store.list_cuts(status=query.get("status"), channel_uuid=query.get("channel"))
                     self._send_json({"cuts": [cut.to_dict() for cut in cuts]}, HTTPStatus.OK)
                     return True
                 if parts == (*REFINEMENT_PATH_PREFIX, "chapters"):
                     with ConversationRefinementStore(owner.refinement_db_path) as store:
-                        chapters = store.list_chapters()
+                        chapters = store.list_chapters(channel_uuid=query.get("channel"))
                     self._send_json({"chapters": [chapter.to_dict() for chapter in chapters]}, HTTPStatus.OK)
                     return True
                 return False
@@ -205,6 +213,20 @@ class PayloadResolverHTTPServer:
                     return True
                 return False
 
+            def _handle_refinement_delete(self) -> bool:
+                parts = _path_parts(urlparse(self.path).path)
+                if len(parts) == 4 and tuple(parts[:3]) == (*REFINEMENT_PATH_PREFIX, "cuts"):
+                    cut_id = parts[3]
+                    try:
+                        with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            cut = store.remove_cut(cut_id)
+                    except KeyError:
+                        self._send_json({"error": "cut_not_found"}, HTTPStatus.NOT_FOUND)
+                        return True
+                    self._send_json({"cut": cut.to_dict()}, HTTPStatus.OK)
+                    return True
+                return False
+
             def _read_json_body(self) -> JsonDict | None:
                 try:
                     length = int(self.headers.get("Content-Length") or "0")
@@ -234,7 +256,7 @@ class PayloadResolverHTTPServer:
 
             def _send_cors_headers(self) -> None:
                 self.send_header("Access-Control-Allow-Origin", "*")
-                self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+                self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
                 self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
 
         return PayloadResolverHandler
@@ -363,8 +385,18 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
             {"title": "Workbench Sources", "summary": "User-selected proof cut.", "cut_ids": [cut_id]},
             access_token=access_token,
         )
-        cuts_response = _http_json(f"{server.base_url}/alienhand/refinement/cuts", access_token=access_token)
-        chapters_response = _http_json(f"{server.base_url}/alienhand/refinement/chapters", access_token=access_token)
+        remove_response = _http_delete_json(
+            f"{server.base_url}/alienhand/refinement/cuts/{cut_id}",
+            access_token=access_token,
+        )
+        cuts_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/cuts?channel={channel_uuid}",
+            access_token=access_token,
+        )
+        chapters_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/chapters?channel={channel_uuid}",
+            access_token=access_token,
+        )
         base_url = server.base_url
 
     blocks = blocks_response["json"].get("blocks", [])
@@ -380,6 +412,8 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         and unauthorized_response["status"] == 401
         and cut_response["status"] == 201
         and chapter_response["status"] == 201
+        and remove_response["status"] == 200
+        and remove_response["json"].get("cut", {}).get("status") == "removed"
         and len(cuts) == 1
         and len(chapters) == 1
     )
@@ -394,6 +428,7 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         "search_hits": len(hits),
         "created_cut_id": cut_id,
         "created_chapter_id": chapter_response["json"].get("chapter", {}).get("chapter_id"),
+        "removed_cut_status": remove_response["json"].get("cut", {}).get("status"),
         "listed_cuts": len(cuts),
         "listed_chapters": len(chapters),
         "unauthorized_status": unauthorized_response["status"],
@@ -630,6 +665,20 @@ def _http_post_json(url: str, body: JsonDict, *, access_token: str | None = None
         headers["Authorization"] = f"Bearer {access_token}"
     encoded = json.dumps(body, sort_keys=True).encode("utf-8")
     request = Request(url, data=encoded, headers=headers, method="POST")
+    try:
+        with urlopen(request, timeout=5.0) as response:
+            response_body = response.read().decode("utf-8")
+            return {"json": json.loads(response_body), "headers": dict(response.headers), "status": response.status}
+    except HTTPError as error:
+        response_body = error.read().decode("utf-8")
+        return {"json": json.loads(response_body), "headers": dict(error.headers), "status": error.code}
+
+
+def _http_delete_json(url: str, *, access_token: str | None = None) -> JsonDict:
+    headers = {"Accept": "application/json", "Origin": "http://127.0.0.1"}
+    if access_token:
+        headers["Authorization"] = f"Bearer {access_token}"
+    request = Request(url, headers=headers, method="DELETE")
     try:
         with urlopen(request, timeout=5.0) as response:
             response_body = response.read().decode("utf-8")

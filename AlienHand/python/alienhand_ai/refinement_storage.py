@@ -276,14 +276,26 @@ class ConversationRefinementStore:
         row = self._required_row("SELECT * FROM conversation_cuts WHERE cut_id = ?", (cut_id,))
         return cut_from_row(row)
 
-    def list_cuts(self, *, status: str | None = None) -> list[ConversationCut]:
-        if status is None:
-            rows = self.connection.execute("SELECT * FROM conversation_cuts ORDER BY position, cut_id").fetchall()
-        else:
-            rows = self.connection.execute(
-                "SELECT * FROM conversation_cuts WHERE status = ? ORDER BY position, cut_id",
-                (status,),
-            ).fetchall()
+    def list_cuts(
+        self,
+        *,
+        status: str | None = None,
+        channel_uuid: str | None = None,
+    ) -> list[ConversationCut]:
+        params: list[Any] = []
+        query = "SELECT conversation_cuts.* FROM conversation_cuts"
+        clauses: list[str] = []
+        if channel_uuid is not None:
+            query += " JOIN conversation_blocks ON conversation_blocks.block_id = conversation_cuts.source_block_id"
+            clauses.append("conversation_blocks.channel_uuid = ?")
+            params.append(channel_uuid)
+        if status is not None:
+            clauses.append("conversation_cuts.status = ?")
+            params.append(status)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY conversation_cuts.position, conversation_cuts.cut_id"
+        rows = self.connection.execute(query, tuple(params)).fetchall()
         return [cut_from_row(row) for row in rows]
 
     def next_cut_position(self) -> int:
@@ -335,9 +347,21 @@ class ConversationRefinementStore:
         row = self._required_row("SELECT * FROM conversation_chapters WHERE chapter_id = ?", (chapter_id,))
         return chapter_from_row(row)
 
-    def list_chapters(self) -> list[ConversationChapter]:
+    def list_chapters(self, *, channel_uuid: str | None = None) -> list[ConversationChapter]:
         rows = self.connection.execute("SELECT * FROM conversation_chapters ORDER BY title, chapter_id").fetchall()
-        return [chapter_from_row(row) for row in rows]
+        chapters = [chapter_from_row(row) for row in rows]
+        if channel_uuid is None:
+            return chapters
+        block_rows = self.connection.execute(
+            "SELECT block_id FROM conversation_blocks WHERE channel_uuid = ?",
+            (channel_uuid,),
+        ).fetchall()
+        channel_block_ids = {row["block_id"] for row in block_rows}
+        return [
+            chapter
+            for chapter in chapters
+            if any(block_id in channel_block_ids for block_id in chapter.member_block_ids)
+        ]
 
     def create_bookmark(
         self,

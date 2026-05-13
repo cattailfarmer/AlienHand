@@ -148,9 +148,20 @@ class PayloadHTTPTests(unittest.TestCase):
                     },
                     token="secret",
                 )
-                cuts, _, cuts_status = fetch_json(f"{server.base_url}/alienhand/refinement/cuts", token="secret")
+                removed, _, removed_status = delete_json(
+                    f"{server.base_url}/alienhand/refinement/cuts/{cut['cut']['cut_id']}",
+                    token="secret",
+                )
+                cuts, _, cuts_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/cuts?channel={channel_uuid}",
+                    token="secret",
+                )
+                active_cuts, _, active_cuts_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/cuts?channel={channel_uuid}&status=active",
+                    token="secret",
+                )
                 chapters, _, chapters_status = fetch_json(
-                    f"{server.base_url}/alienhand/refinement/chapters",
+                    f"{server.base_url}/alienhand/refinement/chapters?channel={channel_uuid}",
                     token="secret",
                 )
 
@@ -164,8 +175,13 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(cut["cut"]["source_block_id"], blocks[0].block_id)
             self.assertEqual(chapter_status, 201)
             self.assertEqual(chapter["chapter"]["member_cut_ids"], [cut["cut"]["cut_id"]])
+            self.assertEqual(removed_status, 200)
+            self.assertEqual(removed["cut"]["status"], "removed")
             self.assertEqual(cuts_status, 200)
             self.assertEqual(len(cuts["cuts"]), 1)
+            self.assertEqual(cuts["cuts"][0]["status"], "removed")
+            self.assertEqual(active_cuts_status, 200)
+            self.assertEqual(active_cuts["cuts"], [])
             self.assertEqual(chapters_status, 200)
             self.assertEqual(len(chapters["chapters"]), 1)
 
@@ -179,6 +195,7 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(result["search_hits"], 1)
             self.assertEqual(result["listed_cuts"], 1)
             self.assertEqual(result["listed_chapters"], 1)
+            self.assertEqual(result["removed_cut_status"], "removed")
             self.assertEqual(result["unauthorized_status"], 401)
 
     def test_chat_service_owns_payload_resolver_lifecycle(self):
@@ -261,6 +278,18 @@ def post_json(url: str, body: dict[str, object], *, token: str | None = None):
     if token:
         headers["Authorization"] = f"Bearer {token}"
     request = Request(url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
+    try:
+        with urlopen(request, timeout=5.0) as response:
+            return json.loads(response.read().decode("utf-8")), dict(response.headers), response.status
+    except HTTPError as error:
+        return json.loads(error.read().decode("utf-8")), dict(error.headers), error.code
+
+
+def delete_json(url: str, *, token: str | None = None):
+    headers = {"Accept": "application/json", "Origin": "http://localhost"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    request = Request(url, headers=headers, method="DELETE")
     try:
         with urlopen(request, timeout=5.0) as response:
             return json.loads(response.read().decode("utf-8")), dict(response.headers), response.status

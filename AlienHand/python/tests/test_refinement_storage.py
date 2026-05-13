@@ -60,6 +60,35 @@ class RefinementStorageTests(unittest.TestCase):
                 self.assertEqual(chapter.member_block_ids, (block.block_id,))
                 self.assertEqual(removed.status, "removed")
 
+    def test_cut_and_chapter_lists_can_be_filtered_by_channel(self):
+        with tempfile.TemporaryDirectory() as temp:
+            first = sample_block("first channel cut source")
+            second = sample_block("second channel cut source")
+            with ConversationRefinementStore(Path(temp) / "refinement.sqlite3") as store:
+                store.add_block(first)
+                store.add_block(second)
+                first_cut = store.create_cut(first.block_id)
+                second_cut = store.create_cut(second.block_id)
+                first_chapter = store.create_chapter(
+                    title="First Channel",
+                    summary="Filtered chapter.",
+                    cut_ids=(first_cut.cut_id,),
+                )
+                store.create_chapter(
+                    title="Second Channel",
+                    summary="Filtered out.",
+                    cut_ids=(second_cut.cut_id,),
+                )
+
+                self.assertEqual(
+                    [cut.cut_id for cut in store.list_cuts(channel_uuid=first.channel_uuid)],
+                    [first_cut.cut_id],
+                )
+                self.assertEqual(
+                    [chapter.chapter_id for chapter in store.list_chapters(channel_uuid=first.channel_uuid)],
+                    [first_chapter.chapter_id],
+                )
+
     def test_bookmark_note_sticky_quote_edit_and_toc_round_trip(self):
         with tempfile.TemporaryDirectory() as temp:
             block = sample_block("Bookmark this source and echo the note")

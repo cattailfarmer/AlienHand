@@ -1236,7 +1236,10 @@ def run_app_thelounge_refinement_workbench_proof(
         "editing frame toggle": "Editing",
         "insertion bridge": "Cut insertion bridge",
         "bridge instruction": "Select a chat line with its arrow",
+        "bridge blocked status": "Bridge blocked: select a chat line",
         "empty cuts guidance": "No cuts yet. Select a chat line",
+        "refreshing status": "Refreshing refinement state.",
+        "error status": "Latest workbench error is shown above.",
         "chapter action": "Create chapter",
         "edit action": "Apply edit",
         "toc action": "Add TOC",
@@ -1245,6 +1248,7 @@ def run_app_thelounge_refinement_workbench_proof(
     }
     workbench_style_markers = {
         "workbench class": "alienhand-workbench",
+        "status surface": "alienhand-workbench__status",
         "bookmarks": "alienhand-workbench__bookmarks",
         "quotes": "alienhand-workbench__quotes",
         "stickies": "alienhand-workbench__stickies",
@@ -1253,6 +1257,7 @@ def run_app_thelounge_refinement_workbench_proof(
         "source arrow": "alienhand-source-arrow",
         "bridge rail": "alienhand-workbench__bridge-rail",
         "bridge arrow": "alienhand-workbench__bridge-arrow",
+        "blocked status pill": "alienhand-workbench__status-pill--blocked",
     }
     missing_bundle_markers = [
         name for name, marker in workbench_bundle_markers.items() if marker not in bundle_js

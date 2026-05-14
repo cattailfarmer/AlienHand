@@ -1,0 +1,66 @@
+Subject: Chat Workbench Status States Justification
+Description: Justification record for adding visible status, blocked-action, and fetch-failure diagnostics to the AlienHand The Lounge refinement workbench.
+
+@ [canonical] AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+@ [exploded] AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+@ [implementation] AlienHand/thelounge client fork commit d62e5b63
+@ [proof_marker] AlienHand/python/alienhand_ai/payload_http.py
+
+& [JustificationRecord: ChatWorkbenchStatusStates: 2026-05-14] is the justification for visible workbench state repair
+  + [justification_uuid] is 850e5477-4e61-4d85-9290-fd9b96c779b0
+  + [work_uuid] is d3af7045-4c1c-4735-8da8-b778cad83076
+  + [specification_anchor] is [ImplementationFrontier: ChatRefinementV2] frontier_2
+  + [requirement] is implement or harden visible stale/error states for payload, block adoption, cut insertion, and source reveal
+  + [fork_commit] is d62e5b63
+  + [solution] is The Lounge workbench now renders status pills for refresh, block/cut counts, blocked insertion, selected source, source reveal, hidden pane reveal, stale source visibility, and latest error state
+  + [solution] is AlienHand refinement fetch errors now include the resolver URL and API path that failed
+  + [solution] is app-owned runtime proof now checks the new status surface strings and CSS classes
+  + [data_design_reason] is status messages expose operation_state, validation_state, and provenance/source reveal state without making UI state authoritative
+  + [ui_interaction_reason] is blocked actions are explained through visible feedback instead of disabled controls alone
+
+  = must: treat visible status as part of the workbench component contract
+  = must: keep source reveal failures explicit when a cut, block, or pane is unavailable
+  = must: keep resolver fetch failures actionable enough for local runtime debugging
+
+& [VerificationResult: ChatWorkbenchStatusStates: 2026-05-14] is the verification evidence for this slice
+  + [eslint] is npx eslint client/components/AlienHandRefinementWorkbench.vue client/js/helpers/alienhand.ts --color
+  + [eslint_result] is passed
+  + [stylelint] is npx stylelint --color client/css/alienhand-chat.css
+  + [stylelint_result] is passed
+  + [prettier] is yarn prettier --check client/components/AlienHandRefinementWorkbench.vue client/js/helpers/alienhand.ts client/css/alienhand-chat.css
+  + [prettier_result] is passed after formatter normalization
+  + [client_build] is yarn build:client
+  + [client_build_result] is passed
+  + [runtime_command] is python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-status-proof-v2 --timeout 45
+  + [runtime_result] is workbench_runtime_ok true
+  + [runtime_result] is workbench_bundle_ok true
+  + [runtime_result] is missing_workbench_bundle_markers empty
+  + [runtime_result] is workbench_style_ok true
+  + [runtime_result] is missing_workbench_style_markers empty
+  + [runtime_result] is refinement_api_ok true
+  + [runtime_result] is render_fetch_ok true
+  + [runtime_result] is cold_replay_ok true
+  + [runtime_root] is AlienHand/python/runs/chat-workbench-status-proof-v2
+
+  = must: preserve this verification result as evidence for frontier_2 completion
+
+& [SolutionRecord: ChatWorkbenchStatusStates: 2026-05-14] is the completed solution slice
+  + [solution_uuid] is 9583abef-c63a-4f08-bc94-fd60bdc0292c
+  + [changed_file] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue
+  + [changed_file] is AlienHand/thelounge/client/js/helpers/alienhand.ts
+  + [changed_file] is AlienHand/thelounge/client/css/alienhand-chat.css
+  + [changed_file] is AlienHand/python/alienhand_ai/payload_http.py
+  + [changed_file] is AlienHand/docs/sjs/justification/2026-05-14-chat-workbench-status-states.sop
+  + [next_frontier] is [ImplementationFrontier: ChatRefinementV2] frontier_3
+  + [next_frontier_label] is refine insertion bridge geometry and blocked-state feedback against the Chat/Cutting layout
+
+  ! [ChatWorkbenchStatusStatesAccepted] is accepted
+    @ [support] [VerificationResult: ChatWorkbenchStatusStates: 2026-05-14]
+    @ [support] [JustificationRecord: ChatWorkbenchStatusStates: 2026-05-14]
+
+& [RegistryRecord: ChatWorkbenchStatusStates: 2026-05-14] is the registry node for this solution slice
+  + [registry_uuid] is 65f10a22-1ce2-4e86-ab5a-5733758cfaef
+  + [derived_from] is AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+  + [implemented_as] is AlienHand/thelounge commit d62e5b63 and AlienHand/python/alienhand_ai/payload_http.py
+  + [justified_by] is this document
+  + [verification_artifact] is AlienHand/python/runs/chat-workbench-status-proof-v2

@@ -1589,7 +1589,8 @@ def run_app_thelounge_refinement_workbench_proof(
         "unpin action": "Unpin",
         "edit action": "Apply edit",
         "toc action": "Add TOC",
-        "source staging action": "Stage this message for cuts",
+        "source direct insertion action": "Insert this message into cuts at the current Cutting position",
+        "source direct insertion event": "alienhand:source-message:insert-requested",
         "workbench class": "alienhand-workbench",
     }
     workbench_style_markers = {

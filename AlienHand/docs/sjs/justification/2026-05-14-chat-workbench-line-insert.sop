@@ -1,0 +1,29 @@
+Subject: Chat Workbench Line Insert Justification
+Date: 2026-05-14
+Scope: The Lounge chat-line arrow insertion into AlienHand Cutting frame
+
+& [ChatWorkbenchLineInsertSlice] is the direct source-line to cut transform requested by the workbench layout specification
+  + [specification_basis] is AlienHand/docs/irc-chat-refinement.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [ui_contract] is [ComponentContract: ChatFrame] plus [ComponentContract: InsertionBridge]
+  + [thelounge_commit] is b48c02ad
+  + [parent_pointer] is AlienHand/thelounge
+  + [implementation_files] are The Lounge client/components/Chat.vue, client/components/MessageList.vue, client/components/Message.vue, and client/components/AlienHandRefinementWorkbench.vue
+  + [proof_file] is AlienHand/python/alienhand_ai/payload_http.py
+
+  = implemented: exposed the per-message arrow only when MessageList is rendered inside the active AlienHand workbench Chat frame
+  = implemented: changed the per-message arrow from staging-only behavior to direct insertion into Cutting at the current insertion position
+  = implemented: emitted alienhand:source-message:insert-requested from the chat line while preserving the existing source-selected event
+  = implemented: added a workbench listener that adopts the live chat block and creates the cut through the existing durable API flow
+  = implemented: retained the large bridge arrow as an alternate insert-selected-source affordance
+  = implemented: updated runtime proof markers to require the direct insertion action and event name in the served bundle
+  = satisfies: [ConversationCutAction] because clicking the selected line arrow inserts the source block at the current pointer position without mutating the raw chat line
+  = satisfies: [ComponentContract: ChatFrame] because the source-line affordance is visible in the Chat frame and produces an explicit cut insert request
+  = satisfies: [ComponentContract: InsertionBridge] because the bridge position remains the authoritative current insertion index
+  = verification: npx eslint client/components/Chat.vue client/components/MessageList.vue client/components/Message.vue client/components/AlienHandRefinementWorkbench.vue --color passed
+  = verification: yarn prettier --check client/components/Chat.vue client/components/MessageList.vue client/components/Message.vue client/components/AlienHandRefinementWorkbench.vue passed
+  = verification: yarn build:client passed
+  = verification: python -m compileall AlienHand\python\alienhand_ai\payload_http.py passed
+  = verification: python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-line-insert-proof --timeout 45 returned workbench_runtime_ok true
+  - deferred: direct manual browser review of the click path remains useful once the Node REPL browser runtime mismatch is resolved
+  - never: insert a cut by mutating or deleting the raw source message

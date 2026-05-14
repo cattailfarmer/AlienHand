@@ -1229,30 +1229,39 @@ def run_app_thelounge_refinement_workbench_proof(
     bundle_js = bundle_response["text"]
     style_css = style_response["text"]
     resolver_data_attribute = f'data-alienhand-payload-resolver="{resolver_base_url}"'
-    workbench_bundle_ok = (
-        "AlienHand refinement" in bundle_js
-        and "Inject into cuts" in bundle_js
-        and "Bookmark note" in bundle_js
-        and "Bookmark:" in bundle_js
-        and "Quote excerpt" in bundle_js
-        and "Pinned reminder" in bundle_js
-        and "Unpin" in bundle_js
-        and "Apply edit" in bundle_js
-        and "Add TOC" in bundle_js
-        and "Stage this message for cuts" in bundle_js
-        and "Select a live chat line" in bundle_js
-        and "alienhand-workbench" in bundle_js
-    )
-    workbench_style_ok = (
-        "alienhand-workbench" in style_css
-        and "alienhand-workbench__bookmarks" in style_css
-        and "alienhand-workbench__quotes" in style_css
-        and "alienhand-workbench__stickies" in style_css
-        and "alienhand-workbench__edits" in style_css
-        and "alienhand-workbench__toc" in style_css
-        and "alienhand-source-arrow" in style_css
-        and "alienhand-workbench__source-bridge" in style_css
-    )
+    workbench_bundle_markers = {
+        "workbench aria label": "AlienHand refinement workbench",
+        "chat frame toggle": "Chat",
+        "cutting frame toggle": "Cutting",
+        "editing frame toggle": "Editing",
+        "insertion bridge": "Cut insertion bridge",
+        "bridge instruction": "Select a chat line with its arrow",
+        "empty cuts guidance": "No cuts yet. Select a chat line",
+        "chapter action": "Create chapter",
+        "edit action": "Apply edit",
+        "toc action": "Add TOC",
+        "source staging action": "Stage this message for cuts",
+        "workbench class": "alienhand-workbench",
+    }
+    workbench_style_markers = {
+        "workbench class": "alienhand-workbench",
+        "bookmarks": "alienhand-workbench__bookmarks",
+        "quotes": "alienhand-workbench__quotes",
+        "stickies": "alienhand-workbench__stickies",
+        "edits": "alienhand-workbench__edits",
+        "toc": "alienhand-workbench__toc",
+        "source arrow": "alienhand-source-arrow",
+        "bridge rail": "alienhand-workbench__bridge-rail",
+        "bridge arrow": "alienhand-workbench__bridge-arrow",
+    }
+    missing_bundle_markers = [
+        name for name, marker in workbench_bundle_markers.items() if marker not in bundle_js
+    ]
+    missing_style_markers = [
+        name for name, marker in workbench_style_markers.items() if marker not in style_css
+    ]
+    workbench_bundle_ok = not missing_bundle_markers
+    workbench_style_ok = not missing_style_markers
     refinement_api_ok = (
         blocks_response["status"] == 200
         and len(blocks) == 1
@@ -1332,7 +1341,9 @@ def run_app_thelounge_refinement_workbench_proof(
         "listed_diffs": len(diffs),
         "listed_toc_entries": len(toc_entries),
         "workbench_bundle_ok": workbench_bundle_ok,
+        "missing_workbench_bundle_markers": missing_bundle_markers,
         "workbench_style_ok": workbench_style_ok,
+        "missing_workbench_style_markers": missing_style_markers,
         "refinement_api_ok": refinement_api_ok,
         "payload_resolver_stopped": service.payload_http_server is None,
         "thelounge_stopped": service.thelounge_process is None,

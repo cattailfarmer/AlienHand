@@ -1,0 +1,56 @@
+Subject: Chat Workbench Proof Oracle Justification
+Description: Justification record for updating the AlienHand chat workbench runtime proof so it validates the current v2 Chat/Cutting/Editing workbench contract.
+
+@ [canonical] AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+@ [exploded] AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+@ [implementation] AlienHand/python/alienhand_ai/payload_http.py
+
+& [JustificationRecord: ChatWorkbenchProofOracle: 2026-05-14] is the justification for the runtime proof oracle repair
+  + [justification_uuid] is 6649b40a-33c8-4701-867c-59671ec7a347
+  + [work_uuid] is 25d6a864-0cf3-42d8-b02a-99ab73a14e95
+  + [specification_anchor] is [ImplementationFrontier: ChatRefinementV2] frontier_1
+  + [requirement] is verify and repair The Lounge workbench data fetching so raw blocks load reliably in live review
+  + [problem] is chat-workbench-runtime-proof returned workbench_bundle_ok false while service, resolver, API, render fetch, style, and cold replay were otherwise passing
+  + [cause] is the proof oracle still expected pre-v2 bundle strings such as "Inject into cuts", "Quote excerpt", "Pinned reminder", and "Unpin"
+  + [solution] is replace brittle legacy bundle/style boolean clauses with named v2 marker maps and explicit missing marker output
+  + [data_design_reason] is proof markers now act as named data about the UI contract rather than hidden string conjunctions
+  + [ui_interaction_reason] is markers now reflect the Chat, Cutting, Editing, insertion bridge, source staging, chapter, edit, and TOC affordances currently exposed by the workbench
+
+  = must: preserve runtime proof as an inspectable verification surface
+  = must: report missing bundle and style marker names when future UI drift breaks the proof
+  = must: keep this repair scoped to proof validation and not imply final browser visual acceptance
+
+& [VerificationResult: ChatWorkbenchProofOracle: 2026-05-14] is the verification evidence for this repair
+  + [runtime_command] is python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-runtime-proof-v2-fixed --timeout 45
+  + [runtime_result] is workbench_runtime_ok true
+  + [runtime_result] is workbench_bundle_ok true
+  + [runtime_result] is missing_workbench_bundle_markers empty
+  + [runtime_result] is workbench_style_ok true
+  + [runtime_result] is missing_workbench_style_markers empty
+  + [runtime_result] is refinement_api_ok true
+  + [runtime_result] is render_fetch_ok true
+  + [runtime_result] is cold_replay_ok true
+  + [runtime_root] is AlienHand/python/runs/chat-workbench-runtime-proof-v2-fixed
+  + [test_gap] is python -m pytest tests/test_payload_http.py tests/test_chat_platform.py tests/test_refinement_storage.py could not run because pytest is not installed in the active Python 3.13 environment
+
+  = must: treat the runtime proof as the accepted verification for this slice
+  = should: install or document test dependencies before relying on pytest in future autonomous runs
+
+& [SolutionRecord: ChatWorkbenchProofOracle: 2026-05-14] is the completed solution slice
+  + [solution_uuid] is eb094020-7351-4c7b-bd71-744e6e486717
+  + [changed_file] is AlienHand/python/alienhand_ai/payload_http.py
+  + [changed_file] is AlienHand/docs/sjs/justification/2026-05-14-chat-workbench-proof-oracle.sop
+  + [coherent_slice] is runtime proof oracle repair plus justification
+  + [next_frontier] is [ImplementationFrontier: ChatRefinementV2] frontier_2
+  + [next_frontier_label] is visible stale/error states for payload, block adoption, cut insertion, and source reveal
+
+  ! [ChatWorkbenchProofOracleRepairAccepted] is accepted
+    @ [support] [VerificationResult: ChatWorkbenchProofOracle: 2026-05-14]
+    @ [support] [JustificationRecord: ChatWorkbenchProofOracle: 2026-05-14]
+
+& [RegistryRecord: ChatWorkbenchProofOracle: 2026-05-14] is the registry node for this solution slice
+  + [registry_uuid] is d7a732b2-9575-41c4-8dd3-de4e9feed8c9
+  + [derived_from] is AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+  + [implemented_as] is AlienHand/python/alienhand_ai/payload_http.py
+  + [justified_by] is this document
+  + [verification_artifact] is AlienHand/python/runs/chat-workbench-runtime-proof-v2-fixed

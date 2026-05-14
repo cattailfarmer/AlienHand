@@ -1,9 +1,15 @@
 """Reusable AlienHand AI toolkit primitives."""
 
 __all__ = [
+    "anne",
+    "anne_godot",
     "bitmap",
     "chat_platform",
+    "codex_stream_routing",
+    "codex_stream_worker",
+    "cursor_accessibility",
     "godot",
+    "godot_ide_surface",
     "input_control",
     "input_observer",
     "interaction_trace",
@@ -14,6 +20,7 @@ __all__ = [
     "multi_mouse",
     "novelty",
     "payload_http",
+    "proof_freshness",
     "refinement_storage",
     "replay",
     "resources",

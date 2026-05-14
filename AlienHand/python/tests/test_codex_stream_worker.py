@@ -412,7 +412,6 @@ class CodexStreamWorkerFrontier3Tests(unittest.TestCase):
                         "status": "completed",
                         "result_summary": "ok",
                         "result_ref": "result://ok",
-                        "model_route": {"model": "spark"},
                     }
 
                 with CodexStreamWorker(
@@ -428,6 +427,11 @@ class CodexStreamWorkerFrontier3Tests(unittest.TestCase):
                 self.assertEqual(called_requests, ["request-worker-a1"])
                 status = store.request_status("request-worker-a1")
                 self.assertEqual(status["request"]["status"], "completed")
+                response_row = store.connection.execute(
+                    "SELECT model_route_json FROM codex_stream_responses WHERE request_id = ?",
+                    ("request-worker-a1",),
+                ).fetchone()
+                self.assertIn("gpt-5.3-codex-spark", response_row["model_route_json"])
 
     def test_worker_retry_and_retryable_failure_is_requeued_then_completed(self):
         with tempfile.TemporaryDirectory() as temp:

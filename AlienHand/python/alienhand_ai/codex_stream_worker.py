@@ -7,6 +7,7 @@ from pathlib import Path
 import sqlite3
 from typing import Any, Callable
 from uuid import uuid4
+from alienhand_ai.codex_stream_routing import route_codex_stream_request
 
 
 SCHEMA_VERSION = 1
@@ -540,13 +541,20 @@ class CodexStreamWorker:
             if not isinstance(result, dict):
                 raise TypeError("executor must return dict")
             status = str(result.get("status", "completed")).lower()
+            model_route = result.get("model_route")
+            if model_route is None:
+                route = route_codex_stream_request(
+                    task_type=request["task_type"],
+                    model_budget_hint=request["model_budget_hint"],
+                )
+                model_route = route.__dict__
             if status == "completed":
                 self.store.complete_request(
                     request_id=request["request_id"],
                     attempt_id=attempt_id,
                     result_summary=result.get("result_summary"),
                     result_ref=result.get("result_ref"),
-                    model_route=result.get("model_route"),
+                    model_route=model_route,
                     justification_ref=result.get("justification_ref"),
                     artifact_refs=result.get("artifact_refs", []),
                 )

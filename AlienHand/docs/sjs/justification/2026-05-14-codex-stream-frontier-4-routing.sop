@@ -1,0 +1,35 @@
+Subject: Codex Stream Worker Frontier 4 Routing
+Date: 2026-05-14
+Scope: Frontier_4 implementation for model-budget route classification and defaulting for stream worker execution
+
+& [CodexStreamFrontier4Routing] is the recorded completion slice for frontier_4
+  + [specification_basis] is AlienHand/docs/sjs/canonical/codex-stream-worker.canonical.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/codex-stream-worker.exploded.sop
+  + [frontier_target] is [CanonicalImplementationFrontier: AlienHandCodexStreamWorker] frontier_4
+  + [implementer] is GPT-5.3-Codex-Spark
+  + [implementation_files] are AlienHand/python/alienhand_ai/codex_stream_routing.py,
+    AlienHand/python/alienhand_ai/codex_stream_worker.py,
+    AlienHand/python/tests/test_codex_stream_routing.py,
+    AlienHand/python/tests/test_codex_stream_worker.py,
+    AlienHand/python/alienhand_ai/__init__.py
+  + [evidence_artifacts] are 4 routing tests and 15 worker tests passing after route defaulting injection
+
+  = implemented: added `MODEL_SPARK`, `MODEL_HIGH`, `ModelRoute`, and deterministic `route_codex_stream_request` classifier with explicit/safeguard hints
+  = implemented: classified default task categories (`health_check`, `history_context_pack`) as Spark-suitable and SOP/decision tasks as high-reasoning
+  = implemented: added explicit routing override support via `explicit_model:` prefix in model budget hint
+  + [implemented] integrated worker execution path so a missing executor-provided `model_route` is filled with policy route metadata before response persistence
+  = implemented: added dedicated routing unit tests for spark tasks, high-reasoning tasks, explicit model overrides, and unknown-task fallback
+  = implemented: exported `codex_stream_routing` in `alienhand_ai.__all__` for runtime module discoverability
+
+  = verification: python -m unittest AlienHand/python/tests/test_codex_stream_routing.py passed 4 tests
+  = verification: python -m unittest AlienHand/python/tests/test_codex_stream_worker.py passed 15 tests with route-backed model recording
+  = verification: route defaults are visible in `codex_stream_responses.model_route_json` for completed requests
+
+  = satisfies: [SOPTaskRouting: AlienHandCodexStreamWorker] and [Specification_Governance] by recording deterministic routing choices for task execution
+  = satisfies: [Model_Budget_Routing] because route selection behavior is explicit and explicit override is supported
+  = satisfies: [CanonicalRequirementSet: AlienHandCodexStreamWorker] for request task typing and model-route policy
+  = satisfies: [ImplementationFrontier: AlienHandCodexStreamWorker] frontier_4
+
+  - compatibility: this slice applies conservative policy with unknown tasks defaulting to high-reasoning; frontier_4 purposely avoids auto-optimizing novel task types
+  - compatibility: explicit routing controls are still advisory for this prototype and can be tightened once frontier_5 introduces richer task governance
+  - never: embed worker model decisions inside non-worker code paths before routing module can be replaced

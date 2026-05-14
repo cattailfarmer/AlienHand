@@ -295,6 +295,22 @@ class PayloadHTTPTests(unittest.TestCase):
                     f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}&clear_state=dismissed",
                     token="secret",
                 )
+                directives, _, directives_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/directives?channel={channel_uuid}",
+                    token="secret",
+                )
+                directives_after_first, _, directives_after_first_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/directives?channel={channel_uuid}&after_sequence=1",
+                    token="secret",
+                )
+                limited_directives, _, limited_directives_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/directives?channel={channel_uuid}&limit=3",
+                    token="secret",
+                )
+                cut_directives, _, cut_directives_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/directives?channel={channel_uuid}&directive_kind=create_cut",
+                    token="secret",
+                )
 
             self.assertEqual(listed_status, 200)
             self.assertEqual(listed["blocks"][0]["block_id"], f"message:{published.envelope.message_uuid}")
@@ -370,6 +386,29 @@ class PayloadHTTPTests(unittest.TestCase):
                 [row["sticky_id"] for row in dismissed_stickies["stickies"]],
                 [sticky["sticky"]["sticky_id"]],
             )
+            self.assertEqual(directives_status, 200)
+            self.assertEqual([row["sequence"] for row in directives["directives"]], list(range(1, 10)))
+            self.assertEqual(
+                [row["directive_kind"] for row in directives["directives"]],
+                [
+                    "create_cut",
+                    "create_chapter",
+                    "apply_edit",
+                    "add_toc_entry",
+                    "create_bookmark",
+                    "quote_span",
+                    "pin_sticky",
+                    "remove_cut",
+                    "clear_sticky",
+                ],
+            )
+            self.assertEqual(directives["directives"][0]["result_ref"], {"id": cut["cut"]["cut_id"], "type": "cut"})
+            self.assertEqual(directives_after_first_status, 200)
+            self.assertEqual([row["sequence"] for row in directives_after_first["directives"]], list(range(2, 10)))
+            self.assertEqual(limited_directives_status, 200)
+            self.assertEqual([row["sequence"] for row in limited_directives["directives"]], [1, 2, 3])
+            self.assertEqual(cut_directives_status, 200)
+            self.assertEqual([row["target_id"] for row in cut_directives["directives"]], [cut["cut"]["cut_id"]])
 
     def test_refinement_http_api_can_adopt_live_irc_message_as_block(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -431,6 +470,11 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(result["sticky_target_type"], "bookmark")
             self.assertEqual(result["cleared_sticky_state"], "dismissed")
             self.assertEqual(result["active_stickies_after_clear"], 0)
+            self.assertEqual(result["listed_directives"], 9)
+            self.assertEqual(result["directive_sequences"], list(range(1, 10)))
+            self.assertEqual(result["directives_after_first"], 8)
+            self.assertEqual(result["limited_directives"], 3)
+            self.assertEqual(result["create_cut_directives"], 1)
             self.assertEqual(result["removed_cut_status"], "removed")
             self.assertEqual(result["unauthorized_status"], 401)
 

@@ -337,6 +337,10 @@ class RefinementStorageTests(unittest.TestCase):
             self.assertEqual(result["blocks"], 2)
             self.assertEqual(result["search_hits"], 1)
             self.assertEqual(result["toc_entries"], 1)
+            self.assertEqual(result["directives"], 1)
+            self.assertEqual(result["listed_directives"], 1)
+            self.assertEqual(result["directive_kind"], "create_cut")
+            self.assertEqual(result["directive_sequence"], 1)
             self.assertEqual(result["removed_cut_status"], "removed")
 
     def test_import_replay_rows_creates_searchable_blocks_from_chat_history(self):

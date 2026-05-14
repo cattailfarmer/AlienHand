@@ -127,6 +127,28 @@ class PayloadResolverHTTPServer:
             def log_message(self, format: str, *args: Any) -> None:
                 return
 
+            def _record_refinement_directive(
+                self,
+                store: ConversationRefinementStore,
+                *,
+                channel_uuid: str,
+                directive_kind: str,
+                body: JsonDict,
+                target_type: str = "",
+                target_id: str = "",
+                result_ref: JsonDict | None = None,
+            ) -> None:
+                store.record_directive(
+                    channel_uuid=channel_uuid,
+                    directive_kind=directive_kind,
+                    source=str(body.get("source") or "user"),
+                    visibility=str(body.get("visibility") or "debug_only"),
+                    target_type=target_type,
+                    target_id=target_id,
+                    payload=body,
+                    result_ref=result_ref or {},
+                )
+
             def _handle_refinement_get(self) -> bool:
                 parsed = urlparse(self.path)
                 parts = _path_parts(parsed.path)
@@ -220,6 +242,22 @@ class PayloadResolverHTTPServer:
                         entries = store.list_toc_entries(toc_id)
                     self._send_json({"toc_id": toc_id, "entries": entries}, HTTPStatus.OK)
                     return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "directives"):
+                    try:
+                        after_sequence = _optional_nonnegative_int(query.get("after_sequence"), "after_sequence")
+                        limit = _optional_positive_int(query.get("limit"), "limit")
+                    except ValueError as error:
+                        self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    with ConversationRefinementStore(owner.refinement_db_path) as store:
+                        directives = store.list_directives(
+                            channel_uuid=query.get("channel"),
+                            directive_kind=query.get("directive_kind"),
+                            after_sequence=after_sequence,
+                            limit=limit,
+                        )
+                    self._send_json({"directives": [directive.to_dict() for directive in directives]}, HTTPStatus.OK)
+                    return True
                 return False
 
             def _handle_refinement_post(self) -> bool:
@@ -241,6 +279,15 @@ class PayloadResolverHTTPServer:
                         )
                         with ConversationRefinementStore(owner.refinement_db_path) as store:
                             cut = store.create_cut(source_block_id, position=resolved_position)
+                            self._record_refinement_directive(
+                                store,
+                                channel_uuid=store.channel_uuid_for_target("block", source_block_id),
+                                directive_kind="create_cut",
+                                body=body,
+                                target_type="cut",
+                                target_id=cut.cut_id,
+                                result_ref={"type": "cut", "id": cut.cut_id},
+                            )
                     except ValueError as error:
                         self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
                         return True
@@ -295,6 +342,15 @@ class PayloadResolverHTTPServer:
                     )
                     with ConversationRefinementStore(owner.refinement_db_path) as store:
                         stored_block = store.add_block(block)
+                        self._record_refinement_directive(
+                            store,
+                            channel_uuid=stored_block.channel_uuid,
+                            directive_kind="adopt_block",
+                            body=body,
+                            target_type="block",
+                            target_id=stored_block.block_id,
+                            result_ref={"type": "block", "id": stored_block.block_id},
+                        )
                     self._send_json({"block": stored_block.to_dict()}, HTTPStatus.CREATED)
                     return True
                 if parts == (*REFINEMENT_PATH_PREFIX, "chapters"):
@@ -316,6 +372,15 @@ class PayloadResolverHTTPServer:
                                 title=title,
                                 summary=summary,
                                 cut_ids=tuple(str(cut_id) for cut_id in cut_ids),
+                            )
+                            self._record_refinement_directive(
+                                store,
+                                channel_uuid=store.channel_uuid_for_target("chapter", chapter.chapter_id),
+                                directive_kind="create_chapter",
+                                body=body,
+                                target_type="chapter",
+                                target_id=chapter.chapter_id,
+                                result_ref={"type": "chapter", "id": chapter.chapter_id},
                             )
                     except KeyError:
                         self._send_json({"error": "cut_not_found"}, HTTPStatus.NOT_FOUND)
@@ -344,6 +409,15 @@ class PayloadResolverHTTPServer:
                                 scope=str(body.get("scope") or "both"),
                                 persistence=str(body.get("persistence") or "durable_channel"),
                                 promotion_state=str(body.get("promotion_state") or "mirrored"),
+                            )
+                            self._record_refinement_directive(
+                                store,
+                                channel_uuid=store.channel_uuid_for_target(target_type, target_id),
+                                directive_kind="create_bookmark",
+                                body=body,
+                                target_type="bookmark",
+                                target_id=bookmark.bookmark_id,
+                                result_ref={"type": "bookmark", "id": bookmark.bookmark_id},
                             )
                     except ValueError as error:
                         self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
@@ -381,6 +455,15 @@ class PayloadResolverHTTPServer:
                                 provenance=provenance,
                                 display_mode=str(body.get("display_mode") or "inline"),
                             )
+                            self._record_refinement_directive(
+                                store,
+                                channel_uuid=store.channel_uuid_for_target(source_type, source_id),
+                                directive_kind="quote_span",
+                                body=body,
+                                target_type="quote",
+                                target_id=quote.quote_id,
+                                result_ref={"type": "quote", "id": quote.quote_id},
+                            )
                     except ValueError as error:
                         self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
                         return True
@@ -409,6 +492,15 @@ class PayloadResolverHTTPServer:
                                 visibility=str(body.get("visibility") or "visible"),
                                 retention=str(body.get("retention") or "session"),
                                 clear_state=str(body.get("clear_state") or "active"),
+                            )
+                            self._record_refinement_directive(
+                                store,
+                                channel_uuid=store.channel_uuid_for_target(target_type, target_id),
+                                directive_kind="pin_sticky",
+                                body=body,
+                                target_type="sticky",
+                                target_id=sticky.sticky_id,
+                                result_ref={"type": "sticky", "id": sticky.sticky_id},
                             )
                     except ValueError as error:
                         self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
@@ -463,6 +555,15 @@ class PayloadResolverHTTPServer:
                                 diff_format=str(body.get("diff_format") or "jsondiff"),
                                 diff_uri=diff_uri,
                             )
+                            self._record_refinement_directive(
+                                store,
+                                channel_uuid=store.channel_uuid_for_ref(input_ref),
+                                directive_kind="apply_edit",
+                                body=body,
+                                target_type="edit",
+                                target_id=edit.edit_id,
+                                result_ref={"type": "edit", "id": edit.edit_id, "diff_id": diff.diff_id},
+                            )
                     except KeyError:
                         self._send_json({"error": "edit_target_not_found"}, HTTPStatus.NOT_FOUND)
                         return True
@@ -491,6 +592,7 @@ class PayloadResolverHTTPServer:
                     try:
                         ordinal = _positive_int_value(body.get("ordinal"), "ordinal", allow_zero=True)
                         with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            channel_uuid = store.channel_uuid_for_target(entry_type, target_id)
                             entry = store.add_toc_entry(
                                 toc_id=str(body.get("toc_id") or "main"),
                                 ordinal=ordinal,
@@ -499,8 +601,24 @@ class PayloadResolverHTTPServer:
                                 title=title,
                                 source_scope=source_scope,
                             )
+                            self._record_refinement_directive(
+                                store,
+                                channel_uuid=channel_uuid,
+                                directive_kind="add_toc_entry",
+                                body=body,
+                                target_type="toc_entry",
+                                target_id=f"{entry['toc_id']}:{entry['ordinal']}",
+                                result_ref={
+                                    "type": "toc_entry",
+                                    "toc_id": entry["toc_id"],
+                                    "ordinal": entry["ordinal"],
+                                },
+                            )
                     except ValueError as error:
                         self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    except KeyError:
+                        self._send_json({"error": "toc_target_not_found"}, HTTPStatus.NOT_FOUND)
                         return True
                     self._send_json({"entry": entry}, HTTPStatus.CREATED)
                     return True
@@ -512,7 +630,17 @@ class PayloadResolverHTTPServer:
                     cut_id = parts[3]
                     try:
                         with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            channel_uuid = store.channel_uuid_for_target("cut", cut_id)
                             cut = store.remove_cut(cut_id)
+                            self._record_refinement_directive(
+                                store,
+                                channel_uuid=channel_uuid,
+                                directive_kind="remove_cut",
+                                body={},
+                                target_type="cut",
+                                target_id=cut.cut_id,
+                                result_ref={"type": "cut", "id": cut.cut_id, "status": cut.status},
+                            )
                     except KeyError:
                         self._send_json({"error": "cut_not_found"}, HTTPStatus.NOT_FOUND)
                         return True
@@ -522,7 +650,20 @@ class PayloadResolverHTTPServer:
                     sticky_id = parts[3]
                     try:
                         with ConversationRefinementStore(owner.refinement_db_path) as store:
+                            channel_uuid = store.channel_uuid_for_target(
+                                "sticky",
+                                sticky_id,
+                            )
                             sticky = store.clear_sticky(sticky_id)
+                            self._record_refinement_directive(
+                                store,
+                                channel_uuid=channel_uuid,
+                                directive_kind="clear_sticky",
+                                body={},
+                                target_type="sticky",
+                                target_id=sticky.sticky_id,
+                                result_ref={"type": "sticky", "id": sticky.sticky_id, "status": sticky.clear_state},
+                            )
                     except KeyError:
                         self._send_json({"error": "sticky_not_found"}, HTTPStatus.NOT_FOUND)
                         return True
@@ -791,6 +932,22 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
             f"{server.base_url}/alienhand/refinement/stickies?channel={channel_uuid}&clear_state=active",
             access_token=access_token,
         )
+        directives_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/directives?channel={channel_uuid}",
+            access_token=access_token,
+        )
+        directives_after_first_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/directives?channel={channel_uuid}&after_sequence=1",
+            access_token=access_token,
+        )
+        directive_limit_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/directives?channel={channel_uuid}&limit=3",
+            access_token=access_token,
+        )
+        create_cut_directives_response = _http_json(
+            f"{server.base_url}/alienhand/refinement/directives?channel={channel_uuid}&directive_kind=create_cut",
+            access_token=access_token,
+        )
         base_url = server.base_url
 
     blocks = blocks_response["json"].get("blocks", [])
@@ -804,6 +961,11 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
     quotes = quotes_response["json"].get("quotes", [])
     stickies = stickies_response["json"].get("stickies", [])
     active_stickies_after_clear = active_stickies_after_clear_response["json"].get("stickies", [])
+    directives = directives_response["json"].get("directives", [])
+    directives_after_first = directives_after_first_response["json"].get("directives", [])
+    limited_directives = directive_limit_response["json"].get("directives", [])
+    create_cut_directives = create_cut_directives_response["json"].get("directives", [])
+    directive_sequences = [directive.get("sequence") for directive in directives]
     refinement_http_ok = (
         blocks_response["status"] == 200
         and len(blocks) == 1
@@ -843,6 +1005,14 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         and clear_sticky_response["status"] == 200
         and clear_sticky_response["json"].get("sticky", {}).get("clear_state") == "dismissed"
         and active_stickies_after_clear == []
+        and directives_response["status"] == 200
+        and directives_after_first_response["status"] == 200
+        and directive_limit_response["status"] == 200
+        and create_cut_directives_response["status"] == 200
+        and directive_sequences == list(range(1, 10))
+        and len(directives_after_first) == 8
+        and len(limited_directives) == 3
+        and [directive.get("target_id") for directive in create_cut_directives] == [cut_id]
     )
     return {
         "resolver_version": PAYLOAD_RESOLVER_VERSION,
@@ -874,6 +1044,11 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         "listed_quotes": len(quotes),
         "listed_stickies": len(stickies),
         "active_stickies_after_clear": len(active_stickies_after_clear),
+        "listed_directives": len(directives),
+        "directive_sequences": directive_sequences,
+        "directives_after_first": len(directives_after_first),
+        "limited_directives": len(limited_directives),
+        "create_cut_directives": len(create_cut_directives),
         "unauthorized_status": unauthorized_response["status"],
         "refinement_http_ok": refinement_http_ok,
         "root": str(chat_root.resolve()),
@@ -1318,6 +1493,14 @@ def run_app_thelounge_refinement_workbench_proof(
             f"{resolver_base_url}/alienhand/refinement/stickies?channel={channel_uuid}&clear_state=active",
             access_token=access_token,
         )
+        directives_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/directives?channel={channel_uuid}",
+            access_token=access_token,
+        )
+        create_cut_directives_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/directives?channel={channel_uuid}&directive_kind=create_cut",
+            access_token=access_token,
+        )
         render_response = _http_json(
             service.payload_http_server.render_url(published.envelope.message_uuid),
             access_token=access_token,
@@ -1345,6 +1528,9 @@ def run_app_thelounge_refinement_workbench_proof(
     cut_quotes = cut_quotes_response["json"].get("quotes", [])
     stickies = stickies_response["json"].get("stickies", [])
     active_stickies_after_clear = active_stickies_after_clear_response["json"].get("stickies", [])
+    directives = directives_response["json"].get("directives", [])
+    create_cut_directives = create_cut_directives_response["json"].get("directives", [])
+    directive_sequences = [directive.get("sequence") for directive in directives]
     index_html = index_response["text"]
     bundle_js = bundle_response["text"]
     style_css = style_response["text"]
@@ -1474,6 +1660,10 @@ def run_app_thelounge_refinement_workbench_proof(
         and clear_cut_sticky_response["json"].get("sticky", {}).get("clear_state") == "dismissed"
         and cut_sticky_id not in active_sticky_ids_after_clear
         and len(active_stickies_after_clear) == 3
+        and directives_response["status"] == 200
+        and create_cut_directives_response["status"] == 200
+        and directive_sequences == list(range(1, 19))
+        and [directive.get("target_id") for directive in create_cut_directives] == [cut_id, live_cut_id]
     )
     render_fetch_ok = (
         render_response["status"] == 200
@@ -1540,6 +1730,9 @@ def run_app_thelounge_refinement_workbench_proof(
         "listed_stickies_before_clear": len(stickies),
         "active_stickies_after_cut_clear": len(active_stickies_after_clear),
         "cleared_cut_sticky_state": clear_cut_sticky_response["json"].get("sticky", {}).get("clear_state"),
+        "listed_directives": len(directives),
+        "directive_sequences": directive_sequences,
+        "create_cut_directives": len(create_cut_directives),
         "workbench_bundle_ok": workbench_bundle_ok,
         "missing_workbench_bundle_markers": missing_bundle_markers,
         "workbench_style_ok": workbench_style_ok,
@@ -1576,6 +1769,12 @@ def _optional_positive_int(value: str | None, name: str) -> int | None:
     if value is None or value == "":
         return None
     return _positive_int_value(value, name)
+
+
+def _optional_nonnegative_int(value: str | None, name: str) -> int | None:
+    if value is None or value == "":
+        return None
+    return _positive_int_value(value, name, allow_zero=True)
 
 
 def _positive_int_value(value: Any, name: str, *, allow_zero: bool = False) -> int:

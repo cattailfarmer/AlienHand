@@ -1,0 +1,27 @@
+Subject: Chat Refinement Directive Ledger Justification
+Date: 2026-05-14
+Scope: Append-only directive/action evidence for chat refinement storage and HTTP API
+
+& [ChatRefinementDirectiveLedgerSlice] is the durable action ledger for refinement mutations
+  + [specification_basis] is AlienHand/docs/irc-chat-refinement.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [implementation_files] are AlienHand/python/alienhand_ai/refinement_storage.py and AlienHand/python/alienhand_ai/payload_http.py
+  + [test_files] are AlienHand/python/tests/test_refinement_storage.py and AlienHand/python/tests/test_payload_http.py
+  + [schema_version] is 2
+
+  = implemented: added conversation_directives as an append-only SQLite ledger with monotonic sequence, directive UUID, channel UUID, directive kind, source, visibility, target, payload, result reference, and timestamp
+  = implemented: added storage APIs to record, retrieve, and list directives by channel, directive kind, after-sequence cursor, and limit
+  = implemented: exposed GET /alienhand/refinement/directives for raw/debug review and future multi-client polling
+  = implemented: recorded directives for create_cut, adopt_block, create_chapter, create_bookmark, quote_span, pin_sticky, apply_edit, add_toc_entry, remove_cut, and clear_sticky HTTP mutations
+  = satisfies: ConversationDirective because refinement commands now persist as explicit auditable records instead of disappearing into final row state
+  = satisfies: DataDrivenDesign because mutation state is now represented as durable event data with stable sequence ordering and channel identity
+  = satisfies: UIInteractionSpecification because command/directive text can remain hidden from normal conversation while raw/debug views and sync surfaces can query the underlying action record
+  = supports: multi-client synchronization by providing an after_sequence cursor suitable for polling changed refinement actions
+  = verification: python -m compileall AlienHand/python/alienhand_ai/refinement_storage.py AlienHand/python/alienhand_ai/payload_http.py passed
+  = verification: python -m unittest tests.test_refinement_storage passed with 11 tests
+  = verification: python -m unittest tests.test_payload_http passed with 12 tests
+  = verification: chat-refinement-storage-proof returned storage_proof_ok true with schema_version 2 and one directive
+  = verification: chat-refinement-http-proof returned refinement_http_ok true with directive sequences 1 through 9
+  = verification: chat-workbench-runtime-proof returned workbench_runtime_ok true with directive sequences 1 through 18
+  - never: rely on final SQLite row state alone to reconstruct user intent
+  - never: require normal chat to show operational command text just to preserve auditability

@@ -11,7 +11,7 @@ from uuid import uuid4
 
 
 JsonDict = dict[str, Any]
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9_]+")
 BOOKMARK_TARGET_TYPES = {"block", "cut", "chapter"}
 QUOTE_SOURCE_TYPES = BOOKMARK_TARGET_TYPES
@@ -131,6 +131,24 @@ class ConversationEditDiff:
 
 
 @dataclass(frozen=True)
+class ConversationDirective:
+    sequence: int
+    directive_id: str
+    channel_uuid: str
+    directive_kind: str
+    source: str
+    visibility: str
+    target_type: str
+    target_id: str
+    payload: JsonDict
+    result_ref: JsonDict
+    created_at: str
+
+    def to_dict(self) -> JsonDict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class SearchHit:
     term: str
     block_id: str
@@ -175,6 +193,77 @@ class ConversationRefinementStore:
     def schema_version(self) -> int:
         row = self.connection.execute("SELECT COALESCE(MAX(version), 0) AS version FROM schema_migrations").fetchone()
         return int(row["version"])
+
+    def record_directive(
+        self,
+        *,
+        channel_uuid: str,
+        directive_kind: str,
+        source: str = "user",
+        visibility: str = "debug_only",
+        target_type: str = "",
+        target_id: str = "",
+        payload: JsonDict | None = None,
+        result_ref: JsonDict | None = None,
+        directive_id: str | None = None,
+        created_at: str | None = None,
+    ) -> ConversationDirective:
+        resolved_directive_id = directive_id or str(uuid4())
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO conversation_directives(
+                    directive_id, channel_uuid, directive_kind, source, visibility,
+                    target_type, target_id, payload_json, result_ref_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    resolved_directive_id,
+                    channel_uuid,
+                    directive_kind,
+                    source,
+                    visibility,
+                    target_type,
+                    target_id,
+                    dumps(payload or {}),
+                    dumps(result_ref or {}),
+                    created_at or utc_timestamp(),
+                ),
+            )
+        return self.get_directive(resolved_directive_id)
+
+    def get_directive(self, directive_id: str) -> ConversationDirective:
+        row = self._required_row("SELECT * FROM conversation_directives WHERE directive_id = ?", (directive_id,))
+        return directive_from_row(row)
+
+    def list_directives(
+        self,
+        *,
+        channel_uuid: str | None = None,
+        directive_kind: str | None = None,
+        after_sequence: int | None = None,
+        limit: int | None = None,
+    ) -> list[ConversationDirective]:
+        params: list[Any] = []
+        clauses: list[str] = []
+        query = "SELECT * FROM conversation_directives"
+        if channel_uuid is not None:
+            clauses.append("channel_uuid = ?")
+            params.append(channel_uuid)
+        if directive_kind is not None:
+            clauses.append("directive_kind = ?")
+            params.append(directive_kind)
+        if after_sequence is not None:
+            clauses.append("sequence > ?")
+            params.append(after_sequence)
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY sequence"
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+        rows = self.connection.execute(query, tuple(params)).fetchall()
+        return [directive_from_row(row) for row in rows]
 
     def add_block(self, block: ConversationBlock) -> ConversationBlock:
         with self.connection:
@@ -735,6 +824,31 @@ class ConversationRefinementStore:
             for row in rows
         ]
 
+    def channel_uuid_for_target(self, target_type: str, target_id: str) -> str:
+        if target_type == "block":
+            return self.get_block(target_id).channel_uuid
+        if target_type == "cut":
+            return self.channel_uuid_for_target("block", self.get_cut(target_id).source_block_id)
+        if target_type == "chapter":
+            chapter = self.get_chapter(target_id)
+            if not chapter.member_block_ids:
+                raise KeyError(target_id)
+            return self.channel_uuid_for_target("block", chapter.member_block_ids[0])
+        if target_type == "bookmark":
+            bookmark = self.get_bookmark(target_id)
+            return self.channel_uuid_for_target(bookmark.target_type, bookmark.target_id)
+        if target_type == "sticky":
+            sticky = self.get_sticky(target_id)
+            return self.channel_uuid_for_target(sticky.target_type, sticky.target_id)
+        raise ValueError(f"unsupported directive target_type: {target_type}")
+
+    def channel_uuid_for_ref(self, ref: JsonDict) -> str:
+        target_type = str(ref.get("type") or "")
+        target_id = str(ref.get("id") or "")
+        if not target_type or not target_id:
+            raise KeyError(ref)
+        return self.channel_uuid_for_target(target_type, target_id)
+
     def count(self, table: str) -> int:
         if table not in TABLE_NAMES:
             raise ValueError(f"unsupported table: {table}")
@@ -911,6 +1025,14 @@ def run_refinement_storage_proof(root: str | Path) -> JsonDict:
         store.add_block(first_block)
         store.add_block(second_block)
         cut = store.create_cut(first_block.block_id)
+        directive = store.record_directive(
+            channel_uuid=first_block.channel_uuid,
+            directive_kind="create_cut",
+            target_type="cut",
+            target_id=cut.cut_id,
+            payload={"source_block_id": first_block.block_id},
+            result_ref={"type": "cut", "id": cut.cut_id},
+        )
         bookmark = store.create_bookmark(
             target_type="block",
             target_id=first_block.block_id,
@@ -943,6 +1065,7 @@ def run_refinement_storage_proof(root: str | Path) -> JsonDict:
         )
         hits = store.search("AlienHand")
         toc_entries = store.list_toc_entries("main")
+        directives = store.list_directives(channel_uuid=first_block.channel_uuid)
         removed_cut = store.remove_cut(cut.cut_id)
         result = {
             "root": str(proof_root.resolve()),
@@ -956,8 +1079,12 @@ def run_refinement_storage_proof(root: str | Path) -> JsonDict:
             "quotes": store.count("conversation_quotes"),
             "edits": store.count("conversation_edits"),
             "diffs": store.count("conversation_edit_diffs"),
+            "directives": store.count("conversation_directives"),
             "search_hits": len(hits),
             "toc_entries": len(toc_entries),
+            "directive_kind": directive.directive_kind,
+            "directive_sequence": directive.sequence,
+            "listed_directives": len(directives),
             "bookmark_note": bookmark.note,
             "sticky_state": sticky.clear_state,
             "quote_excerpt": quote.excerpt,
@@ -967,8 +1094,11 @@ def run_refinement_storage_proof(root: str | Path) -> JsonDict:
                 [
                     store.schema_version() == SCHEMA_VERSION,
                     store.count("conversation_blocks") == 2,
+                    store.count("conversation_directives") == 1,
                     len(hits) == 1,
                     len(toc_entries) == 1,
+                    len(directives) == 1,
+                    directive.sequence == 1,
                     bookmark.promotion_state == "mirrored",
                     diff.edit_id == edit.edit_id,
                     removed_cut.status == "removed",
@@ -1197,6 +1327,22 @@ def edit_diff_from_row(row: sqlite3.Row) -> ConversationEditDiff:
     )
 
 
+def directive_from_row(row: sqlite3.Row) -> ConversationDirective:
+    return ConversationDirective(
+        sequence=row["sequence"],
+        directive_id=row["directive_id"],
+        channel_uuid=row["channel_uuid"],
+        directive_kind=row["directive_kind"],
+        source=row["source"],
+        visibility=row["visibility"],
+        target_type=row["target_type"],
+        target_id=row["target_id"],
+        payload=loads(row["payload_json"], {}),
+        result_ref=loads(row["result_ref_json"], {}),
+        created_at=row["created_at"],
+    )
+
+
 def chapter_id_from_ref(ref: JsonDict) -> str | None:
     if ref.get("type") != "chapter":
         return None
@@ -1217,6 +1363,7 @@ TABLE_NAMES = {
     "conversation_edit_diffs",
     "conversation_toc_entries",
     "conversation_search_terms",
+    "conversation_directives",
 }
 
 
@@ -1325,8 +1472,26 @@ CREATE TABLE IF NOT EXISTS conversation_search_terms (
     PRIMARY KEY (term, block_id, token_offset)
 );
 
+CREATE TABLE IF NOT EXISTS conversation_directives (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    directive_id TEXT NOT NULL UNIQUE,
+    channel_uuid TEXT NOT NULL,
+    directive_kind TEXT NOT NULL,
+    source TEXT NOT NULL,
+    visibility TEXT NOT NULL,
+    target_type TEXT NOT NULL DEFAULT '',
+    target_id TEXT NOT NULL DEFAULT '',
+    payload_json TEXT NOT NULL DEFAULT '{}',
+    result_ref_json TEXT NOT NULL DEFAULT '{}',
+    created_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_conversation_blocks_channel ON conversation_blocks(channel_uuid);
 CREATE INDEX IF NOT EXISTS idx_conversation_cuts_position ON conversation_cuts(position);
 CREATE INDEX IF NOT EXISTS idx_conversation_bookmarks_target ON conversation_bookmarks(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_conversation_search_terms_term ON conversation_search_terms(term);
+CREATE INDEX IF NOT EXISTS idx_conversation_directives_channel_sequence
+ON conversation_directives(channel_uuid, sequence);
+CREATE INDEX IF NOT EXISTS idx_conversation_directives_kind_sequence
+ON conversation_directives(directive_kind, sequence);
 """

@@ -1,0 +1,51 @@
+Subject: Solution File Change Record
+Date: 2026-05-14
+Solution UUID: 630cce2f-2c93-4cfa-a4a1-19096acb19be
+
+@ [file_change_surface] AlienHand/docs/sjs/canonical/file-change-surface.canonical.sop
+@ [justification_ref] AlienHand/docs/sjs/justification/2026-05-14-file-change-surface.sop
+@ [specification_ref] AlienHand/docs/sjs/canonical/file-change-surface.canonical.sop
+
+& [SolutionFileChangeRecord: 630cce2f-2c93-4cfa-a4a1-19096acb19be] is the per-solution file-change record
+  + [solution_uuid] is 630cce2f-2c93-4cfa-a4a1-19096acb19be
+  + [solution_label] is file-change-surface
+  + [conversation_uuid] is 7600f77c-9365-4901-ba2a-0250757acb3f
+  + [conversation_label] is codex-stream-worker-and-chat-platform
+  + [commit_ref] is pending_at_record_creation
+  + [specification_ref] is AlienHand/docs/sjs/canonical/file-change-surface.canonical.sop
+  + [justification_ref] is AlienHand/docs/sjs/justification/2026-05-14-file-change-surface.sop
+  + [attribution_state] is owned
+
+  = implemented: preserved source request for file-to-solution UUID tracking
+  = implemented: created canonical FileChangeSurface policy
+  = implemented: created file_changes/index.sop and per-solution UUID records
+  = implemented: backfilled file-change records for the two immediately preceding owned SJS slices
+
+  + [file_change] is AlienHand/docs/sjs/source/2026-05-14-file-change-surface/source-seed.sop
+    @ [change_role] specification
+    @ [attribution_state] owned
+    @ [work_description] preserves the user-dictated source need for a file-change surface
+  + [file_change] is AlienHand/docs/sjs/canonical/file-change-surface.canonical.sop
+    @ [change_role] specification
+    @ [attribution_state] owned
+    @ [work_description] defines the file-to-solution UUID lookup and per-solution record contracts
+  + [file_change] is AlienHand/docs/sjs/file_changes/index.sop
+    @ [change_role] index
+    @ [attribution_state] owned
+    @ [work_description] maps changed files to solution UUIDs and solution UUIDs to per-solution records
+  + [file_change] is AlienHand/docs/sjs/file_changes/solutions/aaf3a535-725a-4ff8-a81e-52faee45a10e.sop
+    @ [change_role] index
+    @ [attribution_state] owned
+    @ [work_description] backfills the history context pack executor solution file-change record
+  + [file_change] is AlienHand/docs/sjs/file_changes/solutions/4fc20565-0771-446a-9c41-c68c95e2dfde.sop
+    @ [change_role] index
+    @ [attribution_state] owned
+    @ [work_description] backfills the conversation attribution policy solution file-change record
+  + [file_change] is AlienHand/docs/sjs/file_changes/solutions/630cce2f-2c93-4cfa-a4a1-19096acb19be.sop
+    @ [change_role] index
+    @ [attribution_state] owned
+    @ [work_description] records this file-change surface solution slice
+  + [file_change] is AlienHand/docs/sjs/justification/2026-05-14-file-change-surface.sop
+    @ [change_role] justification
+    @ [attribution_state] owned
+    @ [work_description] records SJS evidence for the file-change surface implementation

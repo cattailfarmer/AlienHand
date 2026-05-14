@@ -1,0 +1,37 @@
+Subject: File Change Surface Justification
+Date: 2026-05-14
+Scope: File-to-solution UUID lookup surface for SJS implementation tracking
+
+& [FileChangeSurfaceJustification] is the recorded completion slice for file-change indexing
+  + [solution_uuid] is 630cce2f-2c93-4cfa-a4a1-19096acb19be
+  + [conversation_uuid] is 7600f77c-9365-4901-ba2a-0250757acb3f
+  + [conversation_label] is codex-stream-worker-and-chat-platform
+  + [specification_basis] is AlienHand/docs/sjs/canonical/file-change-surface.canonical.sop
+  + [implementer] is GPT-5.5 Codex
+  + [model_routing] is high_reasoning because this slice changes SJS provenance structure, file ownership lookup, and concurrent-agent review policy
+  + [implementation_files] are AlienHand/docs/sjs/source/2026-05-14-file-change-surface/source-seed.sop,
+    AlienHand/docs/sjs/canonical/file-change-surface.canonical.sop,
+    AlienHand/docs/sjs/file_changes/index.sop,
+    AlienHand/docs/sjs/file_changes/solutions/aaf3a535-725a-4ff8-a81e-52faee45a10e.sop,
+    AlienHand/docs/sjs/file_changes/solutions/4fc20565-0771-446a-9c41-c68c95e2dfde.sop,
+    AlienHand/docs/sjs/file_changes/solutions/630cce2f-2c93-4cfa-a4a1-19096acb19be.sop,
+    AlienHand/docs/sjs/justification/2026-05-14-file-change-surface.sop
+
+  = implemented: preserved the user-dictated source request for file-to-solution UUID tracking
+  = implemented: created canonical FileChangeSurface policy with file index and per-solution record contracts
+  = implemented: added AlienHand/docs/sjs/file_changes/index.sop as the file path to solution UUID lookup
+  = implemented: added per-solution UUID files under AlienHand/docs/sjs/file_changes/solutions/
+  = implemented: backfilled solution record aaf3a535-725a-4ff8-a81e-52faee45a10e for commit 00fd5d5
+  = implemented: backfilled solution record 4fc20565-0771-446a-9c41-c68c95e2dfde for commit 4ba4182
+  = implemented: added solution record 630cce2f-2c93-4cfa-a4a1-19096acb19be for this file-change surface slice
+
+  = verification: file-change index lists each backfilled and current solution UUID with record paths
+  = verification: each solution UUID record links file paths to justification_ref and specification_ref
+  = verification: all new structured artifacts use .sop according to AGENTS.md file extension contract
+
+  = satisfies: [FileChangeIndexContract] by listing files and related solution UUIDs
+  = satisfies: [SolutionFileChangeRecordContract] by creating per-solution UUID files that link file names to SOP work descriptions
+  = satisfies: [ReviewUseCase: FileToReasoningLookup] by enabling review from file path to solution UUID to justification and canonical specification
+
+  - limitation: this surface is append-oriented and manually maintained for now
+  - limitation: pre-policy work can only be backfilled when commit and justification evidence are clear enough

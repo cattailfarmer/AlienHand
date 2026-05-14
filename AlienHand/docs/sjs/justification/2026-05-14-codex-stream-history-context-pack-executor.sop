@@ -3,6 +3,9 @@ Date: 2026-05-14
 Scope: Durable artifact-producing execution for history_context_pack requests after stream-worker debug visibility
 
 & [CodexStreamHistoryContextPackExecutor] is the recorded completion slice for the first real Codex stream task executor
+  + [solution_uuid] is aaf3a535-725a-4ff8-a81e-52faee45a10e
+  + [conversation_uuid] is 7600f77c-9365-4901-ba2a-0250757acb3f
+  + [conversation_label] is codex-stream-worker-and-chat-platform
   + [specification_basis] is AlienHand/docs/sjs/canonical/codex-stream-worker.canonical.sop
   + [frontier_relation] is post-frontier_7 runtime execution support for [CanonicalRequirementSet: AlienHandCodexStreamWorker]
   + [implementer] is GPT-5.5 Codex

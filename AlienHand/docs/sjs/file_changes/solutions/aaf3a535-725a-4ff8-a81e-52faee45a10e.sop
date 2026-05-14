@@ -1,0 +1,42 @@
+Subject: Solution File Change Record
+Date: 2026-05-14
+Solution UUID: aaf3a535-725a-4ff8-a81e-52faee45a10e
+
+@ [file_change_surface] AlienHand/docs/sjs/canonical/file-change-surface.canonical.sop
+@ [justification_ref] AlienHand/docs/sjs/justification/2026-05-14-codex-stream-history-context-pack-executor.sop
+@ [specification_ref] AlienHand/docs/sjs/canonical/codex-stream-worker.canonical.sop
+
+& [SolutionFileChangeRecord: aaf3a535-725a-4ff8-a81e-52faee45a10e] is the per-solution file-change record
+  + [solution_uuid] is aaf3a535-725a-4ff8-a81e-52faee45a10e
+  + [solution_label] is codex-stream-history-context-pack-executor
+  + [conversation_uuid] is 7600f77c-9365-4901-ba2a-0250757acb3f
+  + [conversation_label] is codex-stream-worker-and-chat-platform
+  + [commit_ref] is 00fd5d5 Add history context pack executor artifacts
+  + [specification_ref] is AlienHand/docs/sjs/canonical/codex-stream-worker.canonical.sop
+  + [justification_ref] is AlienHand/docs/sjs/justification/2026-05-14-codex-stream-history-context-pack-executor.sop
+  + [attribution_state] is backfilled_owned
+
+  = implemented: durable artifact recording and request-status artifact projection
+  = implemented: history_context_pack executor that writes anchored JSON context-pack artifacts
+  = verified: python -m unittest AlienHand.python.tests.test_codex_stream_worker AlienHand.python.tests.test_codex_stream_task_executors AlienHand.python.tests.test_chat_platform AlienHand.python.tests.test_payload_http passed 59 tests
+
+  + [file_change] is AlienHand/python/alienhand_ai/codex_stream_worker.py
+    @ [change_role] implementation
+    @ [attribution_state] owned
+    @ [work_description] records executor artifacts before successful completion and exposes artifact rows through request_status
+  + [file_change] is AlienHand/python/alienhand_ai/codex_stream_task_executors.py
+    @ [change_role] implementation
+    @ [attribution_state] owned
+    @ [work_description] implements execute_alienhand_task and execute_history_context_pack with anchored replay artifact output
+  + [file_change] is AlienHand/python/tests/test_codex_stream_worker.py
+    @ [change_role] test
+    @ [attribution_state] owned
+    @ [work_description] proves artifact indexing and worker artifact-before-completion response behavior
+  + [file_change] is AlienHand/python/tests/test_codex_stream_task_executors.py
+    @ [change_role] test
+    @ [attribution_state] owned
+    @ [work_description] proves rootless stub preservation and anchored context-pack artifact writing
+  + [file_change] is AlienHand/docs/sjs/justification/2026-05-14-codex-stream-history-context-pack-executor.sop
+    @ [change_role] justification
+    @ [attribution_state] owned
+    @ [work_description] records SJS satisfaction evidence for the executor slice

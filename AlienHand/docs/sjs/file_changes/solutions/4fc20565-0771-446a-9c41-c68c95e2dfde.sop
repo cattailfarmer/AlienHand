@@ -1,0 +1,39 @@
+Subject: Solution File Change Record
+Date: 2026-05-14
+Solution UUID: 4fc20565-0771-446a-9c41-c68c95e2dfde
+
+@ [file_change_surface] AlienHand/docs/sjs/canonical/file-change-surface.canonical.sop
+@ [justification_ref] AlienHand/docs/sjs/justification/2026-05-14-conversation-work-attribution-policy.sop
+@ [specification_ref] AlienHand/docs/sjs/canonical/conversation-work-attribution.canonical.sop
+
+& [SolutionFileChangeRecord: 4fc20565-0771-446a-9c41-c68c95e2dfde] is the per-solution file-change record
+  + [solution_uuid] is 4fc20565-0771-446a-9c41-c68c95e2dfde
+  + [solution_label] is conversation-work-attribution-policy
+  + [conversation_uuid] is 7600f77c-9365-4901-ba2a-0250757acb3f
+  + [conversation_label] is codex-stream-worker-and-chat-platform
+  + [commit_ref] is 4ba4182 Add conversation work attribution policy
+  + [specification_ref] is AlienHand/docs/sjs/canonical/conversation-work-attribution.canonical.sop
+  + [justification_ref] is AlienHand/docs/sjs/justification/2026-05-14-conversation-work-attribution-policy.sop
+  + [attribution_state] is owned
+
+  = implemented: preserved user source request for per-conversation work attribution
+  = implemented: created canonical SJS policy for conversation UUIDs and dirty-worktree attribution
+  = implemented: assigned this conversation UUID 7600f77c-9365-4901-ba2a-0250757acb3f
+  = verified: git diff inspection classified AlienHand/python/alienhand_ai/cli.py as unknown_or_mixed rather than claiming unsupported ownership
+
+  + [file_change] is AlienHand/docs/sjs/source/2026-05-14-conversation-work-attribution/source-seed.sop
+    @ [change_role] specification
+    @ [attribution_state] owned
+    @ [work_description] preserves the user-dictated source need for conversation-level work attribution
+  + [file_change] is AlienHand/docs/sjs/canonical/conversation-work-attribution.canonical.sop
+    @ [change_role] specification
+    @ [attribution_state] owned
+    @ [work_description] defines the canonical policy for persistent conversation UUIDs and dirty file classification
+  + [file_change] is AlienHand/docs/sjs/conversations/7600f77c-9365-4901-ba2a-0250757acb3f.sop
+    @ [change_role] index
+    @ [attribution_state] owned
+    @ [work_description] records the active conversation identity and current scope boundaries
+  + [file_change] is AlienHand/docs/sjs/justification/2026-05-14-conversation-work-attribution-policy.sop
+    @ [change_role] justification
+    @ [attribution_state] owned
+    @ [work_description] records the implementation evidence for the attribution policy slice

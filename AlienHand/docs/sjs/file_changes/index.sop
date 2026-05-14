@@ -1,0 +1,72 @@
+Subject: File Change Surface Index
+Date: 2026-05-14
+Description: Simple file-to-solution lookup surface for AlienHand SJS implementation slices.
+
+@ [canonical_policy] AlienHand/docs/sjs/canonical/file-change-surface.canonical.sop
+
+& [FileChangeSolutionIndex] is the solution UUID to record lookup
+  + [solution] is aaf3a535-725a-4ff8-a81e-52faee45a10e
+    @ [label] codex-stream-history-context-pack-executor
+    @ [record] AlienHand/docs/sjs/file_changes/solutions/aaf3a535-725a-4ff8-a81e-52faee45a10e.sop
+    @ [commit_ref] 00fd5d5 Add history context pack executor artifacts
+  + [solution] is 4fc20565-0771-446a-9c41-c68c95e2dfde
+    @ [label] conversation-work-attribution-policy
+    @ [record] AlienHand/docs/sjs/file_changes/solutions/4fc20565-0771-446a-9c41-c68c95e2dfde.sop
+    @ [commit_ref] 4ba4182 Add conversation work attribution policy
+  + [solution] is 630cce2f-2c93-4cfa-a4a1-19096acb19be
+    @ [label] file-change-surface
+    @ [record] AlienHand/docs/sjs/file_changes/solutions/630cce2f-2c93-4cfa-a4a1-19096acb19be.sop
+    @ [commit_ref] pending_at_record_creation
+
+& [FileChangePathIndex] is the file path to solution UUID lookup
+  + [file] is AlienHand/python/alienhand_ai/codex_stream_worker.py
+    @ [solution_uuid] aaf3a535-725a-4ff8-a81e-52faee45a10e
+    @ [change_role] implementation
+  + [file] is AlienHand/python/alienhand_ai/codex_stream_task_executors.py
+    @ [solution_uuid] aaf3a535-725a-4ff8-a81e-52faee45a10e
+    @ [change_role] implementation
+  + [file] is AlienHand/python/tests/test_codex_stream_worker.py
+    @ [solution_uuid] aaf3a535-725a-4ff8-a81e-52faee45a10e
+    @ [change_role] test
+  + [file] is AlienHand/python/tests/test_codex_stream_task_executors.py
+    @ [solution_uuid] aaf3a535-725a-4ff8-a81e-52faee45a10e
+    @ [change_role] test
+  + [file] is AlienHand/docs/sjs/justification/2026-05-14-codex-stream-history-context-pack-executor.sop
+    @ [solution_uuid] aaf3a535-725a-4ff8-a81e-52faee45a10e
+    @ [change_role] justification
+  + [file] is AlienHand/docs/sjs/source/2026-05-14-conversation-work-attribution/source-seed.sop
+    @ [solution_uuid] 4fc20565-0771-446a-9c41-c68c95e2dfde
+    @ [change_role] specification
+  + [file] is AlienHand/docs/sjs/canonical/conversation-work-attribution.canonical.sop
+    @ [solution_uuid] 4fc20565-0771-446a-9c41-c68c95e2dfde
+    @ [change_role] specification
+  + [file] is AlienHand/docs/sjs/conversations/7600f77c-9365-4901-ba2a-0250757acb3f.sop
+    @ [solution_uuid] 4fc20565-0771-446a-9c41-c68c95e2dfde
+    @ [change_role] index
+  + [file] is AlienHand/docs/sjs/justification/2026-05-14-conversation-work-attribution-policy.sop
+    @ [solution_uuid] 4fc20565-0771-446a-9c41-c68c95e2dfde
+    @ [change_role] justification
+  + [file] is AlienHand/docs/sjs/source/2026-05-14-file-change-surface/source-seed.sop
+    @ [solution_uuid] 630cce2f-2c93-4cfa-a4a1-19096acb19be
+    @ [change_role] specification
+  + [file] is AlienHand/docs/sjs/canonical/file-change-surface.canonical.sop
+    @ [solution_uuid] 630cce2f-2c93-4cfa-a4a1-19096acb19be
+    @ [change_role] specification
+  + [file] is AlienHand/docs/sjs/file_changes/index.sop
+    @ [solution_uuid] 630cce2f-2c93-4cfa-a4a1-19096acb19be
+    @ [change_role] index
+  + [file] is AlienHand/docs/sjs/file_changes/solutions/aaf3a535-725a-4ff8-a81e-52faee45a10e.sop
+    @ [solution_uuid] 630cce2f-2c93-4cfa-a4a1-19096acb19be
+    @ [change_role] index
+  + [file] is AlienHand/docs/sjs/file_changes/solutions/4fc20565-0771-446a-9c41-c68c95e2dfde.sop
+    @ [solution_uuid] 630cce2f-2c93-4cfa-a4a1-19096acb19be
+    @ [change_role] index
+  + [file] is AlienHand/docs/sjs/file_changes/solutions/630cce2f-2c93-4cfa-a4a1-19096acb19be.sop
+    @ [solution_uuid] 630cce2f-2c93-4cfa-a4a1-19096acb19be
+    @ [change_role] index
+  + [file] is AlienHand/docs/sjs/justification/2026-05-14-file-change-surface.sop
+    @ [solution_uuid] 630cce2f-2c93-4cfa-a4a1-19096acb19be
+    @ [change_role] justification
+
+  = usage: find a [file], follow its [solution_uuid], then open AlienHand/docs/sjs/file_changes/solutions/<solution_uuid>.sop
+  = usage: from the solution file, follow [justification_ref] and [specification_ref] for the reasoning and authority behind the change

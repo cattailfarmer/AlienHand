@@ -29,9 +29,18 @@ Conversation UUID: 7600f77c-9365-4901-ba2a-0250757acb3f
 
 & [CommittedSlice: 00fd5d5] is an attribution backfill for the immediately previous coherent slice
   + [commit] is 00fd5d5 Add history context pack executor artifacts
+  + [solution_uuid] is aaf3a535-725a-4ff8-a81e-52faee45a10e
   + [conversation_uuid] is 7600f77c-9365-4901-ba2a-0250757acb3f
   + [classification] is owned_by_this_conversation
   + [implemented] is durable artifact recording, request status artifact projection, history_context_pack executor artifact output, anchored replay, tests, and SJS justification
   + [justification] is AlienHand/docs/sjs/justification/2026-05-14-codex-stream-history-context-pack-executor.sop
 
   = note: this is a backfill record because the conversation UUID policy was created after the commit
+
+& [CommittedSlice: 4ba4182] is an attribution record for the conversation attribution policy
+  + [commit] is 4ba4182 Add conversation work attribution policy
+  + [solution_uuid] is 4fc20565-0771-446a-9c41-c68c95e2dfde
+  + [conversation_uuid] is 7600f77c-9365-4901-ba2a-0250757acb3f
+  + [classification] is owned_by_this_conversation
+  + [implemented] is conversation UUID policy, this conversation record, dirty-file attribution classification, and policy justification
+  + [justification] is AlienHand/docs/sjs/justification/2026-05-14-conversation-work-attribution-policy.sop

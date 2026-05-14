@@ -1,0 +1,14 @@
+Subject: File Change Surface Source Seed
+Date: 2026-05-14
+Source: User-directed refinement during SJS provenance discussion
+
+& [UserDictatedNeed: FileChangeSurface] is the preserved source request
+  + [context] is SJS already justifies changes and tracks applied solutions
+  + [context] is conversation UUID attribution has been added for concurrent-work provenance
+  + [problem] is there is not yet a simple file-level lookup surface showing which files belong to which solution UUIDs
+  + [proposal] is a simple structure that lists files and the UUIDs that describe the solution each file was part of
+  + [proposal] is another layer where the UUID is represented as a file
+  + [proposal] is the UUID file links file names to the SOP structure that describes the work done
+
+  = must: preserve this source shape as user provenance
+  = must: route canonical policy through SJS rather than overwriting this source

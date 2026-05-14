@@ -1,0 +1,71 @@
+Subject: File Change Surface Canonical SJS Specification
+Date: 2026-05-14
+Description: Signed canonical authority for mapping changed files to solution UUID records and SJS work descriptions.
+
+@ [source_seed] AlienHand/docs/sjs/source/2026-05-14-file-change-surface/source-seed.sop
+@ [sjs_protocol] platform/refinement/Specification_Justification_Solution.sop
+@ [conversation_attribution] AlienHand/docs/sjs/canonical/conversation-work-attribution.canonical.sop
+@ [data_driven_design] platform/refinement/Data_Driven_Design.sop
+
+& [CanonicalRecord: FileChangeSurface] is the processed implementation authority
+  + [source_document] is AlienHand/docs/sjs/source/2026-05-14-file-change-surface/source-seed.sop
+  + [canonical_source_specification] is this document
+  + [authority_scope] is file-to-solution indexing, solution UUID records, SJS justification linkage, file ownership review, and concurrent-agent auditability
+  + [satisfaction_signature] is [SatisfactionSignature: FileChangeSurface]
+
+  = must: assign a stable [solution_uuid] to each coherent implemented solution slice that is recorded in SJS
+  = must: keep a file-change index that maps file paths to one or more [solution_uuid] values
+  = must: keep one per-solution file named by [solution_uuid] that links changed files to the SOP structures that describe the work done
+  = must: include [conversation_uuid] when the solution was implemented by a tracked conversation
+  = must: preserve [justification_ref] and [specification_ref] so file changes can be reviewed through the reasoning that authorized them
+  = must: preserve [commit_ref] when the solution has been committed
+  = must: classify each file relation by [change_role] and [attribution_state]
+  = must: preserve uncertainty when a file's authorship or solution relation is unknown
+
+& [FileChangeIndexContract] is the simple lookup layer
+  + [index_path] is AlienHand/docs/sjs/file_changes/index.sop
+  + [file_path] is a repository-relative path to a changed file
+  + [solution_uuid] is a UUID for one coherent solution slice
+  + [solution_record] is AlienHand/docs/sjs/file_changes/solutions/<solution_uuid>.sop
+
+  = must: list [solution_record] entries by [solution_uuid]
+  = must: list [file_path] entries with their related [solution_uuid] values
+  = should: include [commit_ref] when available
+  = should: be append-friendly so later solutions can add paths without rewriting prior solution records
+
+& [SolutionFileChangeRecordContract] is the per-solution UUID layer
+  + [solution_uuid] is the durable identity of one coherent solution slice
+  + [conversation_uuid] is the conversation identity that produced or owns the solution
+  + [solution_label] is the short human-readable label for the slice
+  + [specification_ref] is the canonical specification or source that authorized the work
+  + [justification_ref] is the SJS justification that explains why the implemented work satisfies the specification
+  + [commit_ref] is the Git commit that carries the solution when available
+  + [file_change] is one file path plus its role in the solution
+  + [change_role] is implementation, test, specification, justification, index, generated, config, or proof
+  + [attribution_state] is owned, backfilled, foreign, mixed, unknown, or generated
+
+  = must: be saved at AlienHand/docs/sjs/file_changes/solutions/<solution_uuid>.sop
+  = must: link every listed file to the SOP structure that describes work done
+  = must: include enough evidence for a later reviewer to determine whether a file belonged to the solution
+  = should: include verification commands or proof references when available
+
+& [ReviewUseCase: FileToReasoningLookup] is the primary use case
+  + [question] is "why did this file change?"
+  + [question] is "which solution UUID touched this file?"
+  + [question] is "which conversation is responsible for this change?"
+  + [question] is "which tests or proofs supported this change?"
+
+  = must: answer by starting from [FileChangeIndexContract] and following [solution_uuid] to [SolutionFileChangeRecordContract]
+  = must: continue from [SolutionFileChangeRecordContract] to [justification_ref], [specification_ref], and [commit_ref]
+
+& [SatisfactionSignature: FileChangeSurface] is the valid SJS satisfaction signature
+  + [signature_protocol_uuid] is ad10f10f-d506-48ef-a805-f8b0a133766c
+  + [signature_uuid] is 010ae03c-e912-41cc-8003-aa5a570af556
+  + [signed_subject] is AlienHand/docs/sjs/canonical/file-change-surface.canonical.sop
+  + [source_specification] is AlienHand/docs/sjs/source/2026-05-14-file-change-surface/source-seed.sop
+  + [canonical_source_specification] is AlienHand/docs/sjs/canonical/file-change-surface.canonical.sop
+  + [processed_stage_set] is source_preserved, delineated, semantically_refined, constraint_checked, justified, solution_seeded, and registry_recorded
+  + [signature_status] is valid
+  + [invalidation_condition] is source_change, missing_solution_uuid, broken_file_index, missing_solution_record, missing_justification_link, or implementation_contradiction
+
+  = must: identify this file as the processed AlienHand file change surface policy

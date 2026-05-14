@@ -3,6 +3,7 @@ Date: 2026-05-14
 Scope: Persistent conversation UUID tracking for concurrent AlienHand work
 
 & [ConversationWorkAttributionPolicyJustification] is the recorded completion slice for the conversation attribution rail
+  + [solution_uuid] is 4fc20565-0771-446a-9c41-c68c95e2dfde
   + [specification_basis] is AlienHand/docs/sjs/canonical/conversation-work-attribution.canonical.sop
   + [conversation_uuid] is 7600f77c-9365-4901-ba2a-0250757acb3f
   + [conversation_label] is codex-stream-worker-and-chat-platform

@@ -7,6 +7,7 @@ __all__ = [
     "chat_platform",
     "codex_stream_routing",
     "codex_stream_worker",
+    "codex_stream_task_executors",
     "cursor_accessibility",
     "godot",
     "godot_ide_surface",

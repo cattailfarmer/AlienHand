@@ -1,0 +1,30 @@
+Subject: Codex Stream Worker Frontier 5 Task Stubs
+Date: 2026-05-14
+Scope: Frontier_5 implementation for deterministic task execution stubs
+
+& [CodexStreamFrontier5TaskStubs] is the recorded completion slice for frontier_5
+  + [specification_basis] is AlienHand/docs/sjs/canonical/codex-stream-worker.canonical.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/codex-stream-worker.exploded.sop
+  + [frontier_target] is [CanonicalImplementationFrontier: AlienHandCodexStreamWorker] frontier_5
+  + [implementer] is GPT-5.3-Codex-Spark
+  + [implementation_files] are AlienHand/python/alienhand_ai/codex_stream_task_executors.py,
+    AlienHand/python/tests/test_codex_stream_task_executors.py,
+    AlienHand/python/alienhand_ai/__init__.py
+  + [evidence_artifacts] are 4 passing executor-stub unit tests and existing frontier_2-4 worker proofs
+
+  = implemented: added `execute_stubbed_task` dispatcher for task types used by worker task contracts
+  = implemented: implemented deterministic health_check completion stub for local probe use
+  = implemented: implemented needs_human responses for SOP compilation, route decisions, LLM decisions, history context packing, spec explosion, justification recording, and tool handoff while preserving explicit stub refs
+  = implemented: implemented unknown-task fallback that routes to needs_human with explicit unsupported task reference
+  = implemented: added package export for `codex_stream_task_executors`
+
+  = verification: python -m unittest AlienHand/python/tests/test_codex_stream_task_executors.py passed 4 tests
+  = verification: frontier_2, frontier_3, and frontier_4 worker tests remain green with this addition
+
+  = satisfies: [CanonicalRequirementSet: AlienHandCodexStreamWorker] because task contracts now have explicit stub execution behavior for prototype-safe replay
+  = satisfies: [ImplementationFrontier: AlienHandCodexStreamWorker] frontier_5
+  = satisfies: [SolutionTrackingSeed: AlienHandCodexStreamWorker] for temporary non-LLM worker operation
+
+  - compatibility: stubs intentionally avoid live side effects and model calls until frontier_6 integration
+  - compatibility: status/error wording is provisional and may be updated when route-specific executors are introduced
+  - never: infer completion for high-reasoning tasks before real executor integration is in place

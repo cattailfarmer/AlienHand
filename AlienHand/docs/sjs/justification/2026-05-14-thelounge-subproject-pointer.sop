@@ -1,0 +1,19 @@
+Subject: The Lounge Subproject Pointer Justification
+Date: 2026-05-14
+Scope: AlienHand parent repository reproducibility for the chat refinement workbench
+
+& [TheLoungeSubprojectPointerSlice] is the parent-repository linkage for the pushed AlienHand The Lounge workbench implementation
+  + [specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [source_dependency] is AlienHand/thelounge
+  + [previous_subproject_commit] is 4cd1e39d1635e34d928c3a3db765bbfcfbd4a893
+  + [current_subproject_commit] is d6aaf556b71f16d33baf1e05a9b1a6da0a13f955
+  + [current_subproject_branch] is cattailfarmer/alienhand/chat-render-adapter
+  + [implemented_work] is status states, insertion bridge geometry, source reveal edge states, keyboard affordances, and quote/sticky controls
+
+  = justified_by: the parent project must reference the exact The Lounge commit that contains the UI implementation already pushed to the The Lounge fork
+  = satisfies: SJS lineage preservation because parent checkout state now names the concrete implementation dependency instead of relying on an unrecorded nested checkout
+  = satisfies: DataDrivenDesign reproducibility because UI behavior can be traced from parent specification/justification records to the subproject commit containing the implemented view, API helper, and CSS changes
+  = satisfies: UIInteractionSpecification auditability because later browser and user review can test the same UI commit the parent repository records
+  = verification: nested The Lounge repository is clean at d6aaf556b71f16d33baf1e05a9b1a6da0a13f955
+  = verification: d6aaf556 is pushed to cattailfarmer/alienhand/chat-render-adapter
+  - never: include unrelated Python, GodotExtension, generated run, or external-process changes in this pointer slice

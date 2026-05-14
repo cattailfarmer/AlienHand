@@ -1,0 +1,63 @@
+Subject: Chat Workbench Keyboard Affordances Justification
+Description: Justification record for adding keyboard-accessible AlienHand refinement workbench controls and proof markers.
+
+@ [canonical] AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+@ [exploded] AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+@ [implementation] AlienHand/thelounge client fork commit 5d67cfaa
+@ [proof_marker] AlienHand/python/alienhand_ai/payload_http.py
+
+& [JustificationRecord: ChatWorkbenchKeyboardAffordances: 2026-05-14] is the justification for keyboard-accessible refinement controls
+  + [justification_uuid] is 905915c4-3603-4ab4-8806-8c455922800f
+  + [work_uuid] is 4689f62b-a60f-409e-9f57-978b089691c4
+  + [specification_anchor] is [ImplementationFrontier: ChatRefinementV2] frontier_5
+  + [requirement] is add accessible keyboard equivalents for select, insert, remove, reveal source, and toggle frames
+  + [fork_commit] is 5d67cfaa
+  + [solution] is Chat, Cutting, and Editing toggles now expose explicit show/hide aria labels
+  + [solution] is the source staging arrow now exposes an aria label
+  + [solution] is the insertion bridge arrow now exposes an insert aria label
+  + [solution] is insertion position can be moved through up/down bridge step buttons without pointer drag
+  + [solution] is remove and reveal-source controls now expose target-specific aria labels
+  + [data_design_reason] is insertion_position remains an explicit interaction state that can be changed without pointer-only control flow
+  + [ui_interaction_reason] is every core raw-to-cut-to-edit operation has a keyboard-addressable control path
+
+  = must: preserve pointer drag as an expert shortcut while keeping keyboard operation available
+  = must: keep disabled keyboard controls visibly blocked when the transition guard fails
+  = should: add deeper browser-level accessibility checks when automation becomes available
+
+& [VerificationResult: ChatWorkbenchKeyboardAffordances: 2026-05-14] is the verification evidence for this slice
+  + [eslint] is npx eslint client/components/AlienHandRefinementWorkbench.vue client/components/Message.vue --color
+  + [eslint_result] is passed
+  + [stylelint] is npx stylelint --color client/css/alienhand-chat.css
+  + [stylelint_result] is passed
+  + [prettier] is yarn prettier --check client/components/AlienHandRefinementWorkbench.vue client/components/Message.vue client/css/alienhand-chat.css
+  + [prettier_result] is passed after formatter normalization
+  + [client_build] is yarn build:client
+  + [client_build_result] is passed
+  + [runtime_command] is python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-accessibility-proof --timeout 45
+  + [runtime_result] is workbench_runtime_ok true
+  + [runtime_result] is missing_workbench_bundle_markers empty
+  + [runtime_result] is missing_workbench_style_markers empty
+  + [runtime_root] is AlienHand/python/runs/chat-workbench-accessibility-proof
+
+  = must: treat this as component-level accessibility readiness, not final accessibility certification
+
+& [SolutionRecord: ChatWorkbenchKeyboardAffordances: 2026-05-14] is the completed solution slice
+  + [solution_uuid] is 772c1633-b2e5-4c7d-84e1-679fa15e9293
+  + [changed_file] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue
+  + [changed_file] is AlienHand/thelounge/client/components/Message.vue
+  + [changed_file] is AlienHand/thelounge/client/css/alienhand-chat.css
+  + [changed_file] is AlienHand/python/alienhand_ai/payload_http.py
+  + [changed_file] is AlienHand/docs/sjs/justification/2026-05-14-chat-workbench-keyboard-affordances.sop
+  + [next_frontier] is [ImplementationFrontier: ChatRefinementV2] frontier_6
+  + [next_frontier_label] is improve quote and sticky controls while preserving anchor validation and provenance
+
+  ! [ChatWorkbenchKeyboardAffordancesAccepted] is accepted
+    @ [support] [VerificationResult: ChatWorkbenchKeyboardAffordances: 2026-05-14]
+    @ [support] [JustificationRecord: ChatWorkbenchKeyboardAffordances: 2026-05-14]
+
+& [RegistryRecord: ChatWorkbenchKeyboardAffordances: 2026-05-14] is the registry node for this solution slice
+  + [registry_uuid] is f60e76b0-b610-4ce2-9a9e-b7b191869e5a
+  + [derived_from] is AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+  + [implemented_as] is AlienHand/thelounge commit 5d67cfaa and AlienHand/python/alienhand_ai/payload_http.py
+  + [justified_by] is this document
+  + [verification_artifact] is AlienHand/python/runs/chat-workbench-accessibility-proof

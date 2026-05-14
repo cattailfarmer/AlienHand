@@ -1,0 +1,38 @@
+Subject: Codex Stream Worker Frontier 2 APIs
+Date: 2026-05-14
+Scope: Frontier_2 implementation for request lifecycle APIs in the Codex stream control plane
+
+& [CodexStreamFrontier2APIs] is the recorded completion slice for frontier_2
+  + [specification_basis] is AlienHand/docs/sjs/canonical/codex-stream-worker.canonical.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/codex-stream-worker.exploded.sop
+  + [frontier_target] is [CanonicalImplementationFrontier: AlienHandCodexStreamWorker] frontier_2
+  + [implementer] is GPT-5.3-Codex-Spark
+  + [implementation_files] are AlienHand/python/alienhand_ai/codex_stream_worker.py
+    and AlienHand/python/tests/test_codex_stream_worker.py
+  + [evidence_artifacts] are AlienHand/python/tests/test_codex_stream_worker.py (12 passing tests)
+
+  + [data_contracts_stabilized] are request enqueue with idempotency and status transition events, claim/lease lifecycle, heartbeat refresh semantics, completion/failure/cancellation outcomes, and request status snapshots
+  + [model_budget_routing] is Frontier_2 scope is fully Spark-suitable and mechanical by platform policy
+
+  = implemented: added durable service-layer APIs for queue lifecycle transitions in `CodexStreamWorkerStore`
+  = implemented: added `enqueue_request` with idempotency-key short-circuit to return existing requests instead of duplicate inserts
+  = implemented: added `claim_next_request` for FIFO claim ordering, attempt creation, lease creation, request status transitions, and attempt_count progression
+  = implemented: added `heartbeat_lease` for lease extension and request status refresh under active claim
+  = implemented: added `complete_request` for durable success recording with result summary/reference/model route/artifact references and completed request state
+  = implemented: added `fail_request` for retryable and terminal failures with error references and terminal status propagation
+  = implemented: added `cancel_request` for request cancellation with cancelled response entry and error reason retention
+  = implemented: added `request_status` aggregator returning request, attempts, active lease, and responses in one snapshot
+  = implemented: fixed schema DDL bug by removing invalid trailing comma from `codex_stream_responses` table definition
+  = implemented: fixed row-mapping bug in `_request_row_to_dict` so `attempt_count` returns persisted request attempt count
+
+  = verification: python -m unittest AlienHand/python/tests/test_codex_stream_worker.py passed 12 tests
+  = verification: frontier_2 behavior smoke-validated by tests for enqueue, claim, heartbeat, complete, retryable fail, terminal fail, cancel, and request_status snapshot
+
+  = satisfies: [CanonicalRequirementSet: AlienHandCodexStreamWorker] because frontier_2 requires enqueue, claim, heartbeat, complete, fail, cancel, and status primitives with explicit durable state transitions
+  = satisfies: [ImplementationFrontier: AlienHandCodexStreamWorker] frontier_2
+  = satisfies: [CanonicalImplementationFrontier: AlienHandCodexStreamWorker] frontier_2
+  = satisfies: [ConstraintLedger: AlienHandCodexStreamWorker] queue durability and replay readiness requirements for claims, failures, and completion
+
+  - compatibility: this slice intentionally does not include worker runtime loop, task routing module, or UI/API wiring (frontier_3+)
+  - compatibility: cancellation and terminal failure responses are durable records while transport semantics for external response consumers remain frontier_3
+  - never: treat this as complete production control-plane because worker execution and runtime integration are still queued in later frontiers

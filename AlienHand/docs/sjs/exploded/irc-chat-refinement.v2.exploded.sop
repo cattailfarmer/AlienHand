@@ -1,0 +1,344 @@
+Subject: AlienHand IRC Chat Refinement V2 Exploded Specification
+Description: Data-driven and UI-interaction hardened SJS explosion pass for AlienHand IRC chat refinement. This document derives implementation rails from the preserved chat-refinement source without modifying that source.
+
+@ [source_snapshot] AlienHand/docs/sjs/source/2026-05-14-irc-chat-refinement/source-snapshot.sop
+@ [source_specification] AlienHand/docs/irc-chat-refinement.sop
+@ [source_sha256] 8725C819B689CB24778EC5884DABF1EA98023DFC79ED72CD9D17CE32672849AB
+@ [prior_canonical] AlienHand/docs/sjs/canonical/irc-chat-refinement.canonical.sop
+@ [sjs_protocol] platform/refinement/Specification_Justification_Solution.sop
+@ [specification_explosion] platform/refinement/Specification_Explosion.sop
+@ [data_driven_design] platform/refinement/Data_Driven_Design.sop
+@ [ui_interaction_specification] platform/refinement/UI_Interaction_Specification.sop
+
+& [SJSV2ExplosionRecord: AlienHandIRCChatRefinement] is the second-pass explosion record for chat refinement
+  + [source_document] is AlienHand/docs/irc-chat-refinement.sop
+  + [source_snapshot] is AlienHand/docs/sjs/source/2026-05-14-irc-chat-refinement/source-snapshot.sop
+  + [source_hash] is 8725C819B689CB24778EC5884DABF1EA98023DFC79ED72CD9D17CE32672849AB
+  + [source_commit] is a2b5629a5e2fa3fae00c8a33b9d7bac9a5d96ac3
+  + [observed_repo_head] is fe4b19ecbceaa0b88314bdaeeadda88244dfbe09
+  + [v2_reason] is Data_Driven_Design and UI_Interaction_Specification were added as governing contracts after the first canonical pass
+  + [source_line_count_note] is the original snapshot records 637 lines while the current PowerShell line measurement reports 538 lines against the same SHA-256 hash, so SHA-256 remains the authoritative preservation identity
+  + [resolution] is [DataDesignModel], [TransformMap], [UIDerivationPlan], [ComponentContractSet], [SevenFoldTrace], [QualityGate], and [ImplementationFrontier]
+
+  = must: preserve the source specification unchanged
+  = must: treat this document as a derived explosion artifact rather than a source document
+  = must: apply DataDrivenDesign before durable storage, API, or UI implementation decisions are accepted
+  = must: apply UIInteractionSpecification before the The Lounge workbench is treated as implementation-ready
+  - never: let prototype layout convenience redefine source identity, transform identity, or data lineage
+
+## Data Design Model
+
+& [DataDesignModel: ChatRefinement] is the conceptual and logical data model that constrains implementation
+  + [root_subject] is [ChannelConversationRefinementState]
+  + [authoritative_raw_store] is JSONL channel history plus immutable payload objects
+  + [derived_refinement_store] is SQLite refinement storage
+  + [ui_projection_store] is The Lounge component state, raw JSON debug view, and rendered workbench panes
+  + [natural_key] is app_id plus channel_uuid plus message_uuid for raw messages
+  + [surrogate_key] is block_id, cut_id, chapter_id, bookmark_id, sticky_id, quote_id, edit_id, diff_id, and toc row identity
+  + [identity_namespace] is one AlienHand app instance and one UUID-named IRC channel unless a row explicitly references another scope
+  + [essential_state] is raw payload identity, replay history, refinement rows, annotations, edit diffs, and table-of-contents rows
+  + [essential_logic] is user-controlled promotion, source-preserving derivation, anchor validation, lineage preservation, and channel-scoped replay
+  + [accidental_state_control] is hover state, selected-line display, scroll offsets, bridge-arrow drag position, open/closed panes, and transient live IRC DOM state
+
+  = must: keep JSONL payload history authoritative for raw conversation replay
+  = must: treat SQLite refinement rows as durable derived state that can be rebuilt or reconciled from raw history plus user refinement actions
+  = must: keep The Lounge view state non-authoritative unless persisted through an explicit refinement API operation
+  = must: preserve raw message natural identity even when block_id is used as a UI-friendly key
+  = must: store every derived artifact with enough source reference material to navigate back to the raw block
+  = must: validate every annotation or edit target before persistence
+  = should: make future search, synchronization, and undo behavior follow these identity boundaries
+  - never: treat a visual chat bubble, DOM node, or temporary selected line as durable source truth
+
+& [ConceptualModel: ChatRefinement] is the semantic shape of the feature before storage or UI
+  + [conversation_block] is the source-facing unit the user can inspect and promote
+  + [conversation_cut] is a selected instance of a block in a user-ordered composition
+  + [conversation_chapter] is a refined product that groups cuts into a coherent narrative
+  + [conversation_edit] is an editorial transformation over cuts or chapters
+  + [conversation_bookmark] is an anchor with an optional note rooted in a source or derived target
+  + [conversation_sticky] is a working reminder whose visibility can change without deleting the target
+  + [conversation_quote] is an excerpt or frame reference with provenance
+  + [conversation_toc_entry] is navigational order for refined products
+
+  = must: preserve containment as channel owns blocks, blocks can be referenced by cuts, cuts can be referenced by chapters, chapters can be referenced by edits and TOC
+  = must: preserve reference relations for bookmarks, stickies, quotes, and source navigation
+  = must: preserve lineage relations from raw block to cut to chapter to edit
+  = must: preserve ordering relations in cuts, chapter member lists, edit chains, and TOC rows
+
+& [LogicalModel: ChatRefinement] is the normalized queryable model derived from the conceptual model
+  + [conversation_blocks] stores block_id, channel_uuid, message_uuid, sender, sender_type, created_at, payload_kind, presentation, raw_refs_json, and metadata_json
+  + [conversation_cuts] stores cut_id, source_block_id, position, status, annotations_json, and metadata_json
+  + [conversation_chapters] stores chapter_id, title, summary, member_cut_ids_json, member_block_ids_json, bookmarks_json, quotes_json, edit_chain_json, and metadata_json
+  + [conversation_bookmarks] stores bookmark_id, target_type, target_id, scope, label, note, promotion_state, persistence, and metadata_json
+  + [conversation_stickies] stores sticky_id, target_type, target_id, visibility, retention, clear_state, and metadata_json
+  + [conversation_quotes] stores quote_id, source_type, source_id, excerpt, provenance_json, display_mode, and metadata_json
+  + [conversation_edits] stores edit_id, input_ref_json, output_ref_json, edit_type, reason, author, diff_id, and metadata_json
+  + [conversation_edit_diffs] stores diff_id, edit_id, source_ref_json, diff_format, diff_uri, content_json, and metadata_json
+  + [conversation_toc_entries] stores toc_id, ordinal, entry_type, entry_id, title, source_scope_json, and metadata_json
+  + [conversation_search_terms] stores term, block_id, offset, cut_id, chapter_id, and metadata_json
+
+  = must: keep references explicit instead of relying on duplicated rendered text
+  = must: keep search mappings navigable to block_id first
+  = must: keep JSON fields canonical, stable, and derived from named schema fields
+  = should: use additive migrations for future schema growth
+
+& [PhysicalModel: ChatRefinement] is the current prototype storage and runtime selection
+  + [raw_physical_store] is JSONL plus payload files
+  + [refinement_physical_store] is SQLite schema version 1
+  + [resolver_physical_service] is local HTTP API under /alienhand/refinement
+  + [ui_physical_surface] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue
+
+  = must: preserve data independence so the UI can change without changing logical source identity
+  = must: keep SQLite as a local derived store, not as a replacement for raw replay history
+  = should: add indexes only when they follow query shape, channel filtering, search, or target validation needs
+
+## Transform Map
+
+& [TransformMap: ChatRefinement] is the named transform set that code and UI must implement explicitly
+  + [adopt_live_line_to_block] transforms a live The Lounge IRC line into a durable ConversationBlock when the user chooses to stage or cut it
+  + [replay_payload_to_block] transforms JSONL replay rows plus resolved payloads into ConversationBlock rows
+  + [block_to_cut] transforms a source block into a ConversationCut at the current insertion position
+  + [cut_remove] transforms an active cut into removed status without deleting the source block
+  + [cuts_to_chapter] transforms an ordered active cut set into a ConversationChapter
+  + [cuts_to_editing_projection] transforms cuts into stripped editable text lines with hidden source references
+  + [editing_projection_to_source_reveal] transforms a clicked editing line into source cut and raw block highlights
+  + [bookmark_create] transforms a target anchor plus label or note into a bookmark record
+  + [bookmark_mirror] projects a raw bookmark into refined views when the source is included
+  + [quote_capture] transforms a selected excerpt or frame into a provenance-preserving quote
+  + [sticky_create] transforms a target anchor into a working reminder
+  + [sticky_clear] transforms sticky clear_state without deleting durable target evidence
+  + [editorial_edit_apply] transforms a chapter or cut set into an edited output plus diff artifact
+  + [toc_insert] transforms a chapter or edit reference into ordered refined navigation
+  + [search_index_update] transforms block presentation and payload text into term-to-block mappings
+
+  = must: implement each durable transform through an inspectable storage or API operation
+  = must: keep preconditions and postconditions visible in code tests or runtime proofs
+  = must: record lineage for all source-to-derived transforms
+  = must: reject transforms whose target anchors do not exist
+  = must: treat UI-only hover, drag, and pane visibility as accidental state until persisted by a named transform
+
+& [OperatorContract: BlockToCut] is the durable promotion operator for the cutting workflow
+  + [input_shape] is channel_uuid, source_block_id, insertion_position, actor, and optional adoption payload
+  + [precondition] is source_block_id exists or adoption payload can create it
+  + [output_shape] is ConversationCut with cut_id, source_block_id, position, status active, and trace metadata
+  + [postcondition] is source block remains unchanged and active cuts preserve explicit ordering
+  + [failure] is missing source block, invalid channel, invalid insertion position, or unauthorized request
+
+  = must: preserve raw block identity
+  = must: make insertion order deterministic
+  = must: allow soft removal without source mutation
+
+& [OperatorContract: EditingLineSourceReveal] is the navigation operator from editing text back to evidence
+  + [input_shape] is editing_line_id or source_ref derived from the projection
+  + [precondition] is source_ref maps to an existing cut or block
+  + [output_shape] is UI selection state for editing line, source cut highlight, and source block highlight
+  + [postcondition] is no persistent data changes unless the user separately edits or annotates
+  + [failure] is stale projection, removed cut, missing block, or hidden pane
+
+  = must: expose stale or missing source refs visibly
+  = must: not mutate the edit or source record merely because the user clicked text
+
+## UI Derivation
+
+& [UIDerivationPlan: ChatRefinementWorkbench] is the data-derived UI plan for the workbench
+  + [primary_task] is convert raw conversation into a refined composition while preserving source evidence
+  + [secondary_task] is annotate, search, quote, pin, and navigate source-linked material
+  + [danger_task] is destructive-looking removal, redaction, or edit application that could obscure evidence if not traced
+  + [layout_reason] is source-to-derived lineage is spatially communicated by Chat on the left, Cutting next, Editing next, and directory navigation beside them
+  + [directory_reason] is Nicks and Chapters are both channel-scoped navigation/presence surfaces and can share an embedded tabbed frame
+  + [bridge_reason] is block_to_cut is the central transform, so the insertion bridge should remain visible between source and cut destinations
+
+  = must: derive frame layout from the source-to-derived transform chain rather than from ordinary chat-client convention
+  = must: make Chat, Cutting, and Editing independent visibility toggles because they are related surfaces, not mutually exclusive modes
+  = must: preserve source navigation from Editing to Cutting to Chat
+  = must: show blocked or stale source navigation when evidence cannot be found
+  = must: keep raw/debug state visible for provenance and development review
+  = should: support expert density while keeping source identity inspectable
+
+& [ComponentContractSet: ChatRefinementWorkbench] is the buildable component contract set
+  + [component] is [DirectoryFrame], [ChatFrame], [CuttingFrame], [InsertionBridge], [EditingFrame], [RawDebugFrame], [AnnotationControls], [ChapterTOCFrame], and [WorkbenchStatusSurface]
+
+  = must: treat each component contract as data-bound before implementation polish
+  = must: verify data_binding, identity_binding, transform_binding, input_contract, output_contract, state_contract, validation_contract, provenance_contract, and accessibility_contract before claiming implementation-ready UI
+
+& [ComponentContract: DirectoryFrame] is the Nicks and Chapters side surface
+  + [data_binding] is channel membership and conversation_toc_entries
+  + [identity_binding] is channel_uuid and toc_id
+  + [transform_binding] is select chapter, jump to chapter source, and switch directory tab
+  + [state_contract] is active tab, selected chapter, collapsed frame, and unavailable chapter data
+  + [validation_contract] is missing TOC entries show empty state rather than false chapters
+  + [accessibility_contract] is keyboard tab switching, labelled tabs, and visible focus state
+
+  = must: keep Nicks and Chapters visually distinct inside the shared directory slot
+  = should: let chapter selection reveal source cuts and edit material when present
+
+& [ComponentContract: ChatFrame] is the source conversation pane
+  + [data_binding] is live IRC message DOM plus durable conversation_blocks when adopted or imported
+  + [identity_binding] is channel_uuid, block_id, message_uuid, and live line fallback identity
+  + [transform_binding] is adopt_live_line_to_block, block_to_cut, bookmark_create, quote_capture, and sticky_create
+  + [input_contract] is live messages, stored blocks, search filters, selected source line, and hover line
+  + [output_contract] is selected source block, adopt request, cut insert request, annotation request, and source reveal highlight
+  + [state_contract] is visible, hidden, selected, highlighted, stale, empty, and fetch_error
+  + [validation_contract] is no durable cut creation without a valid block or successful adoption
+  + [provenance_contract] is display of message identity in raw/debug mode
+  + [accessibility_contract] is keyboard selection and insertion action equivalent to the visible arrow
+
+  = must: expose selected_line_arrow on eligible source blocks
+  = must: keep source block visible after insertion into cuts
+
+& [ComponentContract: CuttingFrame] is the ordered composition pane
+  + [data_binding] is conversation_cuts filtered by channel
+  + [identity_binding] is cut_id and source_block_id
+  + [transform_binding] is block_to_cut, cut_remove, cuts_to_chapter, bookmark_create, quote_capture, and sticky_create
+  + [input_contract] is active cuts, insertion_position, selected cut, and source highlight request
+  + [output_contract] is remove cut request, chapter creation request, annotation request, and source reveal request
+  + [state_contract] is visible, hidden, empty, active cut, removed cut, insertion target, highlighted, and stale source
+  + [validation_contract] is removed cuts cannot be used for chapter creation unless explicitly restored
+  + [provenance_contract] is source block reference remains inspectable
+  + [accessibility_contract] is keyboard reordering and removal alternatives
+
+  = must: render an x control for active cut removal
+  = must: show insertion target created by the bridge arrow
+
+& [ComponentContract: InsertionBridge] is the visible block_to_cut transform affordance
+  + [data_binding] is insertion_position and selected source block
+  + [identity_binding] is channel_uuid and current insertion index
+  + [transform_binding] is block_to_cut
+  + [input_contract] is drag position, selected source block, visible Chat and Cutting frames, and cut count
+  + [output_contract] is insertion_position update and insert selected block request
+  + [state_contract] is visible, hidden, dragging, ready, blocked_no_selection, and blocked_hidden_frame
+  + [validation_contract] is insertion cannot run without Chat, Cutting, and a selected source block
+  + [accessibility_contract] is button operation must exist even when drag is not available
+
+  = must: hide when Chat or Cutting is hidden
+  = must: visibly explain blocked insertion rather than silently doing nothing
+
+& [ComponentContract: EditingFrame] is the editorial projection pane
+  + [data_binding] is cuts_to_editing_projection output and editorial edits
+  + [identity_binding] is editing_line_id, source cut_id, source block_id, edit_id, and diff_id
+  + [transform_binding] is cuts_to_editing_projection, editing_projection_to_source_reveal, and editorial_edit_apply
+  + [input_contract] is active cuts, chapter selection, projected text, edit draft, and click source request
+  + [output_contract] is source reveal request, edit draft change, apply edit request, and TOC insertion request
+  + [state_contract] is visible, hidden, empty, dirty, saved, highlighted line, stale source, and diff available
+  + [validation_contract] is edits require input refs and diff evidence
+  + [provenance_contract] is source refs hidden from prose but inspectable through reveal/debug
+  + [accessibility_contract] is text navigation and source reveal not dependent only on pointer click
+
+  = must: strip chat bubble chrome and contributor names from the default text projection
+  = must: keep code frames, images, links, and media references editorially recognizable
+  = must: click or keyboard-activate text to reveal source cut and source chat when panes are visible
+
+& [ComponentContract: RawDebugFrame] is the provenance and raw-state inspection surface
+  + [data_binding] is raw API responses, persisted objects, live selection state, and unresolved errors
+  + [identity_binding] is channel_uuid and object IDs
+  + [transform_binding] is none by default, read-only inspection unless explicit admin repair appears later
+  + [state_contract] is visible, hidden, filtered, empty, and error
+  + [validation_contract] is must not imply debug data is user-facing conversation content
+
+  = must: show command/directive and raw object evidence when needed
+  = should: help diagnose resolver, payload, API, and source navigation failures
+
+## Lifecycle And Transition Model
+
+& [TransitionModel: ChatRefinementUserFlow] is the user-controlled lifecycle for refinement state
+  + [state] is raw_unselected, raw_selected, block_adopted, cut_active, cut_removed, chapter_composed, editing_projected, edit_dirty, edit_applied, bookmark_created, bookmark_mirrored, sticky_visible, sticky_cleared, quote_captured, toc_inserted, source_revealed, and source_stale
+  + [transition] is raw_unselected to raw_selected by select source block
+  + [transition] is raw_selected to block_adopted by adopt_live_line_to_block
+  + [transition] is block_adopted to cut_active by block_to_cut
+  + [transition] is cut_active to cut_removed by cut_remove
+  + [transition] is cut_active to chapter_composed by cuts_to_chapter
+  + [transition] is cut_active to editing_projected by cuts_to_editing_projection
+  + [transition] is editing_projected to source_revealed by editing_projection_to_source_reveal
+  + [transition] is chapter_composed to edit_applied by editorial_edit_apply
+  + [transition] is any anchored target to bookmark_created, sticky_visible, or quote_captured by explicit user action
+  + [transition] is bookmark_created to bookmark_mirrored when the target enters a refined product
+
+  = must: make user-controlled transitions explicit in the UI and storage API
+  = must: expose invalid transitions as validation feedback
+  = must: keep command text and hidden directives raw/debug-visible when they affect persistent state
+
+## Seven Fold Trace
+
+& [SevenFoldTrace: ChatRefinementV2] is the bounded repeated explosion and pruning trace
+  + [fold_1] is source preservation and subject boundary
+  + [fold_1_gain_delta] is confirmed unchanged source hash, reused source snapshot, and excluded Godot, multi-mouse, BizHawk, and unrelated app runtime from this subject
+  + [fold_1_pruned] is editing source spec or claiming unrelated dirty files as chat-refinement evidence
+  + [fold_2] is data identity and source-of-truth separation
+  + [fold_2_gain_delta] is natural keys, surrogate keys, authoritative raw store, derived SQLite store, and non-authoritative UI projection boundaries
+  + [fold_2_pruned] is database-first design, DOM-node identity, and UI-state-first source truth
+  + [fold_3] is hierarchy, relations, and transform map
+  + [fold_3_gain_delta] is explicit containment, reference, lineage, ordering, and named durable transforms
+  + [fold_3_pruned] is hidden imperative promotion, implicit bookmark propagation, and command magic without persisted action identity
+  + [fold_4] is lifecycle and operator contracts
+  + [fold_4_gain_delta] is user-driven transition model plus BlockToCut and EditingLineSourceReveal operator contracts
+  + [fold_4_pruned] is automatic chapter creation, destructive cut deletion, and silent stale-source behavior
+  + [fold_5] is UI derivation and component contracts
+  + [fold_5_gain_delta] is Directory, Chat, Cutting, InsertionBridge, Editing, and RawDebug component contracts
+  + [fold_5_pruned] is conventional chat layout bias, mutually exclusive tab treatment for Chat/Cutting/Editing, and visual preference without data binding
+  + [fold_6] is provenance, validation, and quality gates
+  + [fold_6_gain_delta] is source reveal, raw/debug evidence, anchor validation, diff evidence, and accessibility readiness requirements
+  + [fold_6_pruned] is hidden destructive behavior, unvalidated quote/bookmark/sticky targets, and debug data masquerading as normal conversation
+  + [fold_7] is implementation frontier and autonomous-session rails
+  + [fold_7_gain_delta] is ordered loose-end convergence, stop conditions, verification lanes, and remaining obstruction classification
+  + [fold_7_pruned] is open-ended spec expansion without implementation pressure and claiming visual acceptance without browser or user review
+  + [exhaustion_state] is seven_fold_phase_locked_with_implementation_frontier
+
+  = must: preserve this fold trace as the evidence that v2 hardening used repeated explosion
+  = must: reopen explosion only if source changes, implementation contradicts a quality gate, or new user instruction changes the subject boundary
+
+## Quality Gates
+
+& [DataDesignQualityGate: ChatRefinementV2] is the data-driven acceptance gate for future implementation
+  + [identity_check] passed because natural and surrogate identities are explicit
+  + [layer_separation_check] passed because conceptual, logical, and physical models are separate
+  + [hierarchy_check] passed because containment, reference, lineage, and ordering relations are declared
+  + [transform_check] passed because durable transforms and two high-risk operator contracts are named
+  + [constraint_check] passed because target validation, source immutability, and soft removal are explicit
+  + [state_logic_control_check] passed because essential state, essential logic, and accidental state are separated
+  + [projection_check] passed because UI projection and editing text remain derivative
+  + [provenance_check] passed because source reveal, raw/debug state, quote provenance, and diff evidence are explicit
+  + [lifecycle_check] passed because user-visible transitions are named
+  + [model_selection_check] passed because SQLite remains a derived relational fit and JSONL/payload files remain event/source evidence
+  + [implementation_check] passed with frontier because code exists for storage/API/workbench but UI polish remains open
+  + [anti_pattern_check] passed because database-first, UI-state-first, visual-preference-first, and schema-theater drift were pruned
+
+  = must: fail future work that hides data identity or lets visual state become source truth
+
+& [UIQualityGate: ChatRefinementV2] is the UI interaction acceptance gate for future implementation
+  + [data_traceability] passed because every durable frame has a data binding
+  + [identity_traceability] passed because each frame declares its identity binding
+  + [transform_traceability] passed because every write action routes through named transforms
+  + [task_fit] passed because the primary raw-to-cut-to-edit task shapes layout
+  + [state_visibility] passed with frontier because states are named but polished visual handling remains open
+  + [constraint_visibility] passed with frontier because blocked insertions and stale source states are specified but need browser verification
+  + [provenance_visibility] passed because raw/debug and source reveal are required
+  + [accessibility_readiness] is frontier because component contracts state accessibility requirements but implementation needs verification
+  + [implementation_readiness] passed for the next slice but not for final UX acceptance
+
+  = must: preserve accessibility and state visibility as first-class implementation work rather than polish-only extras
+
+## Implementation Frontier
+
+& [ImplementationFrontier: ChatRefinementV2] is the ordered loose-end list for autonomous development
+  + [frontier_1] is verify and repair The Lounge workbench data fetching so raw blocks load reliably in live review
+  + [frontier_2] is implement or harden visible stale/error states for payload, block adoption, cut insertion, and source reveal
+  + [frontier_3] is refine insertion bridge geometry and blocked-state feedback against the Chat/Cutting layout
+  + [frontier_4] is make editing-line source reveal robust for active cuts, removed cuts, missing source blocks, and hidden panes
+  + [frontier_5] is add accessible keyboard equivalents for select, insert, remove, reveal source, and toggle frames
+  + [frontier_6] is improve quote and sticky controls while preserving anchor validation and provenance
+  + [frontier_7] is add browser-click or harness proof once the local browser automation dependency is usable
+  + [frontier_8] is production authentication and multi-client synchronization policy, deferred until prototype UX semantics stabilize
+
+  = must: work from lower-numbered frontier items unless blocked
+  = must: switch to the next independent frontier item when blocked by live UI review, browser automation, or another workspace process
+  = must: record each completed item as solution evidence and justification
+
+& [StopCondition: ChatRefinementLongHaul] is the autonomous session boundary
+  + [stop] is source specification changes requiring new source preservation
+  + [stop] is risky design fork about user-visible semantics that cannot be resolved from the canonical contracts
+  + [stop] is failing verification that cannot be fixed without touching unrelated dirty work
+  + [stop] is required running-browser visual review by the user
+  + [stop] is Git conflict or dirty-file ownership uncertainty in files outside the current slice
+
+  = must: continue through independent loose ends when one frontier item blocks
+  = must: avoid GodotExtension unless explicitly reassigned
+  = must: commit and push coherent slices that do not include unrelated dirty files

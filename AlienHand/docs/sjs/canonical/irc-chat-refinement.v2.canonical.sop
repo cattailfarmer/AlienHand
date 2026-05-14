@@ -1,0 +1,111 @@
+Subject: AlienHand IRC Chat Refinement V2 Canonical SJS Specification
+Description: Signed SJS v2 canonical authority for AlienHand IRC chat refinement after applying Data-Driven Design, UI Interaction Specification, and explicit seven-fold explosion tracing.
+
+@ [source_snapshot] AlienHand/docs/sjs/source/2026-05-14-irc-chat-refinement/source-snapshot.sop
+@ [source_specification] AlienHand/docs/irc-chat-refinement.sop
+@ [source_sha256] 8725C819B689CB24778EC5884DABF1EA98023DFC79ED72CD9D17CE32672849AB
+@ [prior_canonical] AlienHand/docs/sjs/canonical/irc-chat-refinement.canonical.sop
+@ [exploded_specification] AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+@ [data_driven_design] platform/refinement/Data_Driven_Design.sop
+@ [ui_interaction_specification] platform/refinement/UI_Interaction_Specification.sop
+@ [sjs_protocol] platform/refinement/Specification_Justification_Solution.sop
+
+& [SJSV2CanonicalRecord: AlienHandIRCChatRefinement] is the canonical v2 record for chat refinement implementation
+  + [source_document] is AlienHand/docs/irc-chat-refinement.sop
+  + [source_snapshot] is AlienHand/docs/sjs/source/2026-05-14-irc-chat-refinement/source-snapshot.sop
+  + [source_hash] is 8725C819B689CB24778EC5884DABF1EA98023DFC79ED72CD9D17CE32672849AB
+  + [exploded_specification] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [canonical_source_specification] is this document
+  + [prior_signature] is 217a18f6-53b1-4d79-9280-91ed0a3aa654
+  + [satisfaction_signature] is [SatisfactionSignature: AlienHandIRCChatRefinement: V2]
+  + [authority_scope] is chat refinement data model, storage/API decisions, The Lounge workbench UI, long-haul implementation planning, verification, and justification
+
+  = must: use this v2 canonical record as the current processed authority for AlienHand chat-refinement work
+  = must: use the v2 exploded specification for detailed data, transform, UI, lifecycle, quality-gate, and frontier decisions
+  = must: preserve the source specification unchanged
+  = must: invalidate this canonical record when the source hash changes without reprocessing
+  - never: treat the prior canonical signature as current when it conflicts with v2 data-driven or UI-interaction requirements
+
+& [CurrentCanonicalRequirementSet: AlienHandIRCChatRefinementV2] is the authoritative requirement set after v2 hardening
+  + [requirement] is raw JSONL history plus immutable payloads remain authoritative for source replay
+  + [requirement] is SQLite refinement storage remains durable derived state with explicit lineage
+  + [requirement] is The Lounge UI state remains accidental state unless persisted through named transforms
+  + [requirement] is every durable UI surface requires data_binding, identity_binding, transform_binding, state_contract, validation_contract, provenance_contract, and accessibility_contract
+  + [requirement] is Chat, Cutting, and Editing layout follows the source-to-derived transform chain
+  + [requirement] is block adoption, cut insertion, chapter creation, bookmark creation, quote capture, sticky handling, edit application, TOC insertion, and source reveal are named transforms or operators
+  + [requirement] is stale source, missing payload, blocked insertion, invalid anchor, and hidden-pane navigation must become visible states
+  + [requirement] is future implementation must follow the ordered [ImplementationFrontier: ChatRefinementV2]
+
+  = must: reject implementation work that hides data identity behind DOM state or component convenience
+  = must: reject UI work that is not traceable to data subjects, task intent, or transform contracts
+
+& [SupersededSatisfactionSignature: AlienHandIRCChatRefinement: 2026-05-14] is the prior canonical signature superseded by v2
+  + [signature_protocol_uuid] is ad10f10f-d506-48ef-a805-f8b0a133766c
+  + [signature_uuid] is 217a18f6-53b1-4d79-9280-91ed0a3aa654
+  + [signed_subject] is AlienHand/docs/sjs/canonical/irc-chat-refinement.canonical.sop
+  + [signature_status] is superseded
+  + [superseded_by] is 8786ea62-0b4b-4267-b46f-13053d337b62
+  + [supersession_reason] is Data_Driven_Design and UI_Interaction_Specification became governing contracts and required explicit fold trace, data model, transform map, component contracts, and quality gates
+
+  = must: preserve the prior signature as lineage evidence
+  - never: use the prior signature to bypass v2 gates
+
+& [Justification: AlienHandIRCChatRefinementV2] is the evidence bridge for accepting this v2 canonical record
+  + [claim] is chat refinement now has strong enough rails for long-haul autonomous implementation
+  + [support] is unchanged source hash, preserved source snapshot, v2 exploded specification, DataDrivenDesign quality gate, UIQualityGate, seven-fold trace, and ordered implementation frontier
+  + [confidence] is high for data identity, source-of-truth boundaries, transform naming, and UI component contracts
+  + [confidence] is moderate for browser visual acceptance because local browser automation remains blocked by runtime dependency and user visual review may still adjust layout
+  + [counterargument] is the implementation has multiple dirty working-tree files outside this slice, so commits must remain path-scoped and avoid unrelated GodotExtension or Anne/Godot runtime work
+  + [invalidation_condition] is source_change, failed_quality_gate, broken_lineage, implementation_contradiction, unreviewed_risky_design_fork, or registry_conflict
+
+  ! [ChatRefinementV2RailsAreAccepted] is accepted
+    @ [support] [SevenFoldTrace: ChatRefinementV2]
+    @ [support] [DataDesignQualityGate: ChatRefinementV2]
+    @ [support] [UIQualityGate: ChatRefinementV2]
+    @ [support] [ImplementationFrontier: ChatRefinementV2]
+
+& [SolutionState: AlienHandIRCChatRefinementV2] is the current solution tracking state at v2 signing
+  + [implemented_evidence] is refinement SQLite storage, replay import, app-owned refinement store lifecycle, local HTTP refinement API, bookmark/quote/sticky/editorial endpoints, The Lounge workbench, live launcher, and prior runtime proofs recorded in the source and work-justification ledger
+  + [v2_added] is explicit data model, transform map, operator contracts, component contracts, transition model, quality gates, fold trace, frontier order, and long-haul stop conditions
+  + [not_yet_done] is runtime fetch reliability review, stale/error state hardening, insertion bridge geometry polish, source reveal edge cases, accessibility keyboard equivalents, polished quote/sticky controls, browser-click automation, production auth, and multi-client synchronization
+  + [next_valid_work] is [ImplementationFrontier: ChatRefinementV2] frontier_1 through frontier_8
+
+  = must: record future completed implementation as solution evidence with justification
+  = must: keep not_yet_done visible until each item has proof or an explicit deferral
+
+& [RegistryRecord: AlienHandIRCChatRefinementV2] is the v2 registry record
+  + [registry_uuid] is 4cc3dad1-0841-45d0-92a9-2d71553e6139
+  + [source_node_uuid] is dbe8e33d-cdc8-42ec-b0c8-95cf9b4930d1
+  + [exploded_node_uuid] is dfb394d8-fd70-4e00-aad2-713d17028f2d
+  + [canonical_node_uuid] is 17829f7a-a2c3-4cdd-a3e9-bde364a7254a
+  + [justification_node_uuid] is 485e4f6f-18e5-4490-afb7-cbd828fba4c9
+  + [solution_node_uuid] is 5dbadfc5-f197-4778-ae4b-800184ba9c1b
+  + [frontier_node_uuid] is 795e53b7-2c0c-4a20-acb8-b60da69886f2
+  + [signature_uuid] is 8786ea62-0b4b-4267-b46f-13053d337b62
+  + [edge] is source_node_uuid derived_to exploded_node_uuid
+  + [edge] is exploded_node_uuid signed_by signature_uuid
+  + [edge] is exploded_node_uuid promoted_to canonical_node_uuid
+  + [edge] is canonical_node_uuid justified_by justification_node_uuid
+  + [edge] is canonical_node_uuid implemented_as solution_node_uuid
+  + [edge] is solution_node_uuid leaves_frontier frontier_node_uuid
+  + [edge] is signature_uuid supersedes 217a18f6-53b1-4d79-9280-91ed0a3aa654
+
+  = must: preserve this registry record for audit and reroute
+
+& [SatisfactionSignature: AlienHandIRCChatRefinement: V2] is the valid SJS satisfaction signature for v2 chat refinement
+  + [signature_protocol_uuid] is ad10f10f-d506-48ef-a805-f8b0a133766c
+  + [signature_uuid] is 8786ea62-0b4b-4267-b46f-13053d337b62
+  + [signed_subject] is AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+  + [source_specification] is AlienHand/docs/irc-chat-refinement.sop
+  + [source_snapshot] is AlienHand/docs/sjs/source/2026-05-14-irc-chat-refinement/source-snapshot.sop
+  + [exploded_specification] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [canonical_source_specification] is AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+  + [processed_stage_set] is source_preserved, delineated, exploded, semantically_refined, constraint_checked, pruned, seven_fold_phase_locked, data_design_checked, ui_interaction_checked, justified, solution_recorded, and registry_recorded
+  + [exhaustion_state] is seven_fold_phase_locked_with_implementation_frontier
+  + [signature_status] is valid
+  + [invalidation_condition] is source_change, failed_data_design_quality_gate, failed_ui_quality_gate, missing_trace, broken_lineage, registry_conflict, or implementation_contradiction
+
+  = must: identify this file as the current processed AlienHand chat refinement canonical spec
+  = must: route future source changes through SJS reprocessing before trusting derived requirements
+  = must: preserve this signature with the v2 exploded trace
+  - never: treat this signature as proof without the source snapshot and exploded v2 trace

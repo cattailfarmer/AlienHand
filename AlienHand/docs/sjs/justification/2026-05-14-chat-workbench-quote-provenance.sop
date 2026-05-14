@@ -1,0 +1,31 @@
+Subject: Chat Workbench Quote Provenance Justification
+Date: 2026-05-14
+Scope: Quote capture affordances and visible quote source provenance in the AlienHand workbench
+
+& [ChatWorkbenchQuoteProvenanceSlice] is the quote-control polish for source-linked refinement
+  + [specification_basis] is AlienHand/docs/irc-chat-refinement.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [frontier_basis] is [ImplementationFrontier: ChatRefinementV2] frontier_6
+  + [ui_contract] is quote capture remains user-controlled while source provenance is visible at the rendered quote
+  + [thelounge_commit] is 6fa4add7
+  + [parent_pointer] is AlienHand/thelounge
+  + [implementation_files] are The Lounge client/components/AlienHandRefinementWorkbench.vue, The Lounge client/css/alienhand-chat.css, and AlienHand/python/alienhand_ai/payload_http.py
+
+  = implemented: added Use source as quote for cut quote forms
+  = implemented: added Use summary as quote for chapter quote forms
+  = implemented: added fillQuoteDraft so quote prefill remains a UI draft action rather than automatic persistence
+  = implemented: added visible Quote source labels to rendered quote blocks
+  = implemented: shortened long source identifiers for quote provenance display while preserving full source_id in storage
+  = implemented: added quote provenance footer styling
+  = implemented: added runtime proof markers for quote prefill actions, quote source labels, and quote draft status
+  = satisfies: frontier_6 because quote controls are easier to use while preserving anchor validation and provenance
+  = satisfies: DataDrivenDesign because quote records still persist through source_type, source_id, excerpt, and provenance fields
+  = satisfies: UIInteractionSpecification because prefill is explicit, reversible before submit, and visibly tied to source material
+  = verification: npx eslint client\components\AlienHandRefinementWorkbench.vue --color passed
+  = verification: npx prettier --check client\components\AlienHandRefinementWorkbench.vue client\css\alienhand-chat.css passed
+  = verification: yarn build:client passed
+  = verification: python -m unittest tests.test_payload_http tests.test_refinement_storage tests.test_chat_platform passed 45 tests
+  = verification: python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-quote-provenance-proof --timeout 45 returned workbench_runtime_ok true
+  - compatibility: existing manual quote entry and submit behavior remains unchanged
+  - never: auto-create a quote without an explicit user submit
+  - never: hide quote provenance behind raw/debug-only state

@@ -1,0 +1,270 @@
+Subject: AlienHand IRC Chat Refinement Canonical SJS Specification
+Description: Signed SJS-processed canonical source specification for AlienHand IRC chat refinement. This file is derived from the preserved source snapshot and is the implementation authority for future chat-refinement work until its source changes or the signature is invalidated.
+
+@ [source_snapshot] AlienHand/docs/sjs/source/2026-05-14-irc-chat-refinement/source-snapshot.sop
+@ [source_specification] AlienHand/docs/irc-chat-refinement.sop
+@ [source_commit] a2b5629a5e2fa3fae00c8a33b9d7bac9a5d96ac3
+@ [source_sha256] 8725C819B689CB24778EC5884DABF1EA98023DFC79ED72CD9D17CE32672849AB
+@ [governance] platform/refinement/Specification_Governance.sop
+@ [sjs_protocol] platform/refinement/Specification_Justification_Solution.sop
+@ [sop_markdown] platform/source/SOP_Markdown.md
+@ [foundation] AlienHand/docs/irc-chat-foundation.md
+@ [platform] AlienHand/docs/irc-chat-platform.sop
+
+& [SJSProcessingRecord: AlienHandIRCChatRefinement] is the SJS processing record for the chat refinement specification
+  + [source_document] is AlienHand/docs/irc-chat-refinement.sop
+  + [source_snapshot] is AlienHand/docs/sjs/source/2026-05-14-irc-chat-refinement/source-snapshot.sop
+  + [exploded_specification] is this canonical document's [ExplodedSpecification: AlienHandIRCChatRefinement]
+  + [canonical_source_specification] is this document
+  + [satisfaction_signature] is [SatisfactionSignature: AlienHandIRCChatRefinement: 2026-05-14]
+  + [processing_state] is signed
+  + [authority_scope] is future AlienHand chat-refinement implementation, review, and planning work
+
+  = must: treat the preserved source snapshot as the lineage root for this canonical specification
+  = must: use this canonical specification as implementation authority only while [satisfaction_signature] remains valid
+  = must: route changed source material through a new SJS pass before trusting derived requirements
+  - never: overwrite the source specification with this canonical specification
+
+## Delineation
+
+/ [AlienHandIRCChatRefinementSource] -(Delineation)> [source_record_layer], [annotation_layer], [refined_product_layer], [runtime_interface_layer], [uncertainty]
+
+& [DelineatedSubject: AlienHandIRCChatRefinement] is the bounded subject that survived SJS delineation
+  + [purpose] is to transform durable IRC conversation history into user-controlled refined products without mutating source chat evidence
+  + [source_record_layer] is immutable raw conversation history, message payload identity, channel-scoped replay, and payload provenance
+  + [annotation_layer] is bookmarks, bookmark notes, sticky references, quotes, and debug visibility attached to raw or refined anchors
+  + [refined_product_layer] is cuts, chapters, editorial projections, edit diffs, and table-of-contents entries
+  + [runtime_interface_layer] is The Lounge UI, local refinement HTTP API, SQLite storage, and app-owned runtime lifecycle hooks
+  + [outside] is unrelated multi-mouse capture, Godot surface input, BizHawk runtime, and non-chat AlienHand app behavior
+  + [uncertainty] is resizable pane divider behavior, polished quote selection, sticky presentation policy, editorial edit review UX, production authorization, and browser-click acceptance
+
+  = must: preserve raw chat as source evidence
+  = must: keep annotation and refinement artifacts derivative
+  = must: keep runtime interfaces narrow enough to validate with local proofs
+  = must: preserve uncertainty instead of treating rough prototype behavior as final product quality
+
+## Exploded Specification
+
+& [ExplodedSpecification: AlienHandIRCChatRefinement] is the processed implementation-facing specification derived from the preserved source
+  + [requirement_group] is source integrity, refinement object identity, storage, API, UI workbench, replay, search, annotation semantics, editorial semantics, runtime lifecycle, and verification
+  + [non_goal] is replacement of IRC as the live coordination bus
+  + [non_goal] is mutation of raw conversation history by chapters or edits
+  + [non_goal] is final production authorization design in the prototype slice
+  + [quality_bar] is source-preserving, replayable, channel-scoped, user-controlled, locally verifiable, and visually reviewable
+
+& [CanonicalRequirement: SourceIntegrity] is the rule that raw conversation remains the durable evidence substrate
+  + [raw_conversation] is immutable source chat history and payload references
+  + [channel_scope] is one UUID-named IRC channel and its derived refinement state
+  + [source_of_truth] is JSONL history plus immutable payload objects for raw chat, with SQLite refinement data treated as durable derived state
+
+  = must: preserve raw chat records when blocks are copied into cuts
+  = must: preserve payload and message identity through every derivative object
+  = must: allow cold replay or storage sync to recover refinement source blocks
+  - never: treat a chapter, edit, or UI projection as the source of truth
+
+& [CanonicalRequirement: RefinementIdentity] is the object identity contract for the refinement layer
+  + [conversation_block] is the smallest practical source-facing UI unit that can be promoted into cuts
+  + [conversation_cut] is a selected instance of a block in a user-ordered cutting set
+  + [conversation_chapter] is a derivative editorial grouping of cuts and source spans
+  + [conversation_bookmark] is a navigational anchor with an optional attached note
+  + [conversation_sticky] is a persistent working reminder attached to a block, cut, chapter, or bookmark
+  + [conversation_quote] is a provenance-preserving excerpt
+  + [conversation_edit] is a derivative transformation with before/after review evidence
+  + [table_of_contents_entry] is ordered refined navigation for chapters and edit surfaces
+
+  = must: assign stable IDs to every object
+  = must: preserve backlinks from cuts, chapters, bookmarks, stickies, quotes, and edits to source anchors
+  = must: support removed or superseded derivative state without deleting source records
+  = should: keep notes as bookmark-attached annotations instead of a separate note feature
+
+& [CanonicalRequirement: StorageAndIndexing] is the local persistence requirement for refinement data
+  + [database] is SQLite for blocks, cuts, chapters, bookmarks, stickies, quotes, edits, edit diffs, TOC entries, and search mappings
+  + [schema_version] is 1 for the current prototype
+  + [json_fields] are canonical JSON text for tuple, reference, metadata, provenance, source scope, and diff content fields
+  + [search_index] maps normalized terms back to source block IDs and may later expose cut or chapter context
+
+  = must: migrate deterministically
+  = must: make raw blocks and derived objects channel-queryable
+  = must: preserve edit diffs as inspectable evidence
+  = must: keep search results navigable back to source blocks
+  = should: make future revisions additive migrations when possible
+
+& [CanonicalRequirement: RefinementHTTPAPI] is the local service contract used by the browser workbench
+  + [base_path] is /alienhand/refinement
+  + [auth] is prototype bearer-token authorization shared with the payload resolver
+  + [read_endpoints] are blocks, search, cuts, chapters, bookmarks, quotes, stickies, edits, edit-diffs, and toc
+  + [write_endpoints] are adopt live block, create cut, remove cut, create chapter, create bookmark, create quote, create sticky, clear sticky, apply edit, and create toc entry
+
+  = must: reject unauthenticated access when a resolver token is configured
+  = must: validate target anchors before creating bookmarks, quotes, stickies, chapters, or edits
+  = must: allow explicit user-controlled adoption of a live IRC line into a durable block
+  = must: allow explicit user-controlled creation and soft removal of cuts
+  = must: allow explicit user-controlled chapter creation, editorial edit creation, and TOC entry creation
+  = should: remain UI-agnostic enough that other AlienHand clients can share it
+
+& [CanonicalRequirement: TheLoungeWorkbench] is the browser-facing workbench contract for the AlienHand The Lounge fork
+  + [entrypoint] is AlienHand/thelounge/client/components/Chat.vue
+  + [workbench_component] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue
+  + [style] is AlienHand/thelounge/client/css/alienhand-chat.css
+  + [fork_commit] is 4cd1e39d
+  + [directory_frame] contains Nicks and Chapters tabs
+  + [chat_frame] mounts the live The Lounge message list
+  + [cutting_frame] shows selected cuts, insertion markers, and x removal controls
+  + [editing_frame] shows plain projected text from cuts without chat bubble chrome or contributor labels
+  + [bridge_arrow] is the large insertion arrow between Chat and Cutting
+
+  = must: appear only for channel names that resolve to a 32-character hexadecimal UUID
+  = must: provide independent Chat, Cutting, and Editing frame toggles
+  = must: hide the bridge arrow whenever Chat or Cutting is hidden
+  = must: let the user stage a live chat line and insert it into cuts at the current cut position
+  = must: let dragging the bridge arrow update the insertion position in Cutting
+  = must: let clicking an editing line reveal the source cut and source chat message when visible
+  = must: expose raw JSON/debug state for review
+  = should: remain visually reviewable before deeper polish work proceeds
+
+& [CanonicalRequirement: AnnotationSemantics] is the user-visible meaning of bookmarks, notes, stickies, and quotes
+  + [bookmark] is a navigation anchor that may exist in raw, refined, or both scopes
+  + [note] is attached to the bookmark anchor and echoed into derived views
+  + [sticky] is a persistent working reminder until cleared
+  + [quote] is an exact excerpt or frame reference with provenance
+
+  = must: mirror bookmarks into refined views where their source remains included
+  = must: highlight bookmarked source blocks
+  = must: show note text through hover, popup, or equivalent detail affordance
+  = must: preserve quote provenance and source identity
+  = should: make sticky references easy to clear without deleting durable history
+
+& [CanonicalRequirement: EditorialSemantics] is the rule that editing creates derivative evidence instead of rewriting source
+  + [editing_projection] is text derived from cuts or chapters with UI chrome stripped
+  + [edit_diff] is the durable before/after evidence object
+  + [toc] is the ordered navigation layer for refined chapters or edits
+
+  = must: preserve pre-edit input refs and post-edit output refs
+  = must: record edit type, reason, author, and diff evidence
+  = must: keep editable text source-navigable to its originating cut and chat block
+  = should: preserve code frames and media references as editorially usable blocks rather than flattening them into ambiguous prose
+
+& [CanonicalRequirement: RuntimeLifecycle] is the local app-owned runtime requirement
+  + [runtime_group] is Ergo, payload resolver, The Lounge, and UUID channel startup for live review
+  + [live_review_command] is chat-workbench-live
+  + [runtime_proof_command] is chat-workbench-runtime-proof
+  + [launcher] is Launchers/run-chat-workbench-live.bat
+
+  = must: start and stop the app-owned runtime group for review
+  = must: publish at least one seeded message into a UUID channel for live review
+  = must: write connection details before waiting
+  = must: allow shutdown through stop file or Ctrl+C
+  = should: support manual browser review until browser automation is available
+
+## Constraint Check Trace
+
+& [ConstraintCheckTrace: AlienHandIRCChatRefinement] is the source-grounded constraint check for this SJS pass
+  + [source_preservation] passed because the source snapshot records path, commit, hash, and line count before canonical output
+  + [lineage] passed because every canonical requirement maps to the preserved source specification or its referenced foundation/platform docs
+  + [source_integrity] passed because raw conversation immutability remains a top-level invariant
+  + [boundary] passed because chat refinement excludes Godot input, multi-mouse capture, BizHawk, and non-chat runtime work
+  + [implementation_truth] passed with uncertainty because existing prototype features are recorded separately from future polished behavior
+  + [signature_readiness] passed because this file records stage set, trace, registry nodes, and satisfaction signature
+
+  = must: preserve this trace with the canonical specification
+  = must: rerun SJS if source hash changes or implementation contradicts a canonical requirement
+
+## Pruning Trace
+
+& [PruningTrace: AlienHandIRCChatRefinement] is the cutback pass for unhealthy or premature specification growth
+  + [pruned_material] is treating visual polish as already accepted, treating rough browser UI as final, embedding production authorization decisions in prototype UI, and absorbing Godot/multi-mouse work into the chat refinement subject
+  + [preserved_frontier] is resizable pane dividers, quote selection polish, sticky presentation polish, editorial edit review polish, browser-click automation, production authorization hardening, and multi-client refinement synchronization
+  + [repair] is canonical separation between implemented prototype workbench behavior and future polished product requirements
+
+  = must: keep [preserved_frontier] visible for planning
+  = must: avoid expanding this chat refinement spec into unrelated AlienHand input-surface architecture
+
+## Exhaustion Review
+
+& [ExhaustionReview: AlienHandIRCChatRefinement] is the SJS pass termination review
+  + [exhaustion_state] is phase_locked
+  + [reason] is source requirements repeatedly converge on source-preserving refinement objects, SQLite/API service contracts, The Lounge workbench UI, and explicit user-controlled transformation
+  + [remaining_uncertainty] is implementation-facing and visual-polish-facing rather than core semantic uncertainty
+  + [next_valid_work] is solution work against [OpenFrontier: AlienHandIRCChatRefinement]
+
+  = must: stop abstract expansion unless new source material, source changes, or implementation contradiction appears
+  = must: route future additions through source preservation and SJS reprocessing when they change the governing spec
+
+## Justification
+
+& [Justification: AlienHandIRCChatRefinement] is the evidence bridge from source specification to canonical authority
+  + [claim] is the chat refinement spec is stable enough to guide future AlienHand implementation
+  + [support] is preserved source snapshot, prior runtime proofs in work-justification.sop, pushed The Lounge fork commit 4cd1e39d, and app-owned runtime launcher commit a2b5629
+  + [support_type] is source_preservation, implementation_evidence, test_evidence, and bounded_uncertainty
+  + [confidence] is high for source integrity, storage/API shape, and first workbench layout; moderate for final UX polish because visual review remains open
+  + [counterargument] is browser-level acceptance has not yet been automated and the user may request further layout corrections after live review
+  + [invalidation_condition] is source_change, failed_quality_gate, missing_trace, broken_lineage, registry_conflict, or implementation_contradiction
+
+  ! [CanonicalSpecificationIsSufficientForNextImplementation] is accepted
+    @ [support] [ConstraintCheckTrace: AlienHandIRCChatRefinement]
+    @ [support] [PruningTrace: AlienHandIRCChatRefinement]
+    @ [support] [ExhaustionReview: AlienHandIRCChatRefinement]
+
+## Solution State
+
+& [Solution: AlienHandIRCChatRefinementCurrentState] is the recorded implementation state at signing time
+  + [implemented] is SQLite refinement storage, replay import, app-owned refinement storage lifecycle, authenticated local refinement HTTP API, bookmark/quote/sticky/editorial routes, The Lounge render adapter, live payload resolver fetch, workbench runtime proof, live review launcher, and full refinement frame layout in The Lounge fork commit 4cd1e39d
+  + [partial] is visual workbench review, editing surface polish, quote selection controls, sticky presentation controls, and resizable pane divider behavior
+  + [failed] is none known in this SJS pass
+  + [leftovers] is [OpenFrontier: AlienHandIRCChatRefinement]
+  + [verification] is unit/runtime proof history plus targeted The Lounge lint, stylelint, prettier, build, and live bundle string checks recorded in work-justification.sop
+  + [deviation] is current Editing frame is a projected text surface, not yet a full rich editor with diff review UI
+
+  = must: treat [implemented] as current solution evidence, not as a final UX acceptance claim
+  = must: keep [partial] and [leftovers] visible before claiming completion
+
+& [OpenFrontier: AlienHandIRCChatRefinement] is the implementation frontier after SJS signing
+  + [frontier_item] is browser visual acceptance of the full Chat/Cutting/Editing layout
+  + [frontier_item] is resizable pane divider sizing
+  + [frontier_item] is polished quote selection and citation rendering
+  + [frontier_item] is polished sticky pin presentation
+  + [frontier_item] is editorial edit review and diff presentation
+  + [frontier_item] is production authentication and authorization hardening
+  + [frontier_item] is multi-channel and multi-client synchronization policy
+
+  = must: select future work from this frontier unless new source material changes the spec
+  = must: record future completed work as Solution plus Justification, not only as prose notes
+
+## Registry
+
+& [RegistryRecord: AlienHandIRCChatRefinement] is the SJS registry record for this canonical specification
+  + [registry_uuid] is 35b09342-fa35-4de9-90ed-cce458170c18
+  + [source_node_uuid] is 8a19a7ae-dbab-42c6-b6a9-ce3ff546aa13
+  + [exploded_node_uuid] is 6fe43ca2-10f6-46cf-9c09-4f1f5e1a61fa
+  + [canonical_node_uuid] is 61d2b9d6-b856-4a77-a637-dafa747e1426
+  + [justification_node_uuid] is d77ac0c2-cbcf-49d6-9e3d-9fcaaea7bf44
+  + [solution_node_uuid] is 7d38f0c7-a0e1-4eb1-b2c7-b0849f56837a
+  + [frontier_node_uuid] is e21afd55-8f76-4e8d-a80b-19109d5142f7
+  + [signature_uuid] is 217a18f6-53b1-4d79-9280-91ed0a3aa654
+  + [edge] is source_node_uuid derived_to exploded_node_uuid
+  + [edge] is exploded_node_uuid signed_by signature_uuid
+  + [edge] is exploded_node_uuid promoted_to canonical_node_uuid
+  + [edge] is canonical_node_uuid justified_by justification_node_uuid
+  + [edge] is canonical_node_uuid implemented_as solution_node_uuid
+  + [edge] is solution_node_uuid leaves_frontier frontier_node_uuid
+
+  = must: preserve these identities for audit and future reroute
+  = must: supersede rather than mutate this registry record when the source is reprocessed
+
+& [SatisfactionSignature: AlienHandIRCChatRefinement: 2026-05-14] is the valid SJS satisfaction signature for this canonical specification
+  + [signature_protocol_uuid] is ad10f10f-d506-48ef-a805-f8b0a133766c
+  + [signature_uuid] is 217a18f6-53b1-4d79-9280-91ed0a3aa654
+  + [signed_subject] is AlienHand/docs/sjs/canonical/irc-chat-refinement.canonical.sop
+  + [source_specification] is AlienHand/docs/irc-chat-refinement.sop
+  + [source_snapshot] is AlienHand/docs/sjs/source/2026-05-14-irc-chat-refinement/source-snapshot.sop
+  + [exploded_specification] is AlienHand/docs/sjs/canonical/irc-chat-refinement.canonical.sop
+  + [canonical_source_specification] is AlienHand/docs/sjs/canonical/irc-chat-refinement.canonical.sop
+  + [processed_stage_set] is source_preserved, delineated, exploded, semantically_refined, constraint_checked, pruned, exhaustion_reviewed, justified, solution_recorded, and registry_recorded
+  + [exhaustion_state] is phase_locked
+  + [signature_status] is valid
+  + [invalidation_condition] is source_change, failed_quality_gate, missing_trace, broken_lineage, registry_conflict, or implementation_contradiction
+
+  = must: use this signature to identify the current AlienHand chat refinement canonical spec as processed to SJS satisfaction
+  = must: invalidate this signature if AlienHand/docs/irc-chat-refinement.sop changes without a new SJS pass
+  = must: preserve source snapshot and trace material as the proof substrate
+  - never: treat the signature UUID alone as proof without this file's lineage and trace sections

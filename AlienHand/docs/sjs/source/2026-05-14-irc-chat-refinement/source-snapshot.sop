@@ -1,0 +1,27 @@
+Subject: AlienHand IRC Chat Refinement Source Snapshot
+Description: Preserved source snapshot record for SJS processing of the existing AlienHand IRC chat refinement specification. This file preserves the source identity without rewriting the original source specification.
+
+@ [governance] platform/refinement/Specification_Governance.sop
+@ [sjs_protocol] platform/refinement/Specification_Justification_Solution.sop
+
+& [SourceSnapshot: AlienHandIRCChatRefinement: 2026-05-14] is the preserved source snapshot for SJS processing
+  + [source_document] is AlienHand/docs/irc-chat-refinement.sop
+  + [source_document_role] is existing_specification
+  + [source_document_status] is source_preserved
+  + [source_commit] is a2b5629a5e2fa3fae00c8a33b9d7bac9a5d96ac3
+  + [source_sha256] is 8725C819B689CB24778EC5884DABF1EA98023DFC79ED72CD9D17CE32672849AB
+  + [source_line_count] is 637
+  + [snapshot_created_at] is 2026-05-14
+  + [preservation_reason] is SJS reprocessing before the chat refinement specification is trusted as processed implementation authority
+  + [canonical_output] is AlienHand/docs/sjs/canonical/irc-chat-refinement.canonical.sop
+
+  = must: treat the original source document as preserved at [source_commit] plus [source_sha256]
+  = must: compare future source changes against [source_sha256] before reusing the canonical output as current authority
+  = must: invalidate the canonical satisfaction signature when [source_document] changes without reprocessing
+  - never: treat this source snapshot as an exploded or canonical specification
+  - never: overwrite [source_document] with derived SJS output
+
+! [SourceSnapshotPreserved] is accepted
+  @ [support] git commit a2b5629a5e2fa3fae00c8a33b9d7bac9a5d96ac3 contains AlienHand/docs/irc-chat-refinement.sop
+  @ [support] SHA-256 8725C819B689CB24778EC5884DABF1EA98023DFC79ED72CD9D17CE32672849AB identifies the preserved source content
+  @ [support] line count 637 records the source surface used for this SJS pass

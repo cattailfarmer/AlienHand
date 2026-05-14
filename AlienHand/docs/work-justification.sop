@@ -146,6 +146,17 @@ Description: SOP description of the justification step, called "jusitification" 
   + [status] is justified
   + [uncertainty] is browser interaction has not yet been visually reviewed in a running workbench
 
+& [JustificationEntry: RefinementFrameToggleNamingProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [ConversationRefinementWorkbenchLayoutV2]
+  + [implemented_artifact] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue Chat, Cutting, and Editing toggle labels
+  + [evidence_anchor] is npx eslint client/components/AlienHandRefinementWorkbench.vue --color
+  + [evidence_anchor] is yarn build:client in AlienHand/thelounge
+  + [evidence_anchor] is git push cattailfarmer alienhand/chat-render-adapter commit d84a1074
+  + [verification_result] is the The Lounge workbench now presents the three frame controls and pane headers using the user-facing names Chat, Cutting, and Editing while preserving their independent toggle behavior; targeted Vue ESLint and client bundle build passed
+  + [status] is justified
+  + [uncertainty] is this aligns the existing workbench labels but does not yet implement the final full-width multi-frame layout, draggable insertion arrow, or embedded Nicks/Chapters tab frame
+
 & [JustificationEntry: ConversationTermFreezeSpecification] is justified
   + [work_type] is protocol
   + [requirement_anchor] is user request to freeze the terms block, cut, chapter, edit, bookmark, sticky, and quote with articulated meaning and use cases

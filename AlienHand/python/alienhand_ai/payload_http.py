@@ -176,9 +176,17 @@ class PayloadResolverHTTPServer:
                     return True
                 if parts == (*REFINEMENT_PATH_PREFIX, "search"):
                     term = query.get("q", "")
+                    channel_uuid = query.get("channel")
                     with ConversationRefinementStore(owner.refinement_db_path) as store:
-                        hits = store.search(term)
-                    self._send_json({"query": term, "hits": [hit.to_dict() for hit in hits]}, HTTPStatus.OK)
+                        hits = store.search(term, channel_uuid=channel_uuid)
+                    self._send_json(
+                        {
+                            "query": term,
+                            "channel": channel_uuid,
+                            "hits": [hit.to_dict() for hit in hits],
+                        },
+                        HTTPStatus.OK,
+                    )
                     return True
                 if parts == (*REFINEMENT_PATH_PREFIX, "cuts"):
                     with ConversationRefinementStore(owner.refinement_db_path) as store:
@@ -829,7 +837,7 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
             access_token=access_token,
         )
         search_response = _http_json(
-            f"{server.base_url}/alienhand/refinement/search?q=workbench",
+            f"{server.base_url}/alienhand/refinement/search?q=workbench&channel={channel_uuid}",
             access_token=access_token,
         )
         unauthorized_response = _http_json(f"{server.base_url}/alienhand/refinement/blocks")
@@ -1297,7 +1305,7 @@ def run_app_thelounge_refinement_workbench_proof(
             access_token=access_token,
         )
         search_response = _http_json(
-            f"{resolver_base_url}/alienhand/refinement/search?q=workbench",
+            f"{resolver_base_url}/alienhand/refinement/search?q=workbench&channel={channel_uuid}",
             access_token=access_token,
         )
         blocks = blocks_response["json"].get("blocks", [])

@@ -800,18 +800,30 @@ class ConversationRefinementStore:
             for row in rows
         ]
 
-    def search(self, term: str) -> list[SearchHit]:
+    def search(self, term: str, *, channel_uuid: str | None = None) -> list[SearchHit]:
         normalized = normalize_search_term(term)
         if not normalized:
             return []
+        params: list[Any] = [normalized]
+        channel_filter = ""
+        if channel_uuid is not None:
+            channel_filter = "AND blocks.channel_uuid = ?"
+            params.append(channel_uuid)
         rows = self.connection.execute(
-            """
-            SELECT term, block_id, token_offset, chapter_id, cut_id
-            FROM conversation_search_terms
-            WHERE term = ?
-            ORDER BY block_id, token_offset
+            f"""
+            SELECT
+                search_terms.term,
+                search_terms.block_id,
+                search_terms.token_offset,
+                search_terms.chapter_id,
+                search_terms.cut_id
+            FROM conversation_search_terms AS search_terms
+            JOIN conversation_blocks AS blocks ON blocks.block_id = search_terms.block_id
+            WHERE search_terms.term = ?
+            {channel_filter}
+            ORDER BY search_terms.block_id, search_terms.token_offset
             """,
-            (normalized,),
+            tuple(params),
         ).fetchall()
         return [
             SearchHit(

@@ -1,0 +1,30 @@
+Subject: Chat Refinement Channel Search Justification
+Date: 2026-05-14
+Scope: Channel-scoped SQLite and HTTP search for AlienHand refinement state
+
+& [ChatRefinementChannelSearchSlice] is the channel boundary hardening for stored conversation search
+  + [specification_basis] is AlienHand/docs/irc-chat-refinement.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [data_contract] is [LogicalModel: ChatRefinement] plus [search_index_update]
+  + [thelounge_commit] is db9d65b0
+  + [parent_pointer] is AlienHand/thelounge
+  + [implementation_files] are AlienHand/python/alienhand_ai/refinement_storage.py, AlienHand/python/alienhand_ai/payload_http.py, The Lounge client/js/helpers/alienhand.ts, and The Lounge client/components/AlienHandRefinementWorkbench.vue
+  + [test_files] are AlienHand/python/tests/test_refinement_storage.py and AlienHand/python/tests/test_payload_http.py
+
+  = implemented: added optional channel_uuid filtering to ConversationRefinementStore.search
+  = implemented: joined search terms to conversation_blocks so channel scope follows the authoritative block channel identity
+  = implemented: accepted an optional channel query parameter on GET /alienhand/refinement/search
+  = implemented: returned the applied channel value in the search response for request traceability
+  = implemented: changed The Lounge workbench search to pass its current channel UUID
+  = implemented: added storage and HTTP tests proving scoped search excludes another channel with the same term
+  = satisfies: per-channel history scope because search no longer leaks same-term blocks across channels when a channel is supplied
+  = satisfies: DataDrivenDesign identity discipline because the filter derives from conversation_blocks.channel_uuid rather than UI state or rendered text
+  = satisfies: search_index_update because the index remains term-to-block while lookup can be constrained by the block's channel identity
+  = verification: python -m compileall AlienHand\python\alienhand_ai\refinement_storage.py AlienHand\python\alienhand_ai\payload_http.py passed
+  = verification: python -m unittest tests.test_refinement_storage tests.test_payload_http passed 26 tests
+  = verification: npx eslint client/js/helpers/alienhand.ts client/components/AlienHandRefinementWorkbench.vue --color passed
+  = verification: yarn prettier --check client/js/helpers/alienhand.ts client/components/AlienHandRefinementWorkbench.vue passed
+  = verification: yarn build:client passed
+  = verification: python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-channel-search-proof --timeout 45 returned workbench_runtime_ok true
+  - compatibility: unscoped search remains available for future admin/debug use
+  - never: let normal workbench search show another channel's stored blocks

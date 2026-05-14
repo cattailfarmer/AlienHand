@@ -46,6 +46,21 @@ class RefinementStorageTests(unittest.TestCase):
                 self.assertEqual([hit.block_id for hit in hits], [block.block_id])
                 self.assertIn("searchable", tokenize_terms(block.presentation))
 
+    def test_search_can_be_scoped_to_one_channel(self):
+        with tempfile.TemporaryDirectory() as temp:
+            first = sample_block("shared term belongs to the first channel")
+            second = sample_block("shared term belongs to the second channel")
+            with ConversationRefinementStore(Path(temp) / "refinement.sqlite3") as store:
+                store.add_block(first)
+                store.add_block(second)
+                all_hits = store.search("shared")
+                first_hits = store.search("shared", channel_uuid=first.channel_uuid)
+                second_hits = store.search("shared", channel_uuid=second.channel_uuid)
+
+                self.assertEqual({hit.block_id for hit in all_hits}, {first.block_id, second.block_id})
+                self.assertEqual([hit.block_id for hit in first_hits], [first.block_id])
+                self.assertEqual([hit.block_id for hit in second_hits], [second.block_id])
+
     def test_user_control_flow_creates_cut_chapter_and_removes_cut(self):
         with tempfile.TemporaryDirectory() as temp:
             block = sample_block("Move this useful exchange into the cuts pane")

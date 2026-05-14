@@ -131,6 +131,7 @@ class PayloadHTTPTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             channel_uuid = uuid4().hex
+            other_channel_uuid = uuid4().hex
             payload_store = PayloadStore(root)
             history = ChannelJSONLHistory(root)
             published = commit_message(
@@ -144,9 +145,22 @@ class PayloadHTTPTests(unittest.TestCase):
                 history=history,
                 publisher=EnvelopeOutbox(),
             )
+            commit_message(
+                app_id=7,
+                channel_uuid=other_channel_uuid,
+                nick="other-user",
+                sender_type="user",
+                payload_kind="text",
+                content={"text": "searchable refinement API block from another channel"},
+                store=payload_store,
+                history=history,
+                publisher=EnvelopeOutbox(),
+            )
             replayed = replay_channel(history, PayloadResolver(payload_store), channel_uuid)
+            other_replayed = replay_channel(history, PayloadResolver(payload_store), other_channel_uuid)
             with ConversationRefinementStore(root / "refinement.sqlite3") as store:
                 blocks = import_replay_rows(store, replayed)
+                other_blocks = import_replay_rows(store, other_replayed)
 
             with PayloadResolverHTTPServer(root, access_token="secret") as server:
                 listed, _, listed_status = fetch_json(
@@ -154,6 +168,10 @@ class PayloadHTTPTests(unittest.TestCase):
                     token="secret",
                 )
                 search, _, search_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/search?q=api&channel={channel_uuid}",
+                    token="secret",
+                )
+                unscoped_search, _, unscoped_search_status = fetch_json(
                     f"{server.base_url}/alienhand/refinement/search?q=api",
                     token="secret",
                 )
@@ -340,6 +358,11 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(listed["blocks"][0]["block_id"], f"message:{published.envelope.message_uuid}")
             self.assertEqual(search_status, 200)
             self.assertEqual([hit["block_id"] for hit in search["hits"]], [blocks[0].block_id])
+            self.assertEqual(unscoped_search_status, 200)
+            self.assertEqual(
+                {hit["block_id"] for hit in unscoped_search["hits"]},
+                {blocks[0].block_id, other_blocks[0].block_id},
+            )
             self.assertEqual(unauthorized_status, 401)
             self.assertEqual(unauthorized["error"], "unauthorized")
             self.assertEqual(cut_status, 201)

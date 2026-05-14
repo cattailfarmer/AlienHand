@@ -132,6 +132,20 @@ Description: SOP description of the justification step, called "jusitification" 
   + [status] is justified
   + [uncertainty] is this is a specification and handoff clarification only; implementation in The Lounge or another AlienHand surface remains future work
 
+& [JustificationEntry: EditTextSourceNavigationProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [ConversationRefinementWorkbenchLayoutV2] and [ConversationEditingProjection]
+  + [implemented_artifact] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue editing projection source navigation
+  + [implemented_artifact] is AlienHand/thelounge/client/css/alienhand-chat.css editing projection and source highlight styling
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop source_navigation rules
+  + [evidence_anchor] is npx eslint client/components/AlienHandRefinementWorkbench.vue --color
+  + [evidence_anchor] is npx stylelint --color client/css/alienhand-chat.css
+  + [evidence_anchor] is yarn build:client in AlienHand/thelounge
+  + [evidence_anchor] is git push cattailfarmer alienhand/chat-render-adapter commit 44824e48
+  + [verification_result] is the The Lounge workbench now renders a plain editing projection from active cuts, clicking an editing line records the source cut and raw block as highlighted, scrolls the cut card into view when Cutting is open, scrolls the raw block card into view when Chat/Raw is open, and preserves source IDs without mutating the source chat or cut records; targeted Vue ESLint, CSS Stylelint, and client bundle build passed
+  + [status] is justified
+  + [uncertainty] is browser interaction has not yet been visually reviewed in a running workbench
+
 & [JustificationEntry: ConversationTermFreezeSpecification] is justified
   + [work_type] is protocol
   + [requirement_anchor] is user request to freeze the terms block, cut, chapter, edit, bookmark, sticky, and quote with articulated meaning and use cases

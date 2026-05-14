@@ -164,6 +164,7 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: keep [insertion_arrow] visually between the source chat and cutting panes while both panes are visible
   = must: hide [insertion_arrow] when either Chat or Cutting is hidden
   = must: make [editing_frame] a text editing surface derived from cuts without chat bubble frames or contributor names
+  = must: let clicking editable text reveal its source cut and source chat block when those frames are open
   = should: keep pane scroll tracking available without requiring all visible frames to share the same scroll offset
   = should: allow Chapters navigation to select, jump to, or outline refined chapter products without being the Editing surface itself
   - never: treat [editing_frame] as raw chat or as the source of truth
@@ -188,10 +189,13 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [output] is plain editable text suitable for editorial revision
   + [stripped_elements] are chat bubble frames, contributor names, transient UI controls, and channel chrome
   + [preserved_elements] are message text, code blocks, image references, link references, and provenance references outside the visible text when needed
+  + [source_navigation] is the click behavior that returns from editable text to the originating cut and raw conversation block
 
   = must: strip chat bubble frames from [output]
   = must: strip contributor names from the default editable text presentation
   = must: preserve source provenance outside the text so edits remain reviewable
+  = must: scroll to and highlight the source cut when the cutting frame is visible and editable text is clicked
+  = must: scroll to and highlight the source chat block when the chat frame is visible and editable text is clicked
   = should: preserve code frames and media references as editorially usable blocks rather than flattening them into ambiguous prose
 
 ## Frozen Terms
@@ -534,6 +538,7 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: let a user clear a sticky reference without deleting the durable sticky record
   = must: list editorial edits, edit diffs, and refined table-of-contents entries for chapters
   = must: let a user apply a first-pass editorial edit to a chapter
+  = must: render a plain editing projection from active cuts and let each projected line reveal its source cut and raw block when clicked
   = must: let a user add a chapter to the refined table of contents
   = must: expose a raw JSON/debug view for the workbench state
   = should: keep this first UI slice intentionally rough until runtime interaction is reviewed

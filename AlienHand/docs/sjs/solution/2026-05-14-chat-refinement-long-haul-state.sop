@@ -1,0 +1,40 @@
+Subject: Chat Refinement Long-Haul Solution State
+Date: 2026-05-14
+Scope: Current solution checkpoint after autonomous chat workbench implementation slices
+
+& [ChatRefinementLongHaulState: 2026-05-14] is the solution-state checkpoint for the AlienHand chat refinement workbench
+  + [specification_authority] is AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+  + [frontier_authority] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [current_parent_commit] is c87789a
+  + [current_thelounge_commit] is 6fa4add7
+  + [justification_set] includes 2026-05-14-chat-workbench-history-request.sop
+  + [justification_set] includes 2026-05-14-chat-workbench-editing-source-lines.sop
+  + [justification_set] includes 2026-05-14-chat-workbench-keyboard-shortcuts.sop
+  + [justification_set] includes 2026-05-14-chat-workbench-raw-text-tracking.sop
+  + [justification_set] includes 2026-05-14-chat-workbench-quote-provenance.sop
+
+  = implemented: UI history request command affordance backed by replay chunks and raw_only directive ledger entry
+  = implemented: channel-scoped history request validation with existing chunk and message limits
+  = implemented: Editing projection source lines for active and removed cuts
+  = implemented: missing-source and hidden-pane status hardening for Editing source reveal
+  = implemented: keyboard shortcut legend and scoped Ctrl+Alt shortcuts for frames, raw text, history, tracking, and insertion
+  = implemented: toggleable raw debug text tracking with status feedback
+  = implemented: quote draft prefill from cut source text and chapter summary
+  = implemented: visible quote source provenance in the rendered workbench
+  = verification_summary: npx eslint passed for touched The Lounge files in each slice
+  = verification_summary: npx prettier --check passed for touched The Lounge files in each slice
+  = verification_summary: yarn build:client passed for each UI slice
+  = verification_summary: python -m unittest tests.test_payload_http tests.test_refinement_storage tests.test_chat_platform passed 45 tests for each broad verification pass after the one transient IRC mock timing failure was rerun successfully
+  = verification_summary: chat-workbench-runtime-proof returned workbench_runtime_ok true for history request, editing source, keyboard shortcuts, raw tracking, and quote provenance proof runs
+
+& [RemainingObstructionSet: ChatRefinementLongHaul] is the current non-independent frontier after this pass
+  + [obstruction] is full Chat/Cutting/Editing layout geometry requires running-browser visual review because it changes the whole The Lounge chat surface
+  + [obstruction] is browser-click automation remains blocked by the local Node REPL runtime mismatch recorded in AlienHand/docs/sjs/dead_end/2026-05-14-chat-workbench-browser-proof-node-repl.sop
+  + [obstruction] is GodotExtension remains reserved for another process and was intentionally not touched
+  + [obstruction] is production authentication and multi-client policy remain deferred until prototype UX semantics stabilize
+
+  = next_when_visual_review_available: refine wide frame geometry against the user's sketch in a running browser
+  = next_when_browser_tooling_available: add browser-click proof for source selection, bridge insertion, history loading, raw tracking, and quote prefill
+  = next_without_visual_review: continue storage/API hardening that does not alter visible layout
+  - never: count unreviewed layout geometry as accepted UX
+  - never: include GodotExtension or unrelated dirty files in chat refinement commits

@@ -1,0 +1,34 @@
+Subject: Chat Workbench Editing Source Lines Justification
+Date: 2026-05-14
+Scope: Editing-panel source reveal hardening for active, removed, missing, and hidden-pane states
+
+& [ChatWorkbenchEditingSourceLineSlice] is the Editing projection source-navigation hardening
+  + [specification_basis] is AlienHand/docs/irc-chat-refinement.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [frontier_basis] is [ImplementationFrontier: ChatRefinementV2] frontier_4
+  + [ui_contract] is Editing source lines remain stripped of chat bubble framing while retaining navigable lineage to cuts and raw chat
+  + [thelounge_commit] is 238052f9
+  + [parent_pointer] is AlienHand/thelounge
+  + [implementation_files] are The Lounge client/components/AlienHandRefinementWorkbench.vue, The Lounge client/css/alienhand-chat.css, and AlienHand/python/alienhand_ai/payload_http.py
+
+  = implemented: added an Editing projection list that includes active cuts and removed cuts
+  = implemented: labeled active projection lines as Editing source line
+  = implemented: labeled removed projection lines as Removed editing source line
+  = implemented: preserved the stripped-text Editing view by showing the source presentation without chat bubble chrome or contributor identity
+  = implemented: kept each Editing line clickable so it calls the existing source reveal operator
+  = implemented: styled removed Editing lines with a distinct left-edge state without hiding their source text
+  = implemented: preserved stale-source styling for missing source blocks in the Editing projection
+  = implemented: improved source reveal feedback when both Chat and Cutting panes are hidden
+  = implemented: added runtime proof markers for Editing source labels, hidden-pane reveal status, and removed Editing line CSS
+  = satisfies: frontier_4 because source reveal now covers active cuts, removed cuts, missing source blocks, and hidden-pane feedback
+  = satisfies: DataDrivenDesign because the Editing projection derives from cut identity and status rather than duplicated rendered conversation state
+  = satisfies: UIInteractionSpecification because hidden or stale source states become visible feedback instead of silent no-ops
+  = verification: npx eslint client\components\AlienHandRefinementWorkbench.vue --color passed
+  = verification: npx prettier --check client\components\AlienHandRefinementWorkbench.vue client\css\alienhand-chat.css passed
+  = verification: yarn build:client passed
+  = verification: python -m compileall AlienHand\python\alienhand_ai\payload_http.py passed
+  = verification: python -m unittest tests.test_payload_http tests.test_refinement_storage tests.test_chat_platform passed 45 tests after rerunning one transient IRC mock timing failure
+  = verification: python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-editing-source-proof --timeout 45 returned workbench_runtime_ok true
+  - compatibility: chapter cards, edit forms, bookmarks, quotes, stickies, and TOC controls retain their existing behavior
+  - never: treat removed cuts as deleted lineage
+  - never: require visible Chat or Cutting panes before preserving the selected source identity

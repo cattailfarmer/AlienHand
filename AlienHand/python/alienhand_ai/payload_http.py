@@ -1681,6 +1681,9 @@ def run_app_thelounge_refinement_workbench_proof(
         "pinned reminder chip": "Pinned reminder",
         "unpin action": "Unpin",
         "edit action": "Apply edit",
+        "editing source line label": "Editing source line",
+        "removed editing source line label": "Removed editing source line",
+        "hidden source reveal status": "Chat and Cutting are hidden",
         "toc action": "Add TOC",
         "source direct insertion action": "Insert this message into cuts at the current Cutting position",
         "source direct insertion event": "alienhand:source-message:insert-requested",
@@ -1704,6 +1707,7 @@ def run_app_thelounge_refinement_workbench_proof(
         "blocked status pill": "alienhand-workbench__status-pill--blocked",
         "removed cuts": "alienhand-workbench__removed-cuts",
         "stale source": "alienhand-workbench__stale-source",
+        "removed editing line": "alienhand-workbench__editing-line--removed",
         "directory item": "alienhand-workbench__directory-item",
     }
     missing_bundle_markers = [

@@ -1,0 +1,61 @@
+Subject: Chat Workbench Quote Sticky Controls Justification
+Description: Justification record for exposing quote and sticky controls in the AlienHand refinement workbench.
+
+@ [canonical] AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+@ [exploded] AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+@ [implementation] AlienHand/thelounge client fork commit d6aaf556
+@ [proof_marker] AlienHand/python/alienhand_ai/payload_http.py
+
+& [JustificationRecord: ChatWorkbenchQuoteStickyControls: 2026-05-14] is the justification for quote and sticky UI controls
+  + [justification_uuid] is f0635422-1a9f-4598-a6ca-c04154de531a
+  + [work_uuid] is e8af30b6-e76f-49ba-8dc3-c6d979de2248
+  + [specification_anchor] is [ImplementationFrontier: ChatRefinementV2] frontier_6
+  + [requirement] is improve quote and sticky controls while preserving anchor validation and provenance
+  + [fork_commit] is d6aaf556
+  + [solution] is active cuts now show persisted quotes, quote capture forms, pinned reminder chips, and unpin controls
+  + [solution] is chapters now show bookmarks, quotes, pinned reminder chips, unpin controls, bookmark forms, and quote capture forms
+  + [solution] is existing API validation remains responsible for rejecting missing cut or chapter anchors
+  + [solution] is runtime proof markers now assert quote and sticky UI strings/classes
+  + [data_design_reason] is quote and sticky controls operate on explicit cut/chapter target identity rather than visual-only selection state
+  + [ui_interaction_reason] is quote capture and sticky clearing are visible user actions instead of hidden helper functions
+
+  = must: preserve quote provenance and sticky target identity through the refinement API
+  = must: clear stickies through durable clear_state instead of deleting target evidence
+  = should: keep future polish focused on selection ergonomics and citation rendering rather than schema churn
+
+& [VerificationResult: ChatWorkbenchQuoteStickyControls: 2026-05-14] is the verification evidence for this slice
+  + [eslint] is npx eslint client/components/AlienHandRefinementWorkbench.vue --color
+  + [eslint_result] is passed
+  + [stylelint] is npx stylelint --color client/css/alienhand-chat.css
+  + [stylelint_result] is passed
+  + [prettier] is yarn prettier --check client/components/AlienHandRefinementWorkbench.vue client/css/alienhand-chat.css
+  + [prettier_result] is passed
+  + [client_build] is yarn build:client
+  + [client_build_result] is passed
+  + [runtime_command] is python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-quote-sticky-proof --timeout 45
+  + [runtime_result] is workbench_runtime_ok true
+  + [runtime_result] is missing_workbench_bundle_markers empty
+  + [runtime_result] is missing_workbench_style_markers empty
+  + [runtime_root] is AlienHand/python/runs/chat-workbench-quote-sticky-proof
+
+  = must: keep browser-level interaction review as a separate acceptance step
+
+& [SolutionRecord: ChatWorkbenchQuoteStickyControls: 2026-05-14] is the completed solution slice
+  + [solution_uuid] is 62cf577a-2516-4633-98d8-5a69cbc8add9
+  + [changed_file] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue
+  + [changed_file] is AlienHand/thelounge/client/css/alienhand-chat.css
+  + [changed_file] is AlienHand/python/alienhand_ai/payload_http.py
+  + [changed_file] is AlienHand/docs/sjs/justification/2026-05-14-chat-workbench-quote-sticky-controls.sop
+  + [next_frontier] is [ImplementationFrontier: ChatRefinementV2] frontier_7
+  + [next_frontier_label] is add browser-click or harness proof once the local browser automation dependency is usable
+
+  ! [ChatWorkbenchQuoteStickyControlsAccepted] is accepted
+    @ [support] [VerificationResult: ChatWorkbenchQuoteStickyControls: 2026-05-14]
+    @ [support] [JustificationRecord: ChatWorkbenchQuoteStickyControls: 2026-05-14]
+
+& [RegistryRecord: ChatWorkbenchQuoteStickyControls: 2026-05-14] is the registry node for this solution slice
+  + [registry_uuid] is 3bfc2372-e5b6-4b1c-8a67-8b73d8b0e98a
+  + [derived_from] is AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+  + [implemented_as] is AlienHand/thelounge commit d6aaf556 and AlienHand/python/alienhand_ai/payload_http.py
+  + [justified_by] is this document
+  + [verification_artifact] is AlienHand/python/runs/chat-workbench-quote-sticky-proof

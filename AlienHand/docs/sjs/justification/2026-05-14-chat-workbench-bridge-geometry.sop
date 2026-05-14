@@ -1,0 +1,58 @@
+Subject: Chat Workbench Bridge Geometry Justification
+Description: Justification record for aligning the draggable AlienHand insertion bridge with the active Cutting insertion marker.
+
+@ [canonical] AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+@ [exploded] AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+@ [implementation] AlienHand/thelounge client fork commit bb416517
+
+& [JustificationRecord: ChatWorkbenchBridgeGeometry: 2026-05-14] is the justification for insertion bridge geometry hardening
+  + [justification_uuid] is 887fa68c-0d85-463b-bf2d-2b09f1d8eb4b
+  + [work_uuid] is 49b8c9e7-082f-4df8-aaf8-ec38fd0b71dc
+  + [specification_anchor] is [ImplementationFrontier: ChatRefinementV2] frontier_3
+  + [requirement] is refine insertion bridge geometry and blocked-state feedback against the Chat/Cutting layout
+  + [fork_commit] is bb416517
+  + [solution] is the bridge rail now has an explicit component ref and the Cutting insertion markers expose data-insertion-index anchors
+  + [solution] is the bridge arrow synchronizes to the active insertion marker as insertion position, visible panes, selected source, active cut count, or Cutting scroll state changes
+  + [solution] is drag behavior remains user-controlled and temporarily suppresses auto-sync while the pointer is actively moving the arrow
+  + [data_design_reason] is insertion_position is now represented as inspectable UI state linked to the cut ordering relation
+  + [ui_interaction_reason] is the transform affordance visually tracks the destination location instead of floating at an arbitrary default y coordinate
+
+  = must: preserve user drag as the way to choose insertion position
+  = must: keep bridge hidden when Chat or Cutting is hidden
+  = must: keep insertion markers as visible feedback for the current cut position
+
+& [VerificationResult: ChatWorkbenchBridgeGeometry: 2026-05-14] is the verification evidence for this slice
+  + [eslint] is npx eslint client/components/AlienHandRefinementWorkbench.vue --color
+  + [eslint_result] is passed
+  + [stylelint] is npx stylelint --color client/css/alienhand-chat.css
+  + [stylelint_result] is passed
+  + [prettier] is yarn prettier --check client/components/AlienHandRefinementWorkbench.vue
+  + [prettier_result] is passed
+  + [client_build] is yarn build:client
+  + [client_build_result] is passed
+  + [runtime_command] is python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-bridge-proof --timeout 45
+  + [runtime_result] is workbench_runtime_ok true
+  + [runtime_result] is missing_workbench_bundle_markers empty
+  + [runtime_result] is missing_workbench_style_markers empty
+  + [runtime_root] is AlienHand/python/runs/chat-workbench-bridge-proof
+  + [residual_risk] is browser-click visual acceptance still needs a human or browser automation pass because the runtime proof cannot drag the bridge in a real browser session
+
+  = must: keep browser visual acceptance as a remaining review frontier
+
+& [SolutionRecord: ChatWorkbenchBridgeGeometry: 2026-05-14] is the completed solution slice
+  + [solution_uuid] is b837e945-c985-44e9-822e-8fb2950ed3af
+  + [changed_file] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue
+  + [changed_file] is AlienHand/docs/sjs/justification/2026-05-14-chat-workbench-bridge-geometry.sop
+  + [next_frontier] is [ImplementationFrontier: ChatRefinementV2] frontier_4
+  + [next_frontier_label] is make editing-line source reveal robust for active cuts, removed cuts, missing source blocks, and hidden panes
+
+  ! [ChatWorkbenchBridgeGeometryAccepted] is accepted
+    @ [support] [VerificationResult: ChatWorkbenchBridgeGeometry: 2026-05-14]
+    @ [support] [JustificationRecord: ChatWorkbenchBridgeGeometry: 2026-05-14]
+
+& [RegistryRecord: ChatWorkbenchBridgeGeometry: 2026-05-14] is the registry node for this solution slice
+  + [registry_uuid] is df80c471-c0cc-4841-b6cb-9fb2f43e6e53
+  + [derived_from] is AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+  + [implemented_as] is AlienHand/thelounge commit bb416517
+  + [justified_by] is this document
+  + [verification_artifact] is AlienHand/python/runs/chat-workbench-bridge-proof

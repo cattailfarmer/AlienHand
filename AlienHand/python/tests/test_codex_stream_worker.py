@@ -389,6 +389,37 @@ class CodexStreamWorkerFrontier2Tests(unittest.TestCase):
                 self.assertEqual(snapshot["responses"][0]["status"], "completed")
                 self.assertEqual(snapshot["responses"][0]["result_summary"], "done")
 
+    def test_record_artifact_indexes_artifact_in_request_status(self):
+        with tempfile.TemporaryDirectory() as temp:
+            with CodexStreamWorkerStore(Path(temp) / "codex_stream.sqlite3") as store:
+                store.enqueue_request(
+                    request_id="request-frontier2-j1",
+                    app_id=42,
+                    channel_uuid=None,
+                    requester_kind="system",
+                    requester_id="svc-artifact",
+                    task_type="history_context_pack",
+                    input_ref='{"task":"history_context_pack"}',
+                )
+                claim = store.claim_next_request(worker_id="worker-artifact")
+                artifact = store.record_artifact(
+                    request_id="request-frontier2-j1",
+                    attempt_id=claim["attempt_id"],
+                    artifact_uri="file:///tmp/context-pack.json",
+                    artifact_kind="history_context_pack",
+                    mime_type="application/json",
+                    content_hash="sha256:abc123",
+                    size_bytes=123,
+                    metadata={"chunk_count": 2},
+                )
+                snapshot = store.request_status("request-frontier2-j1")
+
+            self.assertEqual(artifact["artifact_kind"], "history_context_pack")
+            self.assertEqual(len(snapshot["artifacts"]), 1)
+            self.assertEqual(snapshot["artifacts"][0]["artifact_uri"], "file:///tmp/context-pack.json")
+            self.assertEqual(snapshot["artifacts"][0]["attempt_id"], claim["attempt_id"])
+            self.assertEqual(snapshot["artifacts"][0]["metadata"]["chunk_count"], 2)
+
 
 class CodexStreamWorkerFrontier3Tests(unittest.TestCase):
     def test_worker_run_once_completes_request_with_fake_executor(self):
@@ -502,6 +533,52 @@ class CodexStreamWorkerFrontier3Tests(unittest.TestCase):
                     summary = worker.run(max_iterations=3)
                 self.assertEqual(summary["processed"], 0)
                 self.assertEqual(store.request_status("request-worker-a3")["request"]["status"], "ready")
+
+    def test_worker_records_executor_artifacts_before_completion_response(self):
+        with tempfile.TemporaryDirectory() as temp:
+            db_path = Path(temp) / "codex_stream.sqlite3"
+            with CodexStreamWorkerStore(db_path) as store:
+                store.enqueue_request(
+                    request_id="request-worker-a4",
+                    app_id=11,
+                    channel_uuid=None,
+                    requester_kind="system",
+                    requester_id="svc-worker",
+                    task_type="history_context_pack",
+                    input_ref='{"task":"history_context_pack"}',
+                )
+
+                def executor(_: dict[str, object]) -> dict[str, object]:
+                    return {
+                        "status": "completed",
+                        "result_summary": "context pack ready",
+                        "result_ref": "file:///tmp/context-pack.json",
+                        "artifacts": [
+                            {
+                                "artifact_uri": "file:///tmp/context-pack.json",
+                                "artifact_kind": "history_context_pack",
+                                "mime_type": "application/json",
+                                "content_hash": "sha256:def456",
+                                "size_bytes": 456,
+                                "metadata": {"resolved_payloads": 3},
+                            }
+                        ],
+                    }
+
+                with CodexStreamWorker(
+                    store=db_path,
+                    worker_id="worker-1",
+                    executor=executor,
+                    poll_interval_ms=1,
+                ) as worker:
+                    result = worker.run_once()
+                self.assertEqual(result["outcome"], "completed")
+                status = store.request_status("request-worker-a4")
+                self.assertEqual(status["request"]["status"], "completed")
+                self.assertEqual(len(status["artifacts"]), 1)
+                self.assertEqual(status["artifacts"][0]["artifact_kind"], "history_context_pack")
+                self.assertEqual(status["artifacts"][0]["metadata"]["resolved_payloads"], 3)
+                self.assertEqual(status["responses"][0]["artifact_refs"], ["file:///tmp/context-pack.json"])
 
 
 class CodexStreamWorkerFrontier7Tests(unittest.TestCase):

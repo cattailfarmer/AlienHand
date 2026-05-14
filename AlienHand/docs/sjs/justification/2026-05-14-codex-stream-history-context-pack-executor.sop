@@ -1,0 +1,36 @@
+Subject: Codex Stream History Context Pack Executor
+Date: 2026-05-14
+Scope: Durable artifact-producing execution for history_context_pack requests after stream-worker debug visibility
+
+& [CodexStreamHistoryContextPackExecutor] is the recorded completion slice for the first real Codex stream task executor
+  + [specification_basis] is AlienHand/docs/sjs/canonical/codex-stream-worker.canonical.sop
+  + [frontier_relation] is post-frontier_7 runtime execution support for [CanonicalRequirementSet: AlienHandCodexStreamWorker]
+  + [implementer] is GPT-5.5 Codex
+  + [model_routing] is high_reasoning because this slice crosses durable artifact ordering, replay semantics, request anchoring, response state, and worker failure behavior
+  + [implementation_files] are AlienHand/python/alienhand_ai/codex_stream_worker.py,
+    AlienHand/python/alienhand_ai/codex_stream_task_executors.py,
+    AlienHand/python/tests/test_codex_stream_worker.py,
+    AlienHand/python/tests/test_codex_stream_task_executors.py
+  + [evidence_artifacts] are focused worker and executor tests plus neighboring chat and payload HTTP regression tests
+
+  = implemented: added CodexStreamWorkerStore.record_artifact so executor outputs can be indexed in codex_stream_artifacts with URI, kind, MIME type, content hash, size, attempt id, and metadata
+  = implemented: added artifacts to request_status snapshots so frontier_7 debug surfaces can inspect produced context-pack artifacts through the existing queue projection path
+  = implemented: changed worker completion flow so executor-returned artifacts are recorded before complete_request writes the successful response and terminal request status
+  = implemented: preserved response artifact_refs compatibility by merging recorded artifact URIs into the completed response artifact_refs list
+  = implemented: added execute_alienhand_task as the runtime executor entrypoint while preserving execute_stubbed_task behavior for callers without an AlienHand runtime root
+  = implemented: added execute_history_context_pack to resolve channel JSONL history and payload files into an immutable JSON context-pack artifact
+  = implemented: anchored context-pack replay to request_message_uuid when available so messages sent after the history request do not silently enter that request's context pack
+  = implemented: wrote context-pack artifacts atomically under codex_stream_artifacts/<channel_uuid>/<request_id>.history_context_pack.json with SHA-256 content evidence
+  = implemented: recorded summary counts for chunk_count, event_count, resolved_payloads, and payload_errors in both artifact body and artifact metadata
+
+  = verification: python -m unittest AlienHand.python.tests.test_codex_stream_worker AlienHand.python.tests.test_codex_stream_task_executors passed with 24 tests
+  = verification: python -m unittest AlienHand.python.tests.test_chat_platform AlienHand.python.tests.test_payload_http passed with 35 tests
+
+  = satisfies: [CanonicalRequirementSet: AlienHandCodexStreamWorker] response artifacts are written before successful completion status when the response depends on them
+  = satisfies: [CanonicalRequirementSet: AlienHandCodexStreamWorker] final responses reference request_id, status, result_ref, model route, and artifact references where available
+  = satisfies: [CanonicalRequirementSet: AlienHandCodexStreamWorker] failures remain durable and replayable because malformed history-context input returns blocked status instead of an untracked console-only exception
+  = satisfies: [CanonicalRequirementSet: AlienHandCodexStreamWorker] task routing distinguishes history_context_pack as a concrete executor path while unsupported or rootless tasks remain stubbed
+
+  - deferred: no CLI or daemon runner was added because AlienHand/python/alienhand_ai/cli.py already contains unrelated dirty work from parallel development
+  - deferred: production authentication, retention policy, multi-worker policy, and arbitrary task authorization remain frontier_8 work
+  - deferred: context-pack cutoff policy is currently anchored by request_message_uuid when available; richer cutoff variants should be specified before adding alternate request scopes

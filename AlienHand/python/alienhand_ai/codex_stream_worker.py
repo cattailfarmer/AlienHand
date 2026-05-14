@@ -347,6 +347,59 @@ class CodexStreamWorkerStore:
             "completed_at": now,
         }
 
+    def record_artifact(
+        self,
+        *,
+        request_id: str,
+        artifact_uri: str,
+        artifact_kind: str,
+        attempt_id: str | None = None,
+        mime_type: str | None = None,
+        content_hash: str | None = None,
+        size_bytes: int | None = None,
+        metadata: dict[str, Any] | None = None,
+        artifact_id: str | None = None,
+    ) -> dict[str, Any]:
+        if not artifact_uri or not artifact_kind:
+            raise ValueError("artifact_uri and artifact_kind are required")
+        _ensure_request_exists(self.connection, request_id)
+        resolved_artifact_id = artifact_id or str(uuid4())
+        now = utc_timestamp()
+        metadata_json = json.dumps(metadata or {}, sort_keys=True, separators=(",", ":"))
+        with self.connection:
+            self.connection.execute(
+                """
+                INSERT INTO codex_stream_artifacts(
+                    artifact_id, request_id, attempt_id, artifact_uri, artifact_kind,
+                    mime_type, content_hash, size_bytes, created_at, metadata_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    resolved_artifact_id,
+                    request_id,
+                    attempt_id,
+                    artifact_uri,
+                    artifact_kind,
+                    mime_type,
+                    content_hash,
+                    size_bytes,
+                    now,
+                    metadata_json,
+                ),
+            )
+        return {
+            "artifact_id": resolved_artifact_id,
+            "request_id": request_id,
+            "attempt_id": attempt_id,
+            "artifact_uri": artifact_uri,
+            "artifact_kind": artifact_kind,
+            "mime_type": mime_type,
+            "content_hash": content_hash,
+            "size_bytes": size_bytes,
+            "created_at": now,
+            "metadata": metadata or {},
+        }
+
     def fail_request(
         self,
         *,
@@ -486,11 +539,22 @@ class CodexStreamWorkerStore:
             """,
             (request_id,),
         ).fetchall()
+        artifact_rows = self.connection.execute(
+            """
+            SELECT artifact_id, request_id, attempt_id, artifact_uri, artifact_kind,
+                   mime_type, content_hash, size_bytes, created_at, metadata_json
+            FROM codex_stream_artifacts
+            WHERE request_id = ?
+            ORDER BY created_at DESC, artifact_id DESC
+            """,
+            (request_id,),
+        ).fetchall()
         return {
             "request": _request_row_to_dict(request_row),
             "attempts": [_attempt_row_to_dict(row) for row in attempt_rows],
             "lease": _lease_row_to_dict(lease_row) if lease_row else None,
             "responses": [_response_row_to_dict(row) for row in response_rows],
+            "artifacts": [_artifact_row_to_dict(row) for row in artifact_rows],
         }
 
     def list_request_statuses(
@@ -603,6 +667,23 @@ class CodexStreamWorker:
                 )
                 model_route = route.__dict__
             if status == "completed":
+                artifact_refs = list(result.get("artifact_refs") or [])
+                for artifact in result.get("artifacts") or []:
+                    if not isinstance(artifact, dict):
+                        raise TypeError("executor artifacts must be dicts")
+                    recorded_artifact = self.store.record_artifact(
+                        request_id=request["request_id"],
+                        attempt_id=attempt_id,
+                        artifact_uri=str(artifact.get("artifact_uri", "")),
+                        artifact_kind=str(artifact.get("artifact_kind", "")),
+                        mime_type=artifact.get("mime_type"),
+                        content_hash=artifact.get("content_hash"),
+                        size_bytes=artifact.get("size_bytes"),
+                        metadata=artifact.get("metadata"),
+                        artifact_id=artifact.get("artifact_id"),
+                    )
+                    if recorded_artifact["artifact_uri"] not in artifact_refs:
+                        artifact_refs.append(recorded_artifact["artifact_uri"])
                 self.store.complete_request(
                     request_id=request["request_id"],
                     attempt_id=attempt_id,
@@ -610,7 +691,7 @@ class CodexStreamWorker:
                     result_ref=result.get("result_ref"),
                     model_route=model_route,
                     justification_ref=result.get("justification_ref"),
-                    artifact_refs=result.get("artifact_refs", []),
+                    artifact_refs=artifact_refs,
                 )
                 return {
                     "request_id": request["request_id"],
@@ -776,6 +857,21 @@ def _response_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "error_ref": row["error_ref"],
         "created_at": row["created_at"],
         "completed_at": row["completed_at"],
+    }
+
+
+def _artifact_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "artifact_id": row["artifact_id"],
+        "request_id": row["request_id"],
+        "attempt_id": row["attempt_id"],
+        "artifact_uri": row["artifact_uri"],
+        "artifact_kind": row["artifact_kind"],
+        "mime_type": row["mime_type"],
+        "content_hash": row["content_hash"],
+        "size_bytes": row["size_bytes"],
+        "created_at": row["created_at"],
+        "metadata": json.loads(row["metadata_json"]),
     }
 
 

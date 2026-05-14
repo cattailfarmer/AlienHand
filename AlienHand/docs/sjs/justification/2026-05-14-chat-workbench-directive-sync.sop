@@ -1,0 +1,31 @@
+Subject: Chat Workbench Directive Sync Justification
+Date: 2026-05-14
+Scope: The Lounge refinement workbench multi-client directive freshness
+
+& [ChatWorkbenchDirectiveSyncSlice] is the polling bridge from persisted directive ledger events into open workbench clients
+  + [specification_basis] is AlienHand/docs/irc-chat-refinement.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [data_design_basis] is platform/refinement/Data_Driven_Design.sop
+  + [ui_basis] is platform/refinement/UI_Interaction_Specification.sop
+  + [thelounge_commit] is 6909d53e
+  + [parent_pointer] is AlienHand/thelounge
+  + [implementation_file] is The Lounge client/components/AlienHandRefinementWorkbench.vue
+  + [proof_file] is AlienHand/python/alienhand_ai/payload_http.py
+
+  = implemented: added a five-second directive-ledger poll while the workbench is mounted
+  = implemented: queried GET /alienhand/refinement/directives after the latest known directive sequence
+  = implemented: refreshed the full workbench state when remote directive events appear
+  = implemented: exposed visible sync status for remote events and resolver wait states
+  = implemented: cleared the poll timer when the workbench unmounts
+  = implemented: expanded the runtime proof bundle markers to require directive sync visible states
+  = satisfies: DataDrivenDesign evidence flow because open clients synchronize from the append-only directive ledger instead of guessing from final row state
+  = satisfies: UIInteractionSpecification state visibility because the workbench reports whether sync saw remote events or is waiting on the resolver
+  = satisfies: SJS justification discipline because this note maps the implementation slice to the specification contract and verification evidence
+  = verification: npx eslint client/components/AlienHandRefinementWorkbench.vue --color passed
+  = verification: yarn prettier --check client/components/AlienHandRefinementWorkbench.vue passed
+  = verification: yarn build:client passed
+  = verification: python -m compileall AlienHand\python\alienhand_ai\payload_http.py passed
+  = verification: python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-directive-sync-proof --timeout 45 returned workbench_runtime_ok true
+  - deferred: direct browser visual proof remains blocked by the Node REPL runtime version mismatch recorded in the browser-proof dead-end note
+  - deferred: production-grade push sync can replace polling later if the project chooses SSE, WebSocket, or another subscription channel
+  - never: treat live IRC memory as the source of workbench synchronization truth

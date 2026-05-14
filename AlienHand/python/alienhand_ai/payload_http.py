@@ -1577,6 +1577,8 @@ def run_app_thelounge_refinement_workbench_proof(
         "error status": "Latest workbench error is shown above.",
         "directive ledger status": "directive ledger events",
         "empty directive ledger status": "No directive ledger events for this channel.",
+        "directive sync saw status": "Directive ledger sync saw",
+        "directive sync waiting status": "Directive ledger sync waiting",
         "removed cuts detail": "removed cuts",
         "missing source label": "Missing source block",
         "missing source reveal status": "Revealed cut; source block is missing",

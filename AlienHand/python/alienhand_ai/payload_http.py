@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 import secrets
 import threading
-from typing import Any
+from typing import Any, Iterable
 from urllib.parse import parse_qs, unquote, urlparse
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -41,11 +41,15 @@ class PayloadResolverHTTPServer:
         host: str = "127.0.0.1",
         port: int | None = None,
         access_token: str | None = None,
+        allowed_origins: Iterable[str] | None = None,
     ) -> None:
         self.root = Path(root)
         self.host = host
         self.port = 0 if port is None else port
         self.access_token = access_token
+        self.allowed_origins = tuple(
+            dict.fromkeys(origin.rstrip("/") for origin in (allowed_origins or ()) if origin)
+        )
         self.store = PayloadStore(self.root)
         self.resolver = PayloadResolver(self.store)
         self.refinement_db_path = self.root / "refinement.sqlite3"
@@ -58,6 +62,13 @@ class PayloadResolverHTTPServer:
 
     def render_url(self, message_uuid: str) -> str:
         return f"{self.base_url}/alienhand/payloads/{message_uuid}/render"
+
+    def cors_origin_for(self, request_origin: str | None) -> str | None:
+        if not self.allowed_origins:
+            return "*"
+        if request_origin in self.allowed_origins:
+            return request_origin
+        return None
 
     def start(self) -> "PayloadResolverHTTPServer":
         if self._server is not None:
@@ -699,7 +710,11 @@ class PayloadResolverHTTPServer:
                 self.wfile.write(encoded)
 
             def _send_cors_headers(self) -> None:
-                self.send_header("Access-Control-Allow-Origin", "*")
+                allowed_origin = owner.cors_origin_for(self.headers.get("Origin"))
+                if allowed_origin is not None:
+                    self.send_header("Access-Control-Allow-Origin", allowed_origin)
+                if owner.allowed_origins:
+                    self.send_header("Vary", "Origin")
                 self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
                 self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept")
 
@@ -1173,7 +1188,11 @@ def run_app_thelounge_runtime_group_proof(
         if service.payload_http_server is None or thelounge_base_url is None:
             raise RuntimeError("runtime group proof requires payload resolver and The Lounge to be running")
         render_url = service.payload_http_server.render_url(published.envelope.message_uuid)
-        render_response = _http_json(render_url, access_token=service.payload_resolver_token)
+        render_response = _http_json(
+            render_url,
+            access_token=service.payload_resolver_token,
+            origin=thelounge_base_url,
+        )
         index_response = _http_text(f"{thelounge_base_url}/")
 
     replayed = replay_channel(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
@@ -1184,11 +1203,13 @@ def run_app_thelounge_runtime_group_proof(
     resolver_token_attribute = f'data-alienhand-payload-resolver-token="{service.payload_resolver_token}"'
     thelounge_html_has_resolver = resolver_data_attribute in index_html
     thelounge_html_has_resolver_token = resolver_token_attribute in index_html
+    resolver_cors_origin_ok = render_response["headers"].get("Access-Control-Allow-Origin") == thelounge_base_url
     fetch_ok = (
         render_response["status"] == 200
         and render_row.get("status") == "resolved"
         and render_row.get("message_uuid") == published.envelope.message_uuid
         and render_row.get("content", {}).get("text") == text
+        and resolver_cors_origin_ok
     )
     return {
         "resolver_version": PAYLOAD_RESOLVER_VERSION,
@@ -1209,6 +1230,7 @@ def run_app_thelounge_runtime_group_proof(
         "payload_resolver_started": resolver_started,
         "thelounge_started": thelounge_started,
         "payload_resolver_fetch_ok": fetch_ok,
+        "payload_resolver_cors_origin_ok": resolver_cors_origin_ok,
         "thelounge_html_has_resolver": thelounge_html_has_resolver,
         "thelounge_html_has_resolver_token": thelounge_html_has_resolver_token,
         "payload_resolver_stopped": service.payload_http_server is None,
@@ -1504,6 +1526,7 @@ def run_app_thelounge_refinement_workbench_proof(
         render_response = _http_json(
             service.payload_http_server.render_url(published.envelope.message_uuid),
             access_token=access_token,
+            origin=thelounge_base_url,
         )
         index_response = _http_text(f"{thelounge_base_url}/")
         bundle_response = _http_text(f"{thelounge_base_url}/js/bundle.js")
@@ -1671,6 +1694,7 @@ def run_app_thelounge_refinement_workbench_proof(
         render_response["status"] == 200
         and render_row.get("status") == "resolved"
         and render_row.get("message_uuid") == published.envelope.message_uuid
+        and render_response["headers"].get("Access-Control-Allow-Origin") == thelounge_base_url
     )
     workbench_runtime_ok = (
         process_started
@@ -1699,6 +1723,8 @@ def run_app_thelounge_refinement_workbench_proof(
         "payload_resolver_started": resolver_started,
         "thelounge_started": thelounge_started,
         "render_fetch_ok": render_fetch_ok,
+        "payload_resolver_cors_origin_ok": render_response["headers"].get("Access-Control-Allow-Origin")
+        == thelounge_base_url,
         "listed_blocks": len(blocks),
         "listed_blocks_after_live_source": len(live_blocks),
         "search_hits": len(search_hits),
@@ -1790,8 +1816,13 @@ def _positive_int_value(value: Any, name: str, *, allow_zero: bool = False) -> i
     return parsed
 
 
-def _http_json(url: str, *, access_token: str | None = None) -> JsonDict:
-    headers = {"Accept": "application/json", "Origin": "http://127.0.0.1"}
+def _http_json(
+    url: str,
+    *,
+    access_token: str | None = None,
+    origin: str = "http://127.0.0.1",
+) -> JsonDict:
+    headers = {"Accept": "application/json", "Origin": origin}
     if access_token:
         headers["Authorization"] = f"Bearer {access_token}"
     request = Request(url, headers=headers)
@@ -1804,8 +1835,14 @@ def _http_json(url: str, *, access_token: str | None = None) -> JsonDict:
         return {"json": json.loads(body), "headers": dict(error.headers), "status": error.code}
 
 
-def _http_post_json(url: str, body: JsonDict, *, access_token: str | None = None) -> JsonDict:
-    headers = {"Accept": "application/json", "Content-Type": "application/json", "Origin": "http://127.0.0.1"}
+def _http_post_json(
+    url: str,
+    body: JsonDict,
+    *,
+    access_token: str | None = None,
+    origin: str = "http://127.0.0.1",
+) -> JsonDict:
+    headers = {"Accept": "application/json", "Content-Type": "application/json", "Origin": origin}
     if access_token:
         headers["Authorization"] = f"Bearer {access_token}"
     encoded = json.dumps(body, sort_keys=True).encode("utf-8")
@@ -1819,8 +1856,13 @@ def _http_post_json(url: str, body: JsonDict, *, access_token: str | None = None
         return {"json": json.loads(response_body), "headers": dict(error.headers), "status": error.code}
 
 
-def _http_delete_json(url: str, *, access_token: str | None = None) -> JsonDict:
-    headers = {"Accept": "application/json", "Origin": "http://127.0.0.1"}
+def _http_delete_json(
+    url: str,
+    *,
+    access_token: str | None = None,
+    origin: str = "http://127.0.0.1",
+) -> JsonDict:
+    headers = {"Accept": "application/json", "Origin": origin}
     if access_token:
         headers["Authorization"] = f"Bearer {access_token}"
     request = Request(url, headers=headers, method="DELETE")
@@ -1833,8 +1875,8 @@ def _http_delete_json(url: str, *, access_token: str | None = None) -> JsonDict:
         return {"json": json.loads(response_body), "headers": dict(error.headers), "status": error.code}
 
 
-def _http_options(url: str) -> JsonDict:
-    request = Request(url, headers={"Origin": "http://127.0.0.1"}, method="OPTIONS")
+def _http_options(url: str, *, origin: str = "http://127.0.0.1") -> JsonDict:
+    request = Request(url, headers={"Origin": origin}, method="OPTIONS")
     with urlopen(request, timeout=5.0) as response:
         response.read()
         return {"headers": dict(response.headers), "status": response.status}

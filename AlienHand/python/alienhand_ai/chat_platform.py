@@ -637,13 +637,29 @@ class AlienHandChatService:
             return
         from .payload_http import PayloadResolverHTTPServer
 
+        allowed_origins = None
+        if self.start_thelounge:
+            if self.thelounge_port is None:
+                self.thelounge_port = find_free_port()
+            allowed_origins = self._thelounge_allowed_origins()
         self.payload_http_server = PayloadResolverHTTPServer(
             self.root,
             host=self.payload_resolver_host,
             port=self.payload_resolver_port,
             access_token=self.payload_resolver_token,
+            allowed_origins=allowed_origins,
         ).start()
         self.payload_resolver_port = int(self.payload_http_server.port)
+
+    def _thelounge_allowed_origins(self) -> tuple[str, ...]:
+        if self.thelounge_port is None:
+            raise RuntimeError("The Lounge port must be assigned before resolver CORS origins are built")
+        origins = [f"http://{self.thelounge_host}:{self.thelounge_port}"]
+        if self.thelounge_host == "127.0.0.1":
+            origins.append(f"http://localhost:{self.thelounge_port}")
+        elif self.thelounge_host == "localhost":
+            origins.append(f"http://127.0.0.1:{self.thelounge_port}")
+        return tuple(dict.fromkeys(origins))
 
     def _ensure_refinement_store(self) -> ConversationRefinementStore:
         if self.refinement_store is None:

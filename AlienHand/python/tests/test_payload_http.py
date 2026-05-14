@@ -91,6 +91,30 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertIn("GET", headers["Access-Control-Allow-Methods"])
             self.assertIn("Authorization", headers["Access-Control-Allow-Headers"])
 
+    def test_http_resolver_restricts_cors_to_allowed_origins(self):
+        with tempfile.TemporaryDirectory() as temp:
+            with PayloadResolverHTTPServer(
+                Path(temp),
+                access_token="secret",
+                allowed_origins=("http://127.0.0.1:19000",),
+            ) as server:
+                _, allowed_headers, allowed_status = fetch_json(
+                    server.render_url(str(uuid4())),
+                    token="secret",
+                    origin="http://127.0.0.1:19000",
+                )
+                _, blocked_headers, blocked_status = fetch_json(
+                    server.render_url(str(uuid4())),
+                    token="secret",
+                    origin="http://example.invalid",
+                )
+
+            self.assertEqual(allowed_status, 200)
+            self.assertEqual(allowed_headers["Access-Control-Allow-Origin"], "http://127.0.0.1:19000")
+            self.assertEqual(allowed_headers["Vary"], "Origin")
+            self.assertEqual(blocked_status, 200)
+            self.assertNotIn("Access-Control-Allow-Origin", blocked_headers)
+
     def test_payload_resolver_http_proof_fetches_resolved_and_missing_rows(self):
         with tempfile.TemporaryDirectory() as temp:
             result = run_payload_resolver_http_proof(Path(temp) / "resolver")
@@ -529,6 +553,16 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertIn("defaults.tls=false", command)
             self.assertIn("defaults.nick=alienhanduser%%", command)
 
+    def test_chat_service_limits_resolver_cors_to_thelounge_origins(self):
+        with tempfile.TemporaryDirectory() as temp:
+            service = AlienHandChatService(Path(temp) / "service", start_thelounge=True)
+            service.thelounge_port = 19000
+
+            self.assertEqual(
+                service._thelounge_allowed_origins(),
+                ("http://127.0.0.1:19000", "http://localhost:19000"),
+            )
+
     def test_chat_service_reports_missing_thelounge_build_before_launch(self):
         with tempfile.TemporaryDirectory() as temp:
             service = AlienHandChatService(
@@ -541,8 +575,8 @@ class PayloadHTTPTests(unittest.TestCase):
                 service._require_thelounge_build()
 
 
-def fetch_json(url: str, *, token: str | None = None):
-    headers = {"Accept": "application/json", "Origin": "http://localhost"}
+def fetch_json(url: str, *, token: str | None = None, origin: str = "http://localhost"):
+    headers = {"Accept": "application/json", "Origin": origin}
     if token:
         headers["Authorization"] = f"Bearer {token}"
     request = Request(url, headers=headers)

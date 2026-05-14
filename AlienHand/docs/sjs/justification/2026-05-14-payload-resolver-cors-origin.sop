@@ -1,0 +1,24 @@
+Subject: Payload Resolver CORS Origin Justification
+Date: 2026-05-14
+Scope: App-owned The Lounge to payload resolver browser boundary
+
+& [PayloadResolverCorsOriginSlice] is the prototype security hardening for resolver browser access
+  + [specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [implementation_files] are AlienHand/python/alienhand_ai/payload_http.py and AlienHand/python/alienhand_ai/chat_platform.py
+  + [test_file] is AlienHand/python/tests/test_payload_http.py
+  + [related_frontier] is production authentication and multi-client synchronization policy
+
+  = implemented: PayloadResolverHTTPServer now accepts an allowed_origins list while preserving wildcard CORS for standalone/default resolver use
+  = implemented: app-owned The Lounge launches preassign the The Lounge port before starting the resolver and pass the matching 127.0.0.1 and localhost origins to the resolver
+  = implemented: resolver CORS responses echo only allowed The Lounge origins and omit Access-Control-Allow-Origin for disallowed browser origins
+  = implemented: runtime proofs now verify the resolver render API responds with the The Lounge origin rather than wildcard origin when The Lounge is running
+  = satisfies: DataDrivenDesign boundary modeling because browser origin policy is derived from the app-owned The Lounge runtime identity instead of being ambient wildcard state
+  = satisfies: UIInteractionSpecification safety because the workbench can still fetch resolver data while unrelated browser origins are not granted CORS access
+  = supports: production auth policy by separating local app-owned browser access from generic resolver access
+  = verification: python -m compileall AlienHand/python/alienhand_ai/payload_http.py AlienHand/python/alienhand_ai/chat_platform.py passed
+  = verification: python -m unittest tests.test_payload_http passed with 14 tests
+  = verification: chat-workbench-runtime-proof returned workbench_runtime_ok true and payload_resolver_cors_origin_ok true
+  = verification: chat-runtime-group-proof returned runtime_group_ok true and payload_resolver_cors_origin_ok true
+  = note: one mistyped CLI command name failed before the correct chat-runtime-group-proof command was run; this was an operator command error rather than a product failure
+  - never: treat bearer token injection into the prototype page as complete production authentication
+  - never: grant wildcard browser CORS to the app-owned resolver when a concrete The Lounge origin is known

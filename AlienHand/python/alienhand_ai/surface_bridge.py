@@ -15,6 +15,7 @@ from .multi_mouse import (
     MultiMouseEventJournal,
     PointerDeltaPacket,
     PointerInputEvent,
+    ReflectedCursorPresentation,
     ROLE_ALIENHAND_POINTER,
     ROLE_WINDOWS_POINTER,
     ScreenBounds,
@@ -36,6 +37,7 @@ SURFACE_PROTOCOL = "AH_SURFACE/1"
 SURFACE_POINTER_EVENT = "alienhand.pointer"
 DEFAULT_GODOT_SURFACE_ID = "godot-main-viewport"
 DEFAULT_GODOT_BRIDGE_PORT = 47991
+DEFAULT_LEFT_HAND_CURSOR = ReflectedCursorPresentation(width=32, height=32, hotspot_x=0, hotspot_y=0)
 
 
 @dataclass(frozen=True)
@@ -185,11 +187,15 @@ def surface_event_from_routed(
     *,
     sequence: int,
     surface_id: str,
+    bounds: ScreenBounds | None = None,
+    cursor_presentation: ReflectedCursorPresentation | None = None,
 ) -> SurfacePointerEvent | None:
     if routed.channel != CHANNEL_ALIENHAND:
         return None
     virtual_state = routed.details.get("virtual_state", {})
     buttons = tuple(str(button) for button in virtual_state.get("pressed_buttons", []))
+    active_bounds = bounds or _default_bounds()
+    active_cursor = cursor_presentation or DEFAULT_LEFT_HAND_CURSOR
     return SurfacePointerEvent(
         sequence=sequence,
         surface_id=surface_id,
@@ -205,7 +211,10 @@ def surface_event_from_routed(
         timestamp_ms=routed.timestamp_ms,
         source_channel=routed.channel,
         target_id=routed.target_id,
-        metadata={"target": "godot_surface"},
+        metadata={
+            "target": "godot_surface",
+            "cursor": active_cursor.to_surface_metadata(routed.x, routed.y, active_bounds),
+        },
     )
 
 
@@ -236,7 +245,14 @@ def godot_surface_integration_handle(host: str, port: int, surface_id: str) -> J
                 "buttons",
                 "wheel_delta",
                 "timestamp_ms",
+                "metadata",
             ],
+            "cursor_contract": {
+                "metadata_path": "metadata.cursor",
+                "presentation": "left_hand_reflected",
+                "coordinate_policy": "x/y are the pointer hotspot; do not mirror coordinates",
+                "rendering": "mirror the cursor texture horizontally around the hotspot vertical axis",
+            },
             "actions": [
                 "move",
                 "left_down",
@@ -444,7 +460,7 @@ def _read_jsonl_messages(client: socket.socket, expected_count: int) -> list[Jso
 
 
 def _default_bounds() -> ScreenBounds:
-    return ScreenBounds(left=0, top=0, right=1920, bottom=1080)
+    return ScreenBounds(left=0, top=0, right=1919, bottom=1079)
 
 
 def _initial_positions(assignments: DeviceAssignmentTable) -> dict[str, tuple[int, int]]:

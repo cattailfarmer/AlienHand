@@ -54,7 +54,20 @@ Each line is one event.
   "source_channel": "alienhand_independent",
   "target_id": "godot-alienhand-surface",
   "metadata": {
-    "target": "godot_surface"
+    "target": "godot_surface",
+    "cursor": {
+      "cursor_presentation": "left_hand_reflected",
+      "mirror_axis": "hotspot_vertical",
+      "coordinate_policy": "x_y_are_hotspot_not_mirrored",
+      "width": 32,
+      "height": 32,
+      "normal_hotspot": {"x": 0, "y": 0},
+      "reflected_hotspot": {"x": 31, "y": 0},
+      "normal_rect": {"left": 660, "top": 350, "right": 691, "bottom": 381},
+      "reflected_rect": {"left": 629, "top": 350, "right": 660, "bottom": 381},
+      "normal_clipped_rect": {"left": 660, "top": 350, "right": 691, "bottom": 381},
+      "reflected_clipped_rect": {"left": 629, "top": 350, "right": 660, "bottom": 381}
+    }
   }
 }
 ```
@@ -70,6 +83,23 @@ Each line is one event.
 - Use `x` and `y` as absolute surface coordinates for the current prototype.
 - Use `dx` and `dy` for motion deltas when needed.
 - Use `buttons` as the current pressed-button state after the event.
+
+## Left-Hand Cursor Presentation
+
+Godot should treat `x` and `y` as the pointer hotspot. Do not mirror the coordinates.
+
+When `metadata.cursor.cursor_presentation == "left_hand_reflected"`:
+
+- Render the AlienHand cursor texture as a horizontal reflection of the normal cursor.
+- Mirror the cursor texture around the vertical line that passes through the hotspot.
+- Keep selection, hit testing, drag origin, and drop coordinates at `x,y`.
+- If the normal cursor hotspot is `(0,0)` with width `W`, the reflected cursor hotspot is `(W - 1,0)`.
+- A normal cursor near the right edge clips against the right edge.
+- The reflected left-hand cursor near the left edge clips against the left edge.
+- Use `metadata.cursor.reflected_rect` for the intended reflected cursor rectangle before clipping.
+- Use `metadata.cursor.reflected_clipped_rect` when the viewport needs a precomputed clipped draw rectangle.
+
+This presentation rule lets the left-hand cursor and the normal cursor point at the same object while sharing the same vertical hotspot line.
 
 ## Actions
 

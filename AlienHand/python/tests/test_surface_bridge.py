@@ -29,6 +29,10 @@ class SurfaceBridgeTests(unittest.TestCase):
         self.assertEqual(result["surface_events"][0]["type"], SURFACE_POINTER_EVENT)
         self.assertEqual(result["surface_events"][0]["pointer_id"], "alienhand:mouse-b")
         self.assertEqual(result["integration_handle"]["transport"], "tcp-jsonl")
+        cursor = result["surface_events"][0]["metadata"]["cursor"]
+        self.assertEqual(cursor["cursor_presentation"], "left_hand_reflected")
+        self.assertEqual(cursor["coordinate_policy"], "x_y_are_hotspot_not_mirrored")
+        self.assertEqual(cursor["reflected_hotspot"]["x"], 31)
 
     def test_surface_server_publishes_jsonl_to_client(self):
         with SurfaceEventJSONLServer() as server:
@@ -50,6 +54,8 @@ class SurfaceBridgeTests(unittest.TestCase):
         self.assertEqual(handle["protocol"], SURFACE_PROTOCOL)
         self.assertEqual(handle["event_type"], SURFACE_POINTER_EVENT)
         self.assertIn("pointer_id", handle["godot_contract"]["required_fields"])
+        self.assertIn("metadata", handle["godot_contract"]["required_fields"])
+        self.assertEqual(handle["godot_contract"]["cursor_contract"]["presentation"], "left_hand_reflected")
 
 
 def _sample_surface_event():

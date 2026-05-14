@@ -386,6 +386,70 @@ class ScreenBounds:
 
 
 @dataclass(frozen=True)
+class CursorRect:
+    left: int
+    top: int
+    right: int
+    bottom: int
+
+    def clipped_to(self, bounds: ScreenBounds) -> CursorRect:
+        return CursorRect(
+            left=max(self.left, bounds.left),
+            top=max(self.top, bounds.top),
+            right=min(self.right, bounds.right),
+            bottom=min(self.bottom, bounds.bottom),
+        )
+
+    def to_dict(self) -> JsonDict:
+        return {"left": self.left, "top": self.top, "right": self.right, "bottom": self.bottom}
+
+
+@dataclass(frozen=True)
+class ReflectedCursorPresentation:
+    width: int
+    height: int
+    hotspot_x: int = 0
+    hotspot_y: int = 0
+
+    def __post_init__(self) -> None:
+        if self.width <= 0:
+            raise ValueError("cursor width must be positive")
+        if self.height <= 0:
+            raise ValueError("cursor height must be positive")
+        if self.hotspot_x < 0 or self.hotspot_x >= self.width:
+            raise ValueError("cursor hotspot_x must be inside the cursor width")
+        if self.hotspot_y < 0 or self.hotspot_y >= self.height:
+            raise ValueError("cursor hotspot_y must be inside the cursor height")
+
+    @property
+    def reflected_hotspot_x(self) -> int:
+        return self.width - 1 - self.hotspot_x
+
+    def normal_rect(self, pointer_x: int, pointer_y: int) -> CursorRect:
+        return _cursor_rect(pointer_x, pointer_y, self.width, self.height, self.hotspot_x, self.hotspot_y)
+
+    def reflected_rect(self, pointer_x: int, pointer_y: int) -> CursorRect:
+        return _cursor_rect(pointer_x, pointer_y, self.width, self.height, self.reflected_hotspot_x, self.hotspot_y)
+
+    def to_surface_metadata(self, pointer_x: int, pointer_y: int, bounds: ScreenBounds) -> JsonDict:
+        normal = self.normal_rect(pointer_x, pointer_y)
+        reflected = self.reflected_rect(pointer_x, pointer_y)
+        return {
+            "cursor_presentation": "left_hand_reflected",
+            "mirror_axis": "hotspot_vertical",
+            "coordinate_policy": "x_y_are_hotspot_not_mirrored",
+            "width": self.width,
+            "height": self.height,
+            "normal_hotspot": {"x": self.hotspot_x, "y": self.hotspot_y},
+            "reflected_hotspot": {"x": self.reflected_hotspot_x, "y": self.hotspot_y},
+            "normal_rect": normal.to_dict(),
+            "reflected_rect": reflected.to_dict(),
+            "normal_clipped_rect": normal.clipped_to(bounds).to_dict(),
+            "reflected_clipped_rect": reflected.clipped_to(bounds).to_dict(),
+        }
+
+
+@dataclass(frozen=True)
 class PointerDeltaPacket:
     raw_input_name: str
     action: str
@@ -1500,6 +1564,22 @@ def _initial_live_pointer_positions(assignments: DeviceAssignmentTable) -> dict[
     bounds = _windows_screen_bounds()
     center = ((bounds.right - bounds.left) // 2, (bounds.bottom - bounds.top) // 2)
     return {assignment.logical_device_id: center for assignment in assignments.assignments}
+
+
+def _cursor_rect(
+    pointer_x: int,
+    pointer_y: int,
+    width: int,
+    height: int,
+    hotspot_x: int,
+    hotspot_y: int,
+) -> CursorRect:
+    return CursorRect(
+        left=pointer_x - hotspot_x,
+        top=pointer_y - hotspot_y,
+        right=pointer_x - hotspot_x + width - 1,
+        bottom=pointer_y - hotspot_y + height - 1,
+    )
 
 
 def _legacy_action(

@@ -47,7 +47,7 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [CurrentJustificationLedger] is the current justification state for completed AlienHand chat-platform setup work
   + [scope] is work performed in the AlienHand repository for chat-platform setup, the first runtime substrate proof, and the separate chat conversation refinement specification
-  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, refinement HTTP workbench API proof, bookmark-note HTTP API proof, quote HTTP API proof, sticky HTTP API proof, editorial HTTP API proof, first The Lounge refinement workbench UI proof, workbench bookmark-note UI proof, workbench quote/sticky UI proof, workbench sticky unpin proof, workbench editorial controls proof, live source arrow cuts proof, app-owned workbench runtime proof, workbench live-review launcher, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, and live HTTP payload resolver fetch are implemented and verified, but polished split-pane interaction, draggable insertion arrow positioning, polished quote selection, polished sticky presentation, polished editorial edit review, browser-click automation, and production authentication hardening are not implemented
+  + [ledger_status] is partially_justified because durable substrate, IRC publisher, local Ergo lifecycle proof, AlienHand-owned service lifecycle proof, app-owned refinement storage lifecycle proof, refinement HTTP workbench API proof, bookmark-note HTTP API proof, quote HTTP API proof, sticky HTTP API proof, editorial HTTP API proof, first The Lounge refinement workbench UI proof, workbench bookmark-note UI proof, workbench quote/sticky UI proof, workbench sticky unpin proof, workbench editorial controls proof, live source arrow cuts proof, app-owned workbench runtime proof, workbench live-review launcher, app-owned payload resolver lifecycle proof, app-owned The Lounge runtime group proof, thelounge resolver discovery, prototype payload resolver access token enforcement, minimal user-client receive proof, !ah history command syntax and payload-backed command handling, chunked history replay, render-model conversion, refinement SQLite storage proof, replay-to-refinement import proof, thelounge fork rendering support, live HTTP payload resolver fetch, multi-mouse routing proofs, Godot surface bridge proof, and reflected left-hand cursor presentation metadata are implemented and verified, but polished split-pane interaction, draggable insertion arrow positioning, polished quote selection, polished sticky presentation, polished editorial edit review, browser-click automation, production authentication hardening, and real mouse capture/interception are not implemented
 
 & [JustificationEntry: BizHawkNestedDependency] is justified
   + [work_type] is dependency
@@ -563,6 +563,22 @@ Description: SOP description of the justification step, called "jusitification" 
   + [verification_result] is live bridge smoke returned bridge_live_ok true on 127.0.0.1:47992, saw 2 mouse-class devices, produced the integration_handle, and remained non-invasive; no surface events were published during the 1 second window because no mouse movement occurred
   + [status] is justified
   + [uncertainty] is this bridge makes Godot ready to consume AlienHand independent pointer events; it does not modify Godot engine, block Windows mouse input, or provide final capture/interception behavior
+
+& [JustificationEntry: ReflectedLeftHandCursorPresentation] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [ReflectedLeftHandCursorPresentation], [AlienHandGodotSurfaceBridge], and [GodotSurfaceBridgeProof]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/multi_mouse.py ReflectedCursorPresentation and CursorRect
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/surface_bridge.py metadata.cursor in AH_SURFACE/1 events
+  + [implemented_artifact] is AlienHand/python/tests/test_multi_mouse.py reflected cursor presentation tests
+  + [implemented_artifact] is AlienHand/python/tests/test_surface_bridge.py cursor metadata assertions
+  + [implemented_artifact] is AlienHand/docs/godot-surface-bridge-handoff.md Left-Hand Cursor Presentation
+  + [implemented_artifact] is AlienHand/docs/multi-mouse-input.sop [ReflectedLeftHandCursorPresentation]
+  + [evidence_anchor] is python -m unittest tests.test_multi_mouse tests.test_surface_bridge
+  + [evidence_anchor] is python -m alienhand_ai.cli godot-surface-bridge-proof --output runs --name godot-surface-bridge-proof
+  + [evidence_anchor] is python -m unittest discover -s tests
+  + [verification_result] is tests prove the normal cursor rectangle extends right from the hotspot and clips at the right edge, the reflected cursor rectangle extends left from the same hotspot and clips at the left edge, and AH_SURFACE/1 events include metadata.cursor with cursor_presentation left_hand_reflected and coordinate_policy x_y_are_hotspot_not_mirrored
+  + [status] is justified
+  + [uncertainty] is this implements the presentation contract and Godot handoff metadata; final Godot rendering, real Windows cursor masking, and capture/interception remain future work
 
 ## Future Work Behavior
 

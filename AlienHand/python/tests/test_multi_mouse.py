@@ -26,6 +26,7 @@ from alienhand_ai.multi_mouse import (
     PointerDeltaPacket,
     PointerInputEvent,
     RawInputDevice,
+    ReflectedCursorPresentation,
     ScreenBounds,
     RecordingLegacyInjectionBackend,
     SimulatedCaptureBackend,
@@ -191,6 +192,24 @@ class MultiMouseRoutingTests(unittest.TestCase):
         self.assertEqual((clamped.x, clamped.y), (100, 80))
         self.assertIsNone(unknown)
         self.assertEqual(tracker.state_snapshot()["states"]["mouse-b"]["pressed_buttons"], ["left"])
+
+    def test_reflected_cursor_presentation_keeps_hotspot_and_clips_left_edge(self):
+        bounds = ScreenBounds(left=0, top=0, right=1919, bottom=1079)
+        cursor = ReflectedCursorPresentation(width=16, height=24, hotspot_x=0, hotspot_y=0)
+
+        normal_edge = cursor.normal_rect(1919, 100)
+        reflected_edge = cursor.reflected_rect(0, 100)
+        normal_middle = cursor.normal_rect(500, 100)
+        reflected_middle = cursor.reflected_rect(500, 100)
+        metadata = cursor.to_surface_metadata(0, 100, bounds)
+
+        self.assertEqual((normal_edge.left, normal_edge.right), (1919, 1934))
+        self.assertEqual(normal_edge.clipped_to(bounds).right, 1919)
+        self.assertEqual((reflected_edge.left, reflected_edge.right), (-15, 0))
+        self.assertEqual(reflected_edge.clipped_to(bounds).left, 0)
+        self.assertEqual(normal_middle.left, reflected_middle.right)
+        self.assertEqual(metadata["coordinate_policy"], "x_y_are_hotspot_not_mirrored")
+        self.assertEqual(metadata["reflected_hotspot"]["x"], 15)
 
     def test_raw_mouse_delta_packets_expand_move_buttons_and_wheel(self):
         target = TargetIdentity("live-raw-input", "windows-raw-input")

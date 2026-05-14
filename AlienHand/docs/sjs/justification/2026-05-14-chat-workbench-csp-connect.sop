@@ -1,0 +1,37 @@
+Subject: Chat Workbench CSP Connect Justification
+Date: 2026-05-14
+Scope: Browser fetch repair for AlienHand The Lounge to payload resolver communication
+
+& [ChatWorkbenchCSPConnectSlice] is the browser fetch blocker repair after live workbench review
+  + [specification_basis] is AlienHand/docs/irc-chat-refinement.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [review_basis] is user report that AlienHand refinement API fetch failed for /blocks persisted after CORS hardening
+  + [diagnosis] is resolver CORS passed direct and preflight requests, but The Lounge Content-Security-Policy blocked browser fetch because connect-src omitted the AlienHand resolver origin
+  + [thelounge_commit] is ff420428
+  + [parent_pointer] is AlienHand/thelounge
+  + [implementation_files] are The Lounge server/server.ts and AlienHand/python/alienhand_ai/payload_http.py
+
+  = observed: current live The Lounge returned Content-Security-Policy connect-src 'self' ws: wss:
+  = observed: current live resolver returned Access-Control-Allow-Origin for The Lounge, Access-Control-Allow-Private-Network true, and valid preflight response
+  = inferred: browser Failed to fetch persisted because CSP prevented the cross-origin resolver request before the successful CORS response could be used
+  = implemented: The Lounge server now adds Config.values.alienhand.payloadResolverBaseUrl origin to connect-src when AlienHand supplies a resolver
+  = implemented: non-http and invalid resolver values are ignored for CSP safety
+  = implemented: AlienHand runtime group proof now requires The Lounge CSP to include the resolver origin
+  = implemented: AlienHand workbench runtime proof now requires The Lounge CSP to include the resolver origin
+
+  = satisfies: ChatWorkbenchLiveReviewCorrectionsSlice because successful source insertion depends on browser access to /blocks and /cuts endpoints
+  = satisfies: UIInteractionSpecification because the visible row arrow can only complete its intended action when browser fetch to the refinement API is permitted
+  = satisfies: DataDrivenDesign because the resolver origin remains derived from the launched app-owned resolver identity instead of hard-coded ports
+  = verification: curl.exe OPTIONS to the live resolver showed Access-Control-Allow-Origin, Access-Control-Allow-Private-Network, and allowed methods/headers
+  = verification: yarn build:server passed
+  = verification: npx eslint server\server.ts --color passed
+  = verification: npx prettier --check server\server.ts passed
+  = verification: python -m compileall AlienHand\python\alienhand_ai\payload_http.py passed
+  = verification: python -m unittest tests.test_payload_http.PayloadHTTPTests.test_http_resolver_supports_browser_options_preflight tests.test_payload_http.PayloadHTTPTests.test_http_resolver_restricts_cors_to_allowed_origins passed 2 tests
+  = verification: python -m unittest tests.test_payload_http tests.test_refinement_storage tests.test_chat_platform passed 45 tests
+  = verification: python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-csp-connect-proof --timeout 45 returned workbench_runtime_ok true
+  = verification: runtime proof returned thelounge_csp_connects_resolver true
+  - compatibility: default The Lounge CSP remains unchanged when AlienHand does not configure a resolver
+  - compatibility: websocket and polling connect sources remain allowed
+  - never: use a wildcard connect-src for AlienHand resolver access
+  - never: trust invalid or non-http resolver values as CSP source expressions

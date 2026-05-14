@@ -1292,8 +1292,10 @@ def run_app_thelounge_runtime_group_proof(
     render_row = render_response["json"]
     resolver_data_attribute = f'data-alienhand-payload-resolver="{resolver_base_url}"'
     resolver_token_attribute = f'data-alienhand-payload-resolver-token="{service.payload_resolver_token}"'
+    index_csp = index_response["headers"].get("Content-Security-Policy", "")
     thelounge_html_has_resolver = resolver_data_attribute in index_html
     thelounge_html_has_resolver_token = resolver_token_attribute in index_html
+    thelounge_csp_connects_resolver = resolver_base_url in index_csp
     resolver_cors_origin_ok = render_response["headers"].get("Access-Control-Allow-Origin") == thelounge_base_url
     resolver_private_network_ok = (
         render_response["headers"].get("Access-Control-Allow-Private-Network") == "true"
@@ -1305,6 +1307,7 @@ def run_app_thelounge_runtime_group_proof(
         and render_row.get("content", {}).get("text") == text
         and resolver_cors_origin_ok
         and resolver_private_network_ok
+        and thelounge_csp_connects_resolver
     )
     return {
         "resolver_version": PAYLOAD_RESOLVER_VERSION,
@@ -1329,6 +1332,7 @@ def run_app_thelounge_runtime_group_proof(
         "payload_resolver_private_network_ok": resolver_private_network_ok,
         "thelounge_html_has_resolver": thelounge_html_has_resolver,
         "thelounge_html_has_resolver_token": thelounge_html_has_resolver_token,
+        "thelounge_csp_connects_resolver": thelounge_csp_connects_resolver,
         "payload_resolver_stopped": service.payload_http_server is None,
         "thelounge_stopped": service.thelounge_process is None,
         "history_events": len(replayed),
@@ -1659,7 +1663,9 @@ def run_app_thelounge_refinement_workbench_proof(
     index_html = index_response["text"]
     bundle_js = bundle_response["text"]
     style_css = style_response["text"]
+    index_csp = index_response["headers"].get("Content-Security-Policy", "")
     resolver_data_attribute = f'data-alienhand-payload-resolver="{resolver_base_url}"'
+    thelounge_csp_connects_resolver = resolver_base_url in index_csp
     workbench_bundle_markers = {
         "workbench aria label": "AlienHand refinement workbench",
         "chat toggle aria label": "Show or hide Chat frame",
@@ -1839,6 +1845,7 @@ def run_app_thelounge_refinement_workbench_proof(
         and resolver_started
         and thelounge_started
         and resolver_data_attribute in index_html
+        and thelounge_csp_connects_resolver
         and workbench_bundle_ok
         and workbench_style_ok
         and refinement_api_ok
@@ -1865,6 +1872,7 @@ def run_app_thelounge_refinement_workbench_proof(
         == thelounge_base_url,
         "payload_resolver_private_network_ok": render_response["headers"].get("Access-Control-Allow-Private-Network")
         == "true",
+        "thelounge_csp_connects_resolver": thelounge_csp_connects_resolver,
         "listed_blocks": len(blocks),
         "listed_blocks_after_live_source": len(live_blocks),
         "search_hits": len(search_hits),

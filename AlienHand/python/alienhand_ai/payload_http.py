@@ -1552,6 +1552,8 @@ def run_app_thelounge_refinement_workbench_proof(
         "empty cuts guidance": "No cuts yet. Select a chat line",
         "refreshing status": "Refreshing refinement state.",
         "error status": "Latest workbench error is shown above.",
+        "directive ledger status": "directive ledger events",
+        "empty directive ledger status": "No directive ledger events for this channel.",
         "removed cuts detail": "removed cuts",
         "missing source label": "Missing source block",
         "missing source reveal status": "Revealed cut; source block is missing",

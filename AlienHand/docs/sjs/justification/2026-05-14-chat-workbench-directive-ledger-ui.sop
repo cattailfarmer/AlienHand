@@ -1,0 +1,25 @@
+Subject: Chat Workbench Directive Ledger UI Justification
+Date: 2026-05-14
+Scope: The Lounge raw/debug visibility for refinement directive ledger
+
+& [ChatWorkbenchDirectiveLedgerUISlice] is the workbench projection for append-only directive evidence
+  + [specification_basis] is AlienHand/docs/irc-chat-refinement.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [thelounge_commit] is 3d1d5a34
+  + [parent_pointer] is AlienHand/thelounge
+  + [implementation_files] are The Lounge client/components/AlienHandRefinementWorkbench.vue and client/js/helpers/alienhand.ts
+  + [proof_file] is AlienHand/python/alienhand_ai/payload_http.py
+
+  = implemented: added The Lounge helper typing and fetch support for GET /alienhand/refinement/directives
+  = implemented: loaded the channel directive ledger during workbench refresh beside blocks, cuts, chapters, annotations, edits, and TOC
+  = implemented: exposed directive ledger counts and latest sequence in the workbench status surface
+  = implemented: included directives in the raw debug JSON view while keeping normal conversation presentation unchanged
+  = implemented: updated runtime proof bundle markers for directive ledger status text
+  = satisfies: ConversationDirective visibility because operational actions are visible in raw/debug review without requiring command text to appear as ordinary chat
+  = satisfies: DataDrivenDesign projection discipline because the UI consumes the persisted directive event stream instead of reconstructing action history from final row state
+  = satisfies: UIInteractionSpecification state visibility because users can tell whether the channel has persisted directive events and what the latest sequence is
+  = verification: npx eslint client/components/AlienHandRefinementWorkbench.vue client/js/helpers/alienhand.ts --color passed
+  = verification: yarn prettier --check client/components/AlienHandRefinementWorkbench.vue client/js/helpers/alienhand.ts passed
+  = verification: yarn build:client passed
+  - never: make directive ledger rows the normal chat story
+  - never: hide directive audit evidence when raw/debug text is requested

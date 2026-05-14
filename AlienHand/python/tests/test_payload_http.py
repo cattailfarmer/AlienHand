@@ -131,6 +131,48 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(result["unauthorized_status"], 401)
             self.assertTrue(result["cors_ok"])
 
+    def test_refinement_http_api_lists_stream_requests_for_channel_debug_visibility(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            channel_uuid = uuid4().hex
+            with CodexStreamWorkerStore(root / "codex_stream.sqlite3") as queue:
+                queue.enqueue_request(
+                    request_id="stream-http-a1",
+                    app_id=7,
+                    channel_uuid=channel_uuid,
+                    requester_kind="user",
+                    requester_id="alice",
+                    task_type="history_context_pack",
+                    input_ref='{"task":"history_context_pack"}',
+                )
+                queue.enqueue_request(
+                    request_id="stream-http-a2",
+                    app_id=7,
+                    channel_uuid="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    requester_kind="user",
+                    requester_id="other",
+                    task_type="history_context_pack",
+                    input_ref='{"task":"history_context_pack"}',
+                )
+                claim = queue.claim_next_request(worker_id="worker-http")
+                queue.complete_request(
+                    request_id=claim["request"]["request_id"],
+                    attempt_id=claim["attempt_id"],
+                    result_summary="debug visible",
+                )
+
+            with PayloadResolverHTTPServer(root, access_token="secret") as server:
+                stream_rows, _, stream_status = fetch_json(
+                    f"{server.base_url}/alienhand/refinement/stream-requests?channel={channel_uuid}",
+                    token="secret",
+                )
+
+            self.assertEqual(stream_status, 200)
+            self.assertEqual(stream_rows["count"], 1)
+            self.assertEqual(stream_rows["summary"], {"completed": 1})
+            self.assertEqual(stream_rows["requests"][0]["request"]["request_id"], "stream-http-a1")
+            self.assertEqual(stream_rows["requests"][0]["responses"][0]["result_summary"], "debug visible")
+
     def test_refinement_http_api_lists_searches_and_creates_user_controlled_objects(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

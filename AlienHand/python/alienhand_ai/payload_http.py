@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 from uuid import uuid4
 
 from .refinement_storage import ConversationBlock, ConversationRefinementStore, import_replay_rows
+from .codex_stream_worker import CodexStreamWorkerStore
 from .chat_platform import (
     AlienHandChatService,
     ChannelJSONLHistory,
@@ -285,6 +286,29 @@ class PayloadResolverHTTPServer:
                             limit=limit,
                         )
                     self._send_json({"directives": [directive.to_dict() for directive in directives]}, HTTPStatus.OK)
+                    return True
+                if parts == (*REFINEMENT_PATH_PREFIX, "stream-requests"):
+                    try:
+                        stream_query = _stream_request_query_from_params(query)
+                        with CodexStreamWorkerStore(_default_codex_stream_db(owner.root)) as stream_store:
+                            requests = stream_store.list_request_statuses(**stream_query)
+                            summary = stream_store.request_status_summary(
+                                app_id=stream_query.get("app_id"),
+                                channel_uuid=stream_query.get("channel_uuid"),
+                                task_type=stream_query.get("task_type"),
+                            )
+                    except ValueError as error:
+                        self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    self._send_json(
+                        {
+                            "requests": requests,
+                            "summary": summary,
+                            "count": len(requests),
+                            "limit": stream_query["limit"],
+                        },
+                        HTTPStatus.OK,
+                    )
                     return True
                 return False
 
@@ -1739,6 +1763,9 @@ def run_app_thelounge_refinement_workbench_proof(
         "source direct insertion action": "Insert this message into cuts at the current Cutting position",
         "source direct insertion event": "alienhand:source-message:insert-requested",
         "chapter directory selection status": "Selected chapter has no currently visible source cut to reveal.",
+        "workers tab": "Workers",
+        "worker requests label": "worker requests",
+        "stream requests raw debug": "streamRequests",
         "chapter directory item class": "alienhand-workbench__directory-item",
         "workbench class": "alienhand-workbench",
     }
@@ -1762,6 +1789,7 @@ def run_app_thelounge_refinement_workbench_proof(
         "removed editing line": "alienhand-workbench__editing-line--removed",
         "shortcut legend": "alienhand-workbench__shortcuts",
         "directory item": "alienhand-workbench__directory-item",
+        "stream inspector": "alienhand-workbench__stream-inspector",
     }
     missing_bundle_markers = [
         name for name, marker in workbench_bundle_markers.items() if marker not in bundle_js
@@ -2001,6 +2029,23 @@ def _history_request_from_body(body: JsonDict, channel_uuid: str) -> JsonDict:
         "event_types": ["message"],
         "messages": messages,
         "mode": mode,
+    }
+
+
+def _stream_request_query_from_params(query: dict[str, str]) -> JsonDict:
+    limit = _optional_positive_int(query.get("limit"), "limit") or 50
+    if limit > 200:
+        raise ValueError("limit must be at most 200")
+    app_id = _optional_positive_int(query.get("app_id"), "app_id")
+    channel_uuid = normalize_channel_uuid(query["channel"]) if query.get("channel") else None
+    status = query.get("status") or None
+    task_type = query.get("task_type") or None
+    return {
+        "app_id": app_id,
+        "channel_uuid": channel_uuid,
+        "status": status,
+        "task_type": task_type,
+        "limit": limit,
     }
 
 

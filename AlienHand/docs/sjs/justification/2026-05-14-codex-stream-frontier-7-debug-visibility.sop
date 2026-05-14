@@ -1,0 +1,37 @@
+Subject: Codex Stream Frontier 7 Debug Visibility
+Date: 2026-05-14
+Scope: UI and API visibility for pending, completed, failed, and claimed Codex stream worker requests
+
+& [CodexStreamFrontier7DebugVisibility] is the recorded completion slice for frontier_7
+  + [specification_basis] is AlienHand/docs/sjs/canonical/codex-stream-worker.canonical.sop
+  + [frontier_target] is [CanonicalImplementationFrontier: AlienHandCodexStreamWorker] frontier_7
+  + [implementer] is GPT-5.5 Codex
+  + [model_routing] is high_reasoning because this slice crosses durable queue state, HTTP API shape, UI/debug presentation, and worker trust visibility
+  + [implementation_files] are AlienHand/python/alienhand_ai/codex_stream_worker.py,
+    AlienHand/python/alienhand_ai/payload_http.py,
+    AlienHand/python/tests/test_codex_stream_worker.py,
+    AlienHand/python/tests/test_payload_http.py,
+    AlienHand/thelounge/client/js/helpers/alienhand.ts,
+    AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue,
+    AlienHand/thelounge/client/css/alienhand-chat.css
+  + [evidence_artifacts] are worker projection tests, HTTP projection tests, The Lounge client build, and chat workbench runtime proof
+
+  = implemented: added read-only queue projection methods for filtered request lifecycle snapshots and status summaries
+  = implemented: exposed `/alienhand/refinement/stream-requests` for authenticated debug reads by channel, status, task type, app id, and limit
+  = implemented: added The Lounge helper types and request listing API for stream-worker debug records
+  = implemented: added Workers tab to the AlienHand workbench directory with request status, task type, selected request details, and response summary
+  = implemented: included stream request snapshots and summary counts in the raw debug JSON surface
+  = implemented: updated workbench proof markers so the runtime proof checks stream request UI and style assets
+
+  = verification: python -m unittest AlienHand.python.tests.test_codex_stream_worker.CodexStreamWorkerFrontier7Tests
+  = verification: python -m unittest AlienHand.python.tests.test_payload_http.PayloadHTTPTests.test_refinement_http_api_lists_stream_requests_for_channel_debug_visibility
+  = verification: python -m unittest AlienHand.python.tests.test_codex_stream_worker AlienHand.python.tests.test_payload_http
+  = verification: yarn build:client in AlienHand/thelounge completed successfully
+  = verification: python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-stream-requests-proof passed with workbench_runtime_ok true
+
+  = satisfies: [CanonicalImplementationFrontier: AlienHandCodexStreamWorker] frontier_7
+  = satisfies: [AlienHandIntegrationSurface: CodexStreamWorker] because chat/workbench surfaces can now observe pending and final request states from durable queue tables
+  = satisfies: [ResponseEventContract: AlienHandCodexStreamWorker] because response summaries, result refs, errors, model route payloads, and attempts are inspectable through the debug projection
+
+  - compatibility: this slice is read-only debug visibility and does not add production authorization, retention, or multi-worker policy
+  - compatibility: normal chat rendering remains separate; worker queue internals appear in the workbench debug/directory surface and raw debug JSON

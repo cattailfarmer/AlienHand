@@ -504,5 +504,67 @@ class CodexStreamWorkerFrontier3Tests(unittest.TestCase):
                 self.assertEqual(store.request_status("request-worker-a3")["request"]["status"], "ready")
 
 
+class CodexStreamWorkerFrontier7Tests(unittest.TestCase):
+    def test_list_request_statuses_filters_and_includes_lifecycle_details(self):
+        with tempfile.TemporaryDirectory() as temp:
+            channel_uuid = "2cf5cd633a76421c8c4c5a1b93eb033e"
+            with CodexStreamWorkerStore(Path(temp) / "codex_stream.sqlite3") as store:
+                store.enqueue_request(
+                    request_id="request-frontier7-a1",
+                    app_id=42,
+                    channel_uuid=channel_uuid,
+                    requester_kind="user",
+                    requester_id="alice",
+                    task_type="history_context_pack",
+                    input_ref='{"task":"history_context_pack"}',
+                    model_budget_hint="spark_suitable",
+                )
+                store.enqueue_request(
+                    request_id="request-frontier7-a2",
+                    app_id=42,
+                    channel_uuid=channel_uuid,
+                    requester_kind="system",
+                    requester_id="svc",
+                    task_type="health_check",
+                    input_ref='{"task":"health_check"}',
+                )
+                store.enqueue_request(
+                    request_id="request-frontier7-other",
+                    app_id=42,
+                    channel_uuid="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    requester_kind="user",
+                    requester_id="other",
+                    task_type="history_context_pack",
+                    input_ref='{"task":"history_context_pack"}',
+                )
+                claim = store.claim_next_request(worker_id="worker-frontier7")
+                store.complete_request(
+                    request_id=claim["request"]["request_id"],
+                    attempt_id=claim["attempt_id"],
+                    result_summary="packed",
+                    result_ref="artifact://context-pack",
+                )
+
+                snapshots = store.list_request_statuses(channel_uuid=channel_uuid, limit=10)
+                history_snapshots = store.list_request_statuses(
+                    channel_uuid=channel_uuid,
+                    task_type="history_context_pack",
+                    limit=10,
+                )
+                completed_snapshots = store.list_request_statuses(
+                    channel_uuid=channel_uuid,
+                    status="completed",
+                    limit=10,
+                )
+                summary = store.request_status_summary(channel_uuid=channel_uuid)
+
+            self.assertEqual({row["request"]["request_id"] for row in snapshots}, {"request-frontier7-a1", "request-frontier7-a2"})
+            self.assertEqual([row["request"]["request_id"] for row in history_snapshots], ["request-frontier7-a1"])
+            self.assertEqual([row["request"]["request_id"] for row in completed_snapshots], ["request-frontier7-a1"])
+            self.assertEqual(summary, {"completed": 1, "ready": 1})
+            self.assertEqual(completed_snapshots[0]["responses"][0]["result_summary"], "packed")
+            self.assertEqual(completed_snapshots[0]["attempts"][0]["worker_id"], "worker-frontier7")
+
+
 if __name__ == "__main__":
     unittest.main()

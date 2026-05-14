@@ -463,7 +463,7 @@ class CodexStreamWorkerStore:
         attempt_rows = self.connection.execute(
             """
             SELECT attempt_id, attempt_number, status, lease_id, started_at,
-                completed_at, heartbeat_at, error_ref, created_at
+                completed_at, heartbeat_at, error_ref, created_at, worker_id
             FROM codex_stream_attempts
             WHERE request_id = ?
             ORDER BY attempt_number
@@ -492,6 +492,60 @@ class CodexStreamWorkerStore:
             "lease": _lease_row_to_dict(lease_row) if lease_row else None,
             "responses": [_response_row_to_dict(row) for row in response_rows],
         }
+
+    def list_request_statuses(
+        self,
+        *,
+        app_id: int | None = None,
+        channel_uuid: str | None = None,
+        status: str | None = None,
+        task_type: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        if limit < 1:
+            raise ValueError("limit must be at least 1")
+        clauses, params = _request_filter_clauses(
+            app_id=app_id,
+            channel_uuid=channel_uuid,
+            status=status,
+            task_type=task_type,
+        )
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = self.connection.execute(
+            f"""
+            SELECT request_id FROM codex_stream_requests
+            {where_sql}
+            ORDER BY updated_at DESC, created_at DESC, request_id DESC
+            LIMIT ?
+            """,
+            (*params, limit),
+        ).fetchall()
+        return [self.request_status(row["request_id"]) for row in rows]
+
+    def request_status_summary(
+        self,
+        *,
+        app_id: int | None = None,
+        channel_uuid: str | None = None,
+        task_type: str | None = None,
+    ) -> dict[str, int]:
+        clauses, params = _request_filter_clauses(
+            app_id=app_id,
+            channel_uuid=channel_uuid,
+            task_type=task_type,
+        )
+        where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        rows = self.connection.execute(
+            f"""
+            SELECT status, COUNT(*) AS count
+            FROM codex_stream_requests
+            {where_sql}
+            GROUP BY status
+            ORDER BY status
+            """,
+            params,
+        ).fetchall()
+        return {str(row["status"]): int(row["count"]) for row in rows}
 
 
 class CodexStreamWorker:
@@ -628,6 +682,30 @@ def _ensure_request_exists(connection: sqlite3.Connection, request_id: str) -> s
     return row
 
 
+def _request_filter_clauses(
+    *,
+    app_id: int | None = None,
+    channel_uuid: str | None = None,
+    status: str | None = None,
+    task_type: str | None = None,
+) -> tuple[list[str], list[Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if app_id is not None:
+        clauses.append("app_id = ?")
+        params.append(app_id)
+    if channel_uuid:
+        clauses.append("channel_uuid = ?")
+        params.append(channel_uuid)
+    if status:
+        clauses.append("status = ?")
+        params.append(status)
+    if task_type:
+        clauses.append("task_type = ?")
+        params.append(task_type)
+    return clauses, params
+
+
 def _add_milliseconds(timestamp: str, milliseconds: int) -> str:
     base = datetime.strptime(timestamp, "%Y%m%dT%H%M%S.%fZ")
     return (base + timedelta(milliseconds=milliseconds)).strftime("%Y%m%dT%H%M%S.%f")[:-3] + "Z"
@@ -661,6 +739,7 @@ def _attempt_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     return {
         "attempt_id": row["attempt_id"],
         "attempt_number": row["attempt_number"],
+        "worker_id": row["worker_id"],
         "status": row["status"],
         "lease_id": row["lease_id"],
         "started_at": row["started_at"],

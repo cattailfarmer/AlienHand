@@ -143,6 +143,32 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: make the visible panes track together while scrolling when linked
   = must: allow the raw text toggle to independently hide or show raw text detail
 
+& [ConversationRefinementWorkbenchLayoutV2] is the refined visible layout contract for the Chat, Cutting, Editing, Nicks, and Chapters frames
+  + [chat_frame] is the source conversation pane containing live chat bubbles and raw conversation controls
+  + [cutting_frame] is the cut composition pane containing selected chat blocks in the user-chosen order
+  + [editing_frame] is the plain text editorial pane generated from cuts without chat bubble chrome or contributor labels
+  + [directory_frame] is the embedded tabbed frame containing [nicks_tab] and [chapters_tab]
+  + [nicks_tab] is the user list and channel member presence surface
+  + [chapters_tab] is the chapter navigation and table-of-contents surface
+  + [frame_toggle] is one of Chat, Cutting, or Editing and controls visibility of its corresponding frame
+  + [selected_line_arrow] is the button shown inside the selected chat line in [chat_frame]
+  + [insertion_arrow] is the larger draggable arrow between [chat_frame] and [cutting_frame]
+  + [current_cut_position] is the position in [cutting_frame] targeted by [insertion_arrow]
+
+  = must: treat Chat, Cutting, and Editing controls as independent toggle buttons rather than mutually exclusive tabs
+  = must: keep [directory_frame] embedded as a tabbed frame so Nicks and Chapters can share the same side slot
+  = must: move or expose Nicks in the leftmost side frame when the workbench layout needs more right-side composition space
+  = must: show [selected_line_arrow] only for the selected or hover-active chat block that can be inserted into cuts
+  = must: let clicking [selected_line_arrow] create a cut at [current_cut_position]
+  = must: let the user drag [insertion_arrow] to change [current_cut_position] in the cutting pane
+  = must: keep [insertion_arrow] visually between the source chat and cutting panes while both panes are visible
+  = must: hide [insertion_arrow] when either Chat or Cutting is hidden
+  = must: make [editing_frame] a text editing surface derived from cuts without chat bubble frames or contributor names
+  = should: keep pane scroll tracking available without requiring all visible frames to share the same scroll offset
+  = should: allow Chapters navigation to select, jump to, or outline refined chapter products without being the Editing surface itself
+  - never: treat [editing_frame] as raw chat or as the source of truth
+  - never: destroy a source chat block when it is inserted into Cutting
+
 & [ConversationCutAction] is the action that promotes one raw conversation block into the cuts pane
   + [source_block] is the raw conversation block selected on the left pane
   + [insertion_point] is the divider pointer location in the cuts pane
@@ -150,10 +176,23 @@ Description: SOP specification for the refined conversation layer that reorganiz
   + [tracking_mode] is whether the pane scrolls stay linked
 
   = must: provide a button on each raw conversation block to inject that block into the cuts pane at the insertion point
+  = must: interpret [selected_line_arrow] click as insertion of [source_block] at the current [insertion_point]
+  = must: allow [insertion_point] to be moved by dragging [insertion_arrow] inside the divider region
   = must: render an x control on each cut block so the user can remove it from the cuts perspective
   = must: preserve the raw conversation block when it is added to cuts
   = must: support toggling scroll tracking on and off for the raw text view
   = should: keep the cut set and edit set observable as separate working surfaces
+
+& [ConversationEditingProjection] is the editorial text view derived from the current cuts or chapter product
+  + [input] is the ordered cut set or selected chapter
+  + [output] is plain editable text suitable for editorial revision
+  + [stripped_elements] are chat bubble frames, contributor names, transient UI controls, and channel chrome
+  + [preserved_elements] are message text, code blocks, image references, link references, and provenance references outside the visible text when needed
+
+  = must: strip chat bubble frames from [output]
+  = must: strip contributor names from the default editable text presentation
+  = must: preserve source provenance outside the text so edits remain reviewable
+  = should: preserve code frames and media references as editorially usable blocks rather than flattening them into ambiguous prose
 
 ## Frozen Terms
 

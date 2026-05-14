@@ -118,10 +118,19 @@ Description: SOP description of the justification step, called "jusitification" 
   + [work_type] is protocol
   + [requirement_anchor] is user request for a split-screen cuts workbench with inject, remove, hide/show, and scroll-tracking controls for the refinement layer
   + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop ConversationCutsWorkbench and ConversationCutAction
-  + [evidence_anchor] is local uncommitted file AlienHand/docs/irc-chat-refinement.sop
+  + [evidence_anchor] is AlienHand/docs/irc-chat-refinement.sop
   + [verification_result] is the refinement spec now defines the left raw pane, right cuts pane, edits pane, divider pointer, raw-text toggle, injection button, removal button, and scroll-link behavior
   + [status] is justified
   + [uncertainty] is visual implementation and interaction fidelity remain future work
+
+& [JustificationEntry: RefinementWorkbenchLayoutV2Specification] is justified
+  + [work_type] is protocol
+  + [requirement_anchor] is user layout refinement with Chat, Cutting, Editing frame toggles, embedded Nicks/Chapters tab frame, selected-line arrow insertion, draggable insertion arrow, and stripped editorial text frame
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop ConversationRefinementWorkbenchLayoutV2 and ConversationEditingProjection
+  + [evidence_anchor] is AlienHand/docs/irc-chat-refinement.sop
+  + [verification_result] is the refinement spec now defines the Chat, Cutting, and Editing controls as independent frame toggles, embeds Nicks and Chapters in a shared directory frame, maps selected chat line arrow clicks to cut insertion at the draggable insertion arrow, and specifies Editing as text derived from cuts without bubble frames or contributor names
+  + [status] is justified
+  + [uncertainty] is this is a specification and handoff clarification only; implementation in The Lounge or another AlienHand surface remains future work
 
 & [JustificationEntry: ConversationTermFreezeSpecification] is justified
   + [work_type] is protocol

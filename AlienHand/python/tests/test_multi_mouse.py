@@ -14,6 +14,9 @@ from alienhand_ai.multi_mouse import (
     ROLE_ALIENHAND_POINTER,
     ROLE_OBSERVED,
     ROLE_WINDOWS_POINTER,
+    RI_MOUSE_LEFT_BUTTON_DOWN,
+    RI_MOUSE_LEFT_BUTTON_UP,
+    RI_MOUSE_WHEEL,
     DeviceAssignmentTable,
     MODE_BLOCKED,
     MODE_INDEPENDENT,
@@ -34,6 +37,7 @@ from alienhand_ai.multi_mouse import (
     VirtualPointerRouter,
     effective_target_mode,
     legacy_injection_actions,
+    raw_mouse_delta_packets,
     read_policy_table,
     read_device_assignment_table,
     run_multi_mouse_virtualization_proof,
@@ -187,6 +191,23 @@ class MultiMouseRoutingTests(unittest.TestCase):
         self.assertEqual((clamped.x, clamped.y), (100, 80))
         self.assertIsNone(unknown)
         self.assertEqual(tracker.state_snapshot()["states"]["mouse-b"]["pressed_buttons"], ["left"])
+
+    def test_raw_mouse_delta_packets_expand_move_buttons_and_wheel(self):
+        target = TargetIdentity("live-raw-input", "windows-raw-input")
+
+        packets = raw_mouse_delta_packets(
+            "raw-mouse-b",
+            dx=5,
+            dy=-3,
+            button_flags=RI_MOUSE_LEFT_BUTTON_DOWN | RI_MOUSE_LEFT_BUTTON_UP | RI_MOUSE_WHEEL,
+            button_data=0x0078,
+            timestamp_ms=123,
+            target=target,
+        )
+
+        self.assertEqual([packet.action for packet in packets], ["move", "left_down", "left_up", "wheel"])
+        self.assertEqual((packets[0].dx, packets[0].dy), (5, -3))
+        self.assertEqual(packets[-1].wheel_delta, 120)
 
     def test_capture_backends_make_real_capture_availability_explicit(self):
         assignments = DeviceAssignmentTable(

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 import ctypes
 import json
 from pathlib import Path
-from time import time
+from time import sleep, time
 from typing import Any, Iterable
 
 
@@ -39,6 +39,23 @@ RIM_TYPEMOUSE = 0
 RIM_TYPEKEYBOARD = 1
 RIM_TYPEHID = 2
 RIDI_DEVICENAME = 0x20000007
+RID_INPUT = 0x10000003
+RIDEV_INPUTSINK = 0x00000100
+WM_INPUT = 0x00FF
+PM_REMOVE = 0x0001
+
+RI_MOUSE_LEFT_BUTTON_DOWN = 0x0001
+RI_MOUSE_LEFT_BUTTON_UP = 0x0002
+RI_MOUSE_RIGHT_BUTTON_DOWN = 0x0004
+RI_MOUSE_RIGHT_BUTTON_UP = 0x0008
+RI_MOUSE_MIDDLE_BUTTON_DOWN = 0x0010
+RI_MOUSE_MIDDLE_BUTTON_UP = 0x0020
+RI_MOUSE_BUTTON_4_DOWN = 0x0040
+RI_MOUSE_BUTTON_4_UP = 0x0080
+RI_MOUSE_BUTTON_5_DOWN = 0x0100
+RI_MOUSE_BUTTON_5_UP = 0x0200
+RI_MOUSE_WHEEL = 0x0400
+RI_MOUSE_HWHEEL = 0x0800
 
 
 @dataclass(frozen=True)
@@ -691,6 +708,130 @@ def summarize_routed_events(events: Iterable[RoutedPointerEvent]) -> JsonDict:
     }
 
 
+def raw_mouse_delta_packets(
+    raw_input_name: str,
+    dx: int,
+    dy: int,
+    button_flags: int,
+    button_data: int,
+    timestamp_ms: int,
+    target: TargetIdentity,
+) -> list[PointerDeltaPacket]:
+    packets: list[PointerDeltaPacket] = []
+    if dx or dy:
+        packets.append(PointerDeltaPacket(raw_input_name, "move", dx, dy, target, timestamp_ms))
+    button_actions = (
+        (RI_MOUSE_LEFT_BUTTON_DOWN, "left_down"),
+        (RI_MOUSE_LEFT_BUTTON_UP, "left_up"),
+        (RI_MOUSE_RIGHT_BUTTON_DOWN, "right_down"),
+        (RI_MOUSE_RIGHT_BUTTON_UP, "right_up"),
+        (RI_MOUSE_MIDDLE_BUTTON_DOWN, "middle_down"),
+        (RI_MOUSE_MIDDLE_BUTTON_UP, "middle_up"),
+        (RI_MOUSE_BUTTON_4_DOWN, "x1_down"),
+        (RI_MOUSE_BUTTON_4_UP, "x1_up"),
+        (RI_MOUSE_BUTTON_5_DOWN, "x2_down"),
+        (RI_MOUSE_BUTTON_5_UP, "x2_up"),
+    )
+    for flag, action in button_actions:
+        if button_flags & flag:
+            packets.append(PointerDeltaPacket(raw_input_name, action, 0, 0, target, timestamp_ms))
+    if button_flags & RI_MOUSE_WHEEL:
+        packets.append(
+            PointerDeltaPacket(
+                raw_input_name,
+                "wheel",
+                0,
+                0,
+                target,
+                timestamp_ms,
+                wheel_delta=_signed_ushort(button_data),
+            )
+        )
+    if button_flags & RI_MOUSE_HWHEEL:
+        packets.append(
+            PointerDeltaPacket(
+                raw_input_name,
+                "horizontal_wheel",
+                0,
+                0,
+                target,
+                timestamp_ms,
+                wheel_delta=_signed_ushort(button_data),
+            )
+        )
+    return packets
+
+
+class WindowsRawMouseObserver:
+    def __init__(self, target: TargetIdentity | None = None) -> None:
+        self.target = target or TargetIdentity("windows-raw-input", "windows-raw-input")
+        self._wndproc: Any | None = None
+
+    def collect(self, duration_seconds: float, max_events: int) -> list[PointerDeltaPacket]:
+        if not hasattr(ctypes, "windll"):
+            raise RuntimeError("Windows Raw Input is only available through ctypes.windll on Windows")
+        if duration_seconds <= 0:
+            raise ValueError("duration_seconds must be positive")
+        if max_events <= 0:
+            raise ValueError("max_events must be positive")
+
+        (
+            MSG,
+            RAWINPUTDEVICE,
+            WNDCLASSW,
+            WNDPROC,
+            hinstance,
+            user32,
+        ) = _prepare_raw_input_window_types()
+        packets: list[PointerDeltaPacket] = []
+        class_name = f"AlienHandRawInput{int(time() * 1000)}"
+
+        def wndproc(hwnd: int, message: int, w_param: int, l_param: int) -> int:
+            if message == WM_INPUT:
+                packets.extend(
+                    _read_raw_input_mouse_packets(
+                        user32,
+                        int(l_param),
+                        self.target,
+                        _milliseconds(),
+                    )
+                )
+                return 0
+            return int(user32.DefWindowProcW(hwnd, message, w_param, l_param))
+
+        self._wndproc = WNDPROC(wndproc)
+        wndclass = WNDCLASSW()
+        wndclass.lpfnWndProc = self._wndproc
+        wndclass.hInstance = hinstance
+        wndclass.lpszClassName = class_name
+        if not user32.RegisterClassW(ctypes.byref(wndclass)):
+            raise ctypes.WinError()
+        hwnd = user32.CreateWindowExW(0, class_name, class_name, 0, 0, 0, 0, 0, None, None, hinstance, None)
+        if not hwnd:
+            raise ctypes.WinError()
+        try:
+            raw_device = RAWINPUTDEVICE()
+            raw_device.usUsagePage = 0x01
+            raw_device.usUsage = 0x02
+            raw_device.dwFlags = RIDEV_INPUTSINK
+            raw_device.hwndTarget = hwnd
+            if not user32.RegisterRawInputDevices(ctypes.byref(raw_device), 1, ctypes.sizeof(RAWINPUTDEVICE)):
+                raise ctypes.WinError()
+
+            message = MSG()
+            end_time = time() + duration_seconds
+            while time() < end_time and len(packets) < max_events:
+                while user32.PeekMessageW(ctypes.byref(message), hwnd, 0, 0, PM_REMOVE):
+                    user32.TranslateMessage(ctypes.byref(message))
+                    user32.DispatchMessageW(ctypes.byref(message))
+                    if len(packets) >= max_events:
+                        break
+                sleep(0.01)
+        finally:
+            user32.DestroyWindow(hwnd)
+        return packets[:max_events]
+
+
 class RecordingLegacyInjectionBackend:
     def __init__(self) -> None:
         self.actions: list[LegacyInjectionAction] = []
@@ -1104,6 +1245,70 @@ def run_multi_mouse_pipeline_proof(root: str | Path) -> JsonDict:
     return result
 
 
+def run_multi_mouse_live_observer_proof(
+    root: str | Path,
+    *,
+    duration_seconds: float = 5.0,
+    max_events: int = 128,
+) -> JsonDict:
+    root_path = Path(root)
+    root_path.mkdir(parents=True, exist_ok=True)
+    devices = enumerate_windows_raw_input_devices()
+    assignments = suggest_mouse_device_assignments(devices)
+    target = TargetIdentity(
+        target_id="live-raw-input",
+        process_name="windows-raw-input",
+        window_title="Raw Input live observer",
+    )
+    observer = WindowsRawMouseObserver(target)
+    packets = observer.collect(duration_seconds=duration_seconds, max_events=max_events)
+    tracker = VirtualPointerTracker(_windows_screen_bounds(), initial_positions=_initial_live_pointer_positions(assignments))
+    router = VirtualPointerRouter(captured_device_ids=assignments.captured_device_ids())
+    normalized_events = [event for packet in packets if (event := tracker.normalize(packet, assignments)) is not None]
+    routed_events = router.route_many(normalized_events)
+
+    journal = MultiMouseEventJournal(root_path / "multi-mouse-live-observer.jsonl")
+    for packet in packets:
+        journal.append("raw_delta_packet", packet.to_dict())
+    for event in normalized_events:
+        journal.append("normalized_pointer_event", event.to_dict())
+    for event in routed_events:
+        journal.append("routed_pointer_event", event.to_dict())
+    journal_records = journal.read_all()
+    raw_devices_seen = sorted({packet.raw_input_name for packet in packets})
+    logical_devices_seen = sorted({event.device_id for event in normalized_events})
+    mouse_device_count = len([device for device in devices if device.kind == "mouse"])
+    result = {
+        "root": str(root_path.resolve()),
+        "duration_seconds": duration_seconds,
+        "max_events": max_events,
+        "observer_started": True,
+        "hardware_free": False,
+        "non_invasive": True,
+        "mouse_device_count": mouse_device_count,
+        "multiple_mice_visible": mouse_device_count >= 2,
+        "assignment_table": assignments.to_dict(),
+        "packets_recorded": len(packets),
+        "normalized_events": len(normalized_events),
+        "routed_events": len(routed_events),
+        "raw_devices_seen": raw_devices_seen,
+        "logical_devices_seen": logical_devices_seen,
+        "live_dual_mouse_events_visible": len(raw_devices_seen) >= 2,
+        "tracker_state": tracker.state_snapshot(),
+        "routing_summary": summarize_routed_events(routed_events),
+        "journal": {
+            "path": str(journal.path.resolve()),
+            "records": len(journal_records),
+        },
+        "live_observer_ok": mouse_device_count >= 1 and len(journal_records) == len(packets) + len(normalized_events) + len(routed_events),
+        "observer_note": "This proof observes Raw Input only; it does not block, capture, or inject input.",
+    }
+    output = root_path / "multi-mouse-live-observer-proof.json"
+    output.write_text(json.dumps(result, indent=2), encoding="utf-8")
+    result["output"] = str(output.resolve())
+    return result
+
+
 def _raw_input_kind(kind: int) -> str:
     if kind == RIM_TYPEMOUSE:
         return "mouse"
@@ -1112,6 +1317,153 @@ def _raw_input_kind(kind: int) -> str:
     if kind == RIM_TYPEHID:
         return "hid"
     return f"unknown:{kind}"
+
+
+def _prepare_raw_input_window_types() -> tuple[Any, Any, Any, Any, Any, Any]:
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+
+    class POINT(ctypes.Structure):
+        _fields_ = [("x", wintypes.LONG), ("y", wintypes.LONG)]
+
+    class MSG(ctypes.Structure):
+        _fields_ = [
+            ("hwnd", wintypes.HWND),
+            ("message", wintypes.UINT),
+            ("wParam", wintypes.WPARAM),
+            ("lParam", wintypes.LPARAM),
+            ("time", wintypes.DWORD),
+            ("pt", POINT),
+        ]
+
+    wndproc_type = ctypes.WINFUNCTYPE(ctypes.c_ssize_t, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+
+    class WNDCLASSW(ctypes.Structure):
+        _fields_ = [
+            ("style", wintypes.UINT),
+            ("lpfnWndProc", wndproc_type),
+            ("cbClsExtra", ctypes.c_int),
+            ("cbWndExtra", ctypes.c_int),
+            ("hInstance", wintypes.HINSTANCE),
+            ("hIcon", wintypes.HANDLE),
+            ("hCursor", wintypes.HANDLE),
+            ("hbrBackground", wintypes.HANDLE),
+            ("lpszMenuName", wintypes.LPCWSTR),
+            ("lpszClassName", wintypes.LPCWSTR),
+        ]
+
+    class RAWINPUTDEVICE(ctypes.Structure):
+        _fields_ = [
+            ("usUsagePage", wintypes.USHORT),
+            ("usUsage", wintypes.USHORT),
+            ("dwFlags", wintypes.DWORD),
+            ("hwndTarget", wintypes.HWND),
+        ]
+
+    hinstance = kernel32.GetModuleHandleW(None)
+    user32.RegisterClassW.argtypes = [ctypes.POINTER(WNDCLASSW)]
+    user32.RegisterClassW.restype = wintypes.ATOM
+    user32.CreateWindowExW.argtypes = [
+        wintypes.DWORD,
+        wintypes.LPCWSTR,
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        wintypes.HWND,
+        wintypes.HMENU,
+        wintypes.HINSTANCE,
+        wintypes.LPVOID,
+    ]
+    user32.CreateWindowExW.restype = wintypes.HWND
+    user32.DestroyWindow.argtypes = [wintypes.HWND]
+    user32.DestroyWindow.restype = wintypes.BOOL
+    user32.DefWindowProcW.argtypes = [wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
+    user32.DefWindowProcW.restype = ctypes.c_ssize_t
+    user32.PeekMessageW.argtypes = [ctypes.POINTER(MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT, wintypes.UINT]
+    user32.PeekMessageW.restype = wintypes.BOOL
+    user32.TranslateMessage.argtypes = [ctypes.POINTER(MSG)]
+    user32.TranslateMessage.restype = wintypes.BOOL
+    user32.DispatchMessageW.argtypes = [ctypes.POINTER(MSG)]
+    user32.DispatchMessageW.restype = ctypes.c_ssize_t
+    user32.RegisterRawInputDevices.argtypes = [ctypes.POINTER(RAWINPUTDEVICE), wintypes.UINT, wintypes.UINT]
+    user32.RegisterRawInputDevices.restype = wintypes.BOOL
+    return MSG, RAWINPUTDEVICE, WNDCLASSW, wndproc_type, hinstance, user32
+
+
+def _read_raw_input_mouse_packets(
+    user32: Any,
+    hrawinput: int,
+    target: TargetIdentity,
+    timestamp_ms: int,
+) -> list[PointerDeltaPacket]:
+    from ctypes import wintypes
+
+    class RAWINPUTHEADER(ctypes.Structure):
+        _fields_ = [
+            ("dwType", wintypes.DWORD),
+            ("dwSize", wintypes.DWORD),
+            ("hDevice", wintypes.HANDLE),
+            ("wParam", wintypes.WPARAM),
+        ]
+
+    class RAWMOUSE_BUTTONS(ctypes.Structure):
+        _fields_ = [("usButtonFlags", wintypes.USHORT), ("usButtonData", wintypes.USHORT)]
+
+    class RAWMOUSE_BUTTON_UNION(ctypes.Union):
+        _fields_ = [("ulButtons", wintypes.ULONG), ("buttons", RAWMOUSE_BUTTONS)]
+
+    class RAWMOUSE(ctypes.Structure):
+        _fields_ = [
+            ("usFlags", wintypes.USHORT),
+            ("buttons", RAWMOUSE_BUTTON_UNION),
+            ("ulRawButtons", wintypes.ULONG),
+            ("lLastX", wintypes.LONG),
+            ("lLastY", wintypes.LONG),
+            ("ulExtraInformation", wintypes.ULONG),
+        ]
+
+    class RAWINPUT_DATA(ctypes.Union):
+        _fields_ = [("mouse", RAWMOUSE)]
+
+    class RAWINPUT(ctypes.Structure):
+        _fields_ = [("header", RAWINPUTHEADER), ("data", RAWINPUT_DATA)]
+
+    user32.GetRawInputData.argtypes = [
+        wintypes.HANDLE,
+        wintypes.UINT,
+        ctypes.c_void_p,
+        ctypes.POINTER(wintypes.UINT),
+        wintypes.UINT,
+    ]
+    user32.GetRawInputData.restype = wintypes.UINT
+
+    size = wintypes.UINT(0)
+    result = user32.GetRawInputData(hrawinput, RID_INPUT, None, ctypes.byref(size), ctypes.sizeof(RAWINPUTHEADER))
+    if result == ctypes.c_uint(-1).value:
+        raise ctypes.WinError()
+    buffer = ctypes.create_string_buffer(size.value)
+    result = user32.GetRawInputData(hrawinput, RID_INPUT, buffer, ctypes.byref(size), ctypes.sizeof(RAWINPUTHEADER))
+    if result == ctypes.c_uint(-1).value:
+        raise ctypes.WinError()
+    raw = ctypes.cast(buffer, ctypes.POINTER(RAWINPUT)).contents
+    if int(raw.header.dwType) != RIM_TYPEMOUSE:
+        return []
+    raw_name = _raw_input_device_name(user32, raw.header.hDevice)
+    mouse = raw.data.mouse
+    return raw_mouse_delta_packets(
+        raw_name,
+        int(mouse.lLastX),
+        int(mouse.lLastY),
+        int(mouse.buttons.buttons.usButtonFlags),
+        int(mouse.buttons.buttons.usButtonData),
+        timestamp_ms,
+        target,
+    )
 
 
 def _raw_input_device_name(user32: Any, handle: int) -> str:
@@ -1126,6 +1478,21 @@ def _raw_input_device_name(user32: Any, handle: int) -> str:
     if result == ctypes.c_uint(-1).value:
         raise ctypes.WinError()
     return buffer.value
+
+
+def _windows_screen_bounds() -> ScreenBounds:
+    if not hasattr(ctypes, "windll"):
+        return ScreenBounds(0, 0, 1920, 1080)
+    user32 = ctypes.windll.user32
+    width = int(user32.GetSystemMetrics(0) or 1920)
+    height = int(user32.GetSystemMetrics(1) or 1080)
+    return ScreenBounds(0, 0, max(0, width - 1), max(0, height - 1))
+
+
+def _initial_live_pointer_positions(assignments: DeviceAssignmentTable) -> dict[str, tuple[int, int]]:
+    bounds = _windows_screen_bounds()
+    center = ((bounds.right - bounds.left) // 2, (bounds.bottom - bounds.top) // 2)
+    return {assignment.logical_device_id: center for assignment in assignments.assignments}
 
 
 def _legacy_action(
@@ -1166,3 +1533,11 @@ def _optional_string_value(value: Any, name: str) -> str:
     if not isinstance(value, str):
         raise ValueError(f"{name} must be a string")
     return value
+
+
+def _signed_ushort(value: int) -> int:
+    return ctypes.c_short(value & 0xFFFF).value
+
+
+def _milliseconds() -> int:
+    return int(time() * 1000)

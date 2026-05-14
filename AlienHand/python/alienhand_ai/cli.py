@@ -30,6 +30,7 @@ from .multi_mouse import (
     run_multi_mouse_assignment_suggestion,
     run_multi_mouse_capture_preflight,
     run_multi_mouse_device_scan,
+    run_multi_mouse_live_observer_proof,
     run_multi_mouse_pipeline_proof,
     run_multi_mouse_virtualization_proof,
 )
@@ -263,6 +264,12 @@ def main() -> None:
     multi_mouse_pipeline.add_argument("--output", default="runs")
     multi_mouse_pipeline.add_argument("--name", default="multi-mouse-pipeline-proof")
 
+    multi_mouse_live = sub.add_parser("multi-mouse-live-observer-proof")
+    multi_mouse_live.add_argument("--duration", type=float, default=5.0)
+    multi_mouse_live.add_argument("--max-events", type=int, default=128)
+    multi_mouse_live.add_argument("--output", default="runs")
+    multi_mouse_live.add_argument("--name", default="multi-mouse-live-observer-proof")
+
     args = parser.parse_args()
     if args.command == "record-process":
         command = _normalize_remainder(args.command_args)
@@ -483,6 +490,13 @@ def main() -> None:
         print(json.dumps(result, indent=2))
     elif args.command == "multi-mouse-pipeline-proof":
         result = run_multi_mouse_pipeline_proof(Path(args.output) / args.name)
+        print(json.dumps(result, indent=2))
+    elif args.command == "multi-mouse-live-observer-proof":
+        result = run_multi_mouse_live_observer_proof(
+            Path(args.output) / args.name,
+            duration_seconds=args.duration,
+            max_events=args.max_events,
+        )
         print(json.dumps(result, indent=2))
 
 

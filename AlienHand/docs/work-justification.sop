@@ -524,19 +524,21 @@ Description: SOP description of the justification step, called "jusitification" 
 
 & [JustificationEntry: MultiMouseVirtualRoutingProof] is justified
   + [work_type] is runtime_code
-  + [requirement_anchor] is [AlienHandMultiMouseInput], [TargetPointerPolicy], [TwoPointerHybridInput], [LegacyMouseMultiplexing], [VirtualizedInputTestLayer], [MultiMouseVirtualRoutingProof], and [MultiMouseDeviceScanProof]
+  + [requirement_anchor] is [AlienHandMultiMouseInput], [TargetPointerPolicy], [TwoPointerHybridInput], [LegacyMouseMultiplexing], [VirtualizedInputTestLayer], [MultiMouseVirtualRoutingProof], [MultiMouseDeviceScanProof], and [MultiMouseLiveRawInputObserverProof]
   + [implemented_artifact] is AlienHand/docs/multi-mouse-input.sop
   + [implemented_artifact] is AlienHand/python/alienhand_ai/multi_mouse.py
-  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py multi-mouse-routing-proof and multi-mouse-device-scan commands
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py multi-mouse-routing-proof, multi-mouse-pipeline-proof, multi-mouse-live-observer-proof, multi-mouse-device-scan, multi-mouse-assignment-suggestion, and multi-mouse-capture-preflight commands
   + [implemented_artifact] is AlienHand/python/tests/test_multi_mouse.py
   + [evidence_anchor] is python -m unittest tests.test_multi_mouse
   + [evidence_anchor] is python -m alienhand_ai.cli multi-mouse-routing-proof --output runs --name multi-mouse-routing-proof
   + [evidence_anchor] is python -m alienhand_ai.cli multi-mouse-pipeline-proof --output runs --name multi-mouse-pipeline-proof
+  + [evidence_anchor] is python -m alienhand_ai.cli multi-mouse-live-observer-proof --duration 1 --max-events 8 --output runs --name multi-mouse-live-observer-proof
   + [evidence_anchor] is python -m alienhand_ai.cli multi-mouse-device-scan --output runs --name multi-mouse-device-scan
   + [evidence_anchor] is python -m alienhand_ai.cli multi-mouse-assignment-suggestion --output runs --name multi-mouse-assignment-suggestion
   + [evidence_anchor] is python -m alienhand_ai.cli multi-mouse-capture-preflight --output runs --name multi-mouse-capture-preflight
   + [verification_result] is the hardware-free routing proof returned routing_modes_ok true with 3 windows_passthrough events from mouse-a, 1 blocked event from captured mouse-b, 3 alienhand_independent events for an AlienHand-aware target, 4 legacy_injected events including independent-to-integrated fallback for a legacy target, and preserved Windows pointer state at mouse-a coordinates while virtual pointer mouse-b ended at its own coordinates
   + [verification_result] is the pipeline proof returned pipeline_ok true for assignment -> delta normalization -> routing -> legacy injection planning with 1 windows_passthrough event, 3 alienhand_independent events, 3 legacy_injected events, 5 recorded legacy injection actions, and 19 JSONL journal records
+  + [verification_result] is the live observer proof returned live_observer_ok true, saw 2 mouse-class Raw Input devices, recorded 7 live packets from the assigned mouse-b device in a 1 second non-invasive observation window, normalized and routed 7 events as blocked, and wrote 21 JSONL journal records without blocking, capture, or injection
   + [verification_result] is policy rule tests proved app-level process matching, surface-specific override selection, and JSON policy table round trip through read_policy_table and write_policy_table
   + [verification_result] is device assignment tests proved suggested mapping from Raw Input mouse devices to mouse-a windows_pointer, mouse-b alienhand_pointer, extra observed mice, captured_device_ids, and JSON assignment table round trip through read_device_assignment_table and write_device_assignment_table
   + [verification_result] is virtual pointer tracker tests proved PointerDeltaPacket relative motion normalizes into clamped absolute pointer coordinates and preserves button state without moving the real cursor
@@ -544,7 +546,7 @@ Description: SOP description of the justification step, called "jusitification" 
   + [verification_result] is legacy injection planning tests proved RecordingLegacyInjectionBackend records move, button_down, and button_up actions for legacy events while non-legacy independent events create no injection actions
   + [verification_result] is the live Raw Input scan found 2 mouse-class devices and reported multiple_mice_visible true while keeping capture_backend_present false
   + [status] is justified
-  + [uncertainty] is this proves target policy routing, virtual pointer state, and Raw Input device visibility; it does not yet implement the capture driver/interception backend, real input blocking, cursor masking, or injected Windows legacy events
+  + [uncertainty] is this proves target policy routing, virtual pointer state, Raw Input device visibility, and live packet observation from one assigned mouse during the tested window; it does not yet prove simultaneous live packets from both mice, implement the capture driver/interception backend, real input blocking, cursor masking, or injected Windows legacy events
 
 ## Future Work Behavior
 

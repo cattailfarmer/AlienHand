@@ -87,6 +87,7 @@ Description: This specification defines the dual-pointer input substrate for Ali
   + [tests] are AlienHand/python/tests/test_multi_mouse.py
   + [proof_command] is multi-mouse-routing-proof
   + [pipeline_proof_command] is multi-mouse-pipeline-proof
+  + [live_observer_command] is multi-mouse-live-observer-proof
   + [device_scan_command] is multi-mouse-device-scan
   + [assignment_suggestion_command] is multi-mouse-assignment-suggestion
   + [capture_preflight_command] is multi-mouse-capture-preflight
@@ -108,6 +109,7 @@ Description: This specification defines the dual-pointer input substrate for Ali
   = must: prove capture backend availability is explicit and cannot be assumed
   = must: prove assignment, motion normalization, routing, and injection planning compose as one pipeline
   = must: write replayable JSONL event records for pipeline proofs
+  = must: prove live Raw Input observation without blocking, capture, or injection
   = must: prove legacy injection action planning without moving the real cursor
   = must: preserve inspectable routed event records
   = must: avoid moving the real cursor or blocking real hardware during simulation
@@ -152,6 +154,21 @@ Description: This specification defines the dual-pointer input substrate for Ali
   = must: report [multiple_mice_visible] when two or more mouse-class devices are visible
   = must: report [capture_backend_present] false until a real capture backend exists
   - never: use this scan as proof that AlienHand can consume one mouse before Windows cursor merge
+
+& [MultiMouseLiveRawInputObserverProof] is the non-invasive live hardware stream proof
+  + [implementation] is AlienHand/python/alienhand_ai/multi_mouse.py WindowsRawMouseObserver and run_multi_mouse_live_observer_proof
+  + [proof_command] is multi-mouse-live-observer-proof
+  + [input_source] is Windows Raw Input WM_INPUT
+  + [journal] is multi-mouse-live-observer.jsonl
+
+  = must: create a hidden Raw Input window for live observation
+  = must: register for mouse Raw Input with RIDEV_INPUTSINK
+  = must: convert WM_INPUT mouse packets into PointerDeltaPacket records
+  = must: normalize observed packets through the device assignment and virtual pointer tracker
+  = must: route normalized events through the existing virtual router
+  = must: write raw_delta_packet, normalized_pointer_event, and routed_pointer_event JSONL records
+  = must: report when only one of the visible devices produced packets during the observation window
+  - never: block, capture, or inject input during this proof
 
 & [MultiMouseAssignmentSuggestionProof] is the safe mapping step from physical mouse devices to logical AlienHand roles
   + [implementation] is AlienHand/python/alienhand_ai/multi_mouse.py suggest_mouse_device_assignments

@@ -1,0 +1,30 @@
+Subject: Chat Workbench Chapter Directory Justification
+Date: 2026-05-14
+Scope: The Lounge embedded Nicks/Chapters directory navigation
+
+& [ChatWorkbenchChapterDirectorySlice] is the selectable chapter navigation behavior for the embedded directory frame
+  + [specification_basis] is AlienHand/docs/irc-chat-refinement.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [ui_contract] is [ComponentContract: DirectoryFrame]
+  + [thelounge_commit] is 2fe0c6da
+  + [parent_pointer] is AlienHand/thelounge
+  + [implementation_files] are The Lounge client/components/AlienHandRefinementWorkbench.vue and client/css/alienhand-chat.css
+  + [proof_file] is AlienHand/python/alienhand_ai/payload_http.py
+
+  = implemented: converted Chapters tab rows from static text into selectable navigation buttons
+  = implemented: tracked selectedChapterId as transient UI state, not durable source truth
+  = implemented: highlighted the selected chapter card in Editing when visible
+  = implemented: made chapter selection reveal the first available source cut and source chat block when possible
+  = implemented: reset selected chapter state when the workbench changes channel
+  = implemented: added directory item styles with hover, focus, and selected states
+  = implemented: expanded runtime proof bundle and style markers for chapter directory selection
+  = satisfies: [ComponentContract: DirectoryFrame] because chapter entries now support selection and source navigation rather than acting as inert labels
+  = satisfies: [ConversationEditingProjection] because chapter navigation points back to source cut and source chat evidence when available
+  = satisfies: DataDrivenDesign accidental-state discipline because selectedChapterId remains UI-only and persisted chapter rows stay authoritative
+  = verification: npx eslint client/components/AlienHandRefinementWorkbench.vue --color passed
+  = verification: yarn prettier --check client/components/AlienHandRefinementWorkbench.vue client/css/alienhand-chat.css passed
+  = verification: yarn build:client passed
+  = verification: python -m compileall AlienHand\python\alienhand_ai\payload_http.py passed
+  = verification: python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-chapter-directory-proof --timeout 45 returned workbench_runtime_ok true
+  - deferred: browser visual review should confirm whether selected chapter highlighting feels strong enough inside the wide layout
+  - never: make the selected directory chapter the storage truth for chapter membership

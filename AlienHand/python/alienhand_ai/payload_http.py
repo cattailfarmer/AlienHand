@@ -1591,6 +1591,8 @@ def run_app_thelounge_refinement_workbench_proof(
         "toc action": "Add TOC",
         "source direct insertion action": "Insert this message into cuts at the current Cutting position",
         "source direct insertion event": "alienhand:source-message:insert-requested",
+        "chapter directory selection status": "Selected chapter has no currently visible source cut to reveal.",
+        "chapter directory item class": "alienhand-workbench__directory-item",
         "workbench class": "alienhand-workbench",
     }
     workbench_style_markers = {
@@ -1609,6 +1611,7 @@ def run_app_thelounge_refinement_workbench_proof(
         "blocked status pill": "alienhand-workbench__status-pill--blocked",
         "removed cuts": "alienhand-workbench__removed-cuts",
         "stale source": "alienhand-workbench__stale-source",
+        "directory item": "alienhand-workbench__directory-item",
     }
     missing_bundle_markers = [
         name for name, marker in workbench_bundle_markers.items() if marker not in bundle_js

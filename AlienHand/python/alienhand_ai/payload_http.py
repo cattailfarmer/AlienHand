@@ -24,7 +24,9 @@ from .chat_platform import (
     MAX_HISTORY_COMMAND_MESSAGES,
     PayloadResolver,
     PayloadStore,
+    _default_codex_stream_db,
     RECENT_FIRST_BACKFILL,
+    enqueue_history_context_pack_request,
     commit_message,
     default_ergo_root,
     irc_channel_name,
@@ -297,7 +299,19 @@ class PayloadResolverHTTPServer:
                         self._send_json({"error": "channel_uuid_required"}, HTTPStatus.BAD_REQUEST)
                         return True
                     try:
+                        app_id = _positive_int_value(body.get("app_id"), "app_id") if body.get("app_id") is not None else 1
                         request = _history_request_from_body(body, channel_uuid)
+                        stream_request = None
+                        if owner.root is not None:
+                            stream_request = enqueue_history_context_pack_request(
+                                app_id=app_id,
+                                channel_uuid=request["channel_uuid"],
+                                requester_type=str(body.get("source") or "user"),
+                                requester_id=str(body.get("source") or "user"),
+                                request=request,
+                                request_message_uuid=str(uuid4()),
+                                stream_store=_default_codex_stream_db(owner.root),
+                            )
                         chunks = replay_channel_chunks(
                             ChannelJSONLHistory(owner.root),
                             owner.resolver,
@@ -336,6 +350,8 @@ class PayloadResolverHTTPServer:
                         {
                             "request": request,
                             "directive": directive.to_dict(),
+                            "stream_request_id": stream_request["request_id"] if stream_request is not None else None,
+                            "stream_request": stream_request,
                             "chunks": chunks,
                             "chunk_count": result_ref["chunk_count"],
                             "chunk_lengths": [chunk["event_count"] for chunk in chunks],

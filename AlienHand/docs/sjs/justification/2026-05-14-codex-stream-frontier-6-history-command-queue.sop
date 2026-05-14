@@ -1,0 +1,31 @@
+Subject: Codex Stream Frontier 6 History Queue Integration
+Date: 2026-05-14
+Scope: integration of AlienHand history command paths with durable Codex stream request queue
+
+& [CodexStreamFrontier6HistoryCommandQueue] is the recorded completion slice for frontier_6
+  + [specification_basis] is AlienHand/docs/sjs/canonical/codex-stream-worker.canonical.sop
+  + [frontier_target] is [CanonicalImplementationFrontier: AlienHandCodexStreamWorker] frontier_6
+  + [implementer] is GPT-5.3-Codex-Spark
+  + [implementation_files] are AlienHand/python/alienhand_ai/chat_platform.py,
+    AlienHand/python/alienhand_ai/payload_http.py,
+    AlienHand/python/tests/test_chat_platform.py,
+    AlienHand/python/tests/test_payload_http.py
+  + [evidence_artifacts] are two new frontier_6 tests and two full-module verification runs
+
+  = implemented: added optional `stream_store` argument to `handle_history_command` so command handling can publish durable history pack requests when configured
+  = implemented: added `enqueue_history_context_pack_request` helper that writes `history_context_pack` requests into `codex_stream.sqlite3` with deterministic request payload and evidence refs
+  = implemented: wired `/alienhand/refinement/history-requests` to enqueue `history_context_pack` requests via the shared helper and return request envelope metadata in the response
+  = implemented: moved queue path to `_default_codex_stream_db(owner.root)` and replaced placeholder app-id expression in the HTTP handler
+  = implemented: added `app_id` optional parse in the HTTP history endpoint and defaulted source/requester metadata for stream entries
+  = implemented: added explicit test verifying `handle_history_command(..., stream_store=...)` writes expected queue row and returns stream request metadata
+  = implemented: added explicit test verifying `/history-requests` returns stream request metadata and persists the request row with expected task/app/source fields
+
+  = verification: python -m unittest AlienHand.python.tests.test_chat_platform.ChatPlatformTests.test_history_command_stores_stream_request_when_stream_store_set
+  = verification: python -m unittest AlienHand.python.tests.test_payload_http.PayloadHTTPTests.test_refinement_http_api_lists_searches_and_creates_user_controlled_objects
+  = verification: python -m unittest AlienHand.python.tests.test_chat_platform
+  = verification: python -m unittest AlienHand.python.tests.test_payload_http
+
+  = satisfies: [CanonicalImplementationFrontier: AlienHandCodexStreamWorker] frontier_6
+  = satisfies: [CanonicalRequirementSet: AlienHandCodexStreamWorker] because durable queue-backed history context requests are now created from chat command and refinement HTTP paths
+  - compatibility: request_id currently reuses `history_request` command message UUID in chat path and generated UUID for HTTP-only endpoint paths
+  - compatibility: invalid `app_id` values in history request JSON are rejected as `ValueError` during endpoint processing

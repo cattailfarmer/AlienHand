@@ -32,6 +32,10 @@ MAX_HISTORY_COMMAND_MESSAGES = 500
 MAX_HISTORY_COMMAND_CHUNK_SIZE = 100
 
 
+def _default_codex_stream_db(root: Path) -> Path:
+    return root / "codex_stream.sqlite3"
+
+
 class EnvelopePublisher(Protocol):
     def publish(self, envelope: "IRCMessageEnvelope") -> str:
         ...
@@ -1191,6 +1195,7 @@ def handle_history_command(
     history: ChannelJSONLHistory,
     resolver: PayloadResolver,
     publisher: EnvelopePublisher,
+    stream_store: str | Path | None = None,
     metadata: JsonDict | None = None,
 ) -> JsonDict | None:
     request = parse_history_command(command_text)
@@ -1208,6 +1213,17 @@ def handle_history_command(
         publisher=publisher,
         metadata=metadata,
     )
+    stream_request = None
+    if stream_store is not None:
+        stream_request = enqueue_history_context_pack_request(
+            app_id=app_id,
+            channel_uuid=channel_uuid,
+            requester_type=requester_type,
+            requester_id=nick,
+            request=request,
+            request_message_uuid=published.envelope.message_uuid,
+            stream_store=stream_store,
+        )
     chunks = replay_channel_chunks(
         history,
         resolver,
@@ -1228,6 +1244,8 @@ def handle_history_command(
         "chunk_lengths": [chunk["event_count"] for chunk in chunks],
         "resolved_payloads": len([payload for payload in payloads if payload.get("event_type") != "payload_error"]),
         "payload_errors": len([payload for payload in payloads if payload.get("event_type") == "payload_error"]),
+        "stream_request_id": stream_request["request_id"] if stream_request is not None else None,
+        "stream_request": stream_request,
     }
 
 
@@ -1256,6 +1274,59 @@ def record_history_request(
         history=history,
         publisher=publisher,
     )
+
+
+def enqueue_history_context_pack_request(
+    *,
+    app_id: int,
+    channel_uuid: str,
+    requester_type: str,
+    requester_id: str,
+    request: JsonDict,
+    request_message_uuid: str,
+    stream_store: str | Path,
+    priority: str = "normal",
+    deadline_ms: int | None = None,
+    model_budget_hint: str = "spark_suitable",
+    idempotency_key: str | None = None,
+    status: str = "ready",
+) -> JsonDict:
+    from .codex_stream_worker import CodexStreamWorkerStore
+
+    with CodexStreamWorkerStore(stream_store) as queue:
+        return queue.enqueue_request(
+            request_id=request_message_uuid,
+            app_id=app_id,
+            channel_uuid=normalize_channel_uuid(channel_uuid),
+            requester_kind=requester_type or "user",
+            requester_id=requester_id,
+            task_type="history_context_pack",
+            input_ref=json.dumps(
+                {
+                    "task": "history_context_pack",
+                    "request_message_uuid": request_message_uuid,
+                    "command": request.get("command_text", ""),
+                    "mode": request.get("mode", "last_messages"),
+                    "messages": request.get("messages"),
+                    "chunk_size": request.get("chunk_size", 0),
+                    "direction": request.get("direction", RECENT_FIRST_BACKFILL),
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+            evidence_refs=(
+                {
+                    "kind": "history_request_message",
+                    "message_uuid": request_message_uuid,
+                    "source": "chat_history_command",
+                },
+            ),
+            model_budget_hint=model_budget_hint,
+            priority=priority,
+            deadline_ms=deadline_ms,
+            idempotency_key=idempotency_key,
+            status=status,
+        )
 
 
 def run_chat_truth_test(root: str | Path) -> JsonDict:

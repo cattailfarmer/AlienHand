@@ -25,6 +25,7 @@ from alienhand_ai.payload_http import (
     run_refinement_http_api_proof,
 )
 from alienhand_ai.refinement_storage import ConversationRefinementStore, import_replay_rows
+from alienhand_ai.codex_stream_worker import CodexStreamWorkerStore
 
 
 class PayloadHTTPTests(unittest.TestCase):
@@ -181,7 +182,13 @@ class PayloadHTTPTests(unittest.TestCase):
                 unauthorized, _, unauthorized_status = fetch_json(f"{server.base_url}/alienhand/refinement/blocks")
                 history_request, _, history_request_status = post_json(
                     f"{server.base_url}/alienhand/refinement/history-requests",
-                    {"channel_uuid": channel_uuid, "chunk_size": 1, "messages": 1},
+                    {
+                        "channel_uuid": channel_uuid,
+                        "chunk_size": 1,
+                        "messages": 1,
+                        "app_id": 77,
+                        "source": "ui-client",
+                    },
                     token="secret",
                 )
                 cut, _, cut_status = post_json(
@@ -381,6 +388,10 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(history_request["chunk_lengths"], [1])
             self.assertEqual(history_request["resolved_payloads"], 1)
             self.assertEqual(history_request["payload_errors"], 0)
+            self.assertEqual(history_request["stream_request"]["task_type"], "history_context_pack")
+            self.assertEqual(history_request["stream_request_id"], history_request["stream_request"]["request_id"])
+            self.assertEqual(history_request["stream_request"]["requester_id"], "ui-client")
+            self.assertEqual(history_request["stream_request"]["app_id"], 77)
             self.assertEqual(history_request["directive"]["directive_kind"], "history_request")
             self.assertEqual(history_request["directive"]["visibility"], "raw_only")
             self.assertEqual(history_request["directive"]["target_id"], channel_uuid)
@@ -478,6 +489,17 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual([row["sequence"] for row in limited_directives["directives"]], [1, 2, 3])
             self.assertEqual(cut_directives_status, 200)
             self.assertEqual([row["target_id"] for row in cut_directives["directives"]], [cut["cut"]["cut_id"]])
+
+            with CodexStreamWorkerStore(root / "codex_stream.sqlite3") as queue:
+                queued = queue.connection.execute(
+                    "SELECT * FROM codex_stream_requests WHERE request_id = ?",
+                    (history_request["stream_request_id"],),
+                ).fetchone()
+
+            self.assertIsNotNone(queued)
+            self.assertEqual(queued["task_type"], "history_context_pack")
+            self.assertEqual(queued["app_id"], 77)
+            self.assertEqual(queued["requester_id"], "ui-client")
 
     def test_refinement_http_api_can_adopt_live_irc_message_as_block(self):
         with tempfile.TemporaryDirectory() as temp:

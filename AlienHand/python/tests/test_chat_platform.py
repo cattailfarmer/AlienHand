@@ -36,6 +36,7 @@ from alienhand_ai.chat_platform import (
     run_history_replay_proof,
     run_render_model_proof,
 )
+from alienhand_ai.codex_stream_worker import CodexStreamWorkerStore
 
 
 class ChatPlatformTests(unittest.TestCase):
@@ -292,6 +293,60 @@ class ChatPlatformTests(unittest.TestCase):
             self.assertEqual(len(history.load(channel_uuid)), 4)
             self.assertEqual(history.load(channel_uuid)[-1]["event_type"], "history_request")
             self.assertEqual(len(outbox.lines), 4)
+
+    def test_history_command_stores_stream_request_when_stream_store_set(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            stream_db = root / "codex_stream.sqlite3"
+            store = PayloadStore(root)
+            history = ChannelJSONLHistory(root)
+            outbox = EnvelopeOutbox()
+            channel_uuid = uuid4().hex
+
+            for index in range(1, 3):
+                commit_message(
+                    app_id=7,
+                    channel_uuid=channel_uuid,
+                    nick="agent",
+                    sender_type="ai_agent",
+                    payload_kind="text",
+                    content={"text": f"message {index}"},
+                    store=store,
+                    history=history,
+                    publisher=outbox,
+                )
+
+            result = handle_history_command(
+                "!ah history 2 chunk 1",
+                app_id=7,
+                channel_uuid=channel_uuid,
+                nick="user",
+                requester_type="user",
+                store=store,
+                history=history,
+                resolver=PayloadResolver(store),
+                publisher=outbox,
+                stream_store=stream_db,
+                metadata={"proof": "history_stream_queue"},
+            )
+
+            self.assertIsNotNone(result)
+            self.assertEqual(result["stream_request"]["task_type"], "history_context_pack")
+            self.assertEqual(result["stream_request"]["app_id"], 7)
+            self.assertEqual(result["stream_request"]["requester_kind"], "user")
+            self.assertEqual(result["stream_request"]["requester_id"], "user")
+            self.assertEqual(result["stream_request_id"], result["stream_request"]["request_id"])
+
+            with CodexStreamWorkerStore(stream_db) as queue:
+                row = queue.connection.execute(
+                    "SELECT * FROM codex_stream_requests WHERE request_id = ?",
+                    (result["stream_request_id"],),
+                ).fetchone()
+
+            self.assertIsNotNone(row)
+            self.assertEqual(row["task_type"], "history_context_pack")
+            self.assertEqual(row["requester_id"], "user")
+            self.assertEqual(row["app_id"], 7)
 
     def test_history_replay_proof_records_request_and_chunks_payloads(self):
         with tempfile.TemporaryDirectory() as temp:

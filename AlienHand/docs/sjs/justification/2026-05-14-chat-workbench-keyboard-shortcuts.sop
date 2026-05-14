@@ -1,0 +1,35 @@
+Subject: Chat Workbench Keyboard Shortcuts Justification
+Date: 2026-05-14
+Scope: Accessible keyboard equivalents for common AlienHand refinement workbench operations
+
+& [ChatWorkbenchKeyboardShortcutSlice] is the keyboard affordance layer for workbench operations
+  + [specification_basis] is AlienHand/docs/irc-chat-refinement.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [frontier_basis] is [ImplementationFrontier: ChatRefinementV2] frontier_5
+  + [ui_contract] is visible shortcut guidance plus non-text-entry keyboard handlers
+  + [thelounge_commit] is 450c2077
+  + [parent_pointer] is AlienHand/thelounge
+  + [implementation_files] are The Lounge client/components/AlienHandRefinementWorkbench.vue, The Lounge client/css/alienhand-chat.css, and AlienHand/python/alienhand_ai/payload_http.py
+
+  = implemented: added a visible shortcut legend in the workbench footer
+  = implemented: added Ctrl+Alt+1 to toggle Chat
+  = implemented: added Ctrl+Alt+2 to toggle Cutting
+  = implemented: added Ctrl+Alt+3 to toggle Editing
+  = implemented: added Ctrl+Alt+R to toggle raw text
+  = implemented: added Ctrl+Alt+H to request channel history
+  = implemented: added Ctrl+Alt+Enter to insert the selected source at the Cutting pointer
+  = implemented: suppressed shortcut handling while focus is inside input, textarea, select, or contenteditable controls
+  = implemented: surfaced shortcut results through the existing workbench status pill stream
+  = implemented: added style support for the shortcut legend
+  = implemented: added runtime proof markers for shortcut legend, shortcut status strings, and shortcut CSS
+  = satisfies: frontier_5 because select/insert/toggle/history operations now have keyboard equivalents or visible button equivalents
+  = satisfies: UIInteractionSpecification because keyboard actions expose feedback and avoid hidden state changes while the user is typing
+  = satisfies: DataDrivenDesign because shortcuts dispatch existing named UI operations rather than creating alternate persistence paths
+  = verification: npx eslint client\components\AlienHandRefinementWorkbench.vue --color passed
+  = verification: npx prettier --check client\components\AlienHandRefinementWorkbench.vue client\css\alienhand-chat.css passed
+  = verification: yarn build:client passed
+  = verification: python -m unittest tests.test_payload_http tests.test_refinement_storage tests.test_chat_platform passed 45 tests
+  = verification: python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-keyboard-shortcuts-proof --timeout 45 returned workbench_runtime_ok true
+  - compatibility: pointer, click, and button workflows remain unchanged
+  - never: trigger shortcuts while the user is composing text
+  - never: create shortcut-only behavior with no visible status feedback

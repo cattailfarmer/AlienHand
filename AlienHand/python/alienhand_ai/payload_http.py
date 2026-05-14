@@ -1663,6 +1663,10 @@ def run_app_thelounge_refinement_workbench_proof(
         "insert aria label": "Insert selected source at current Cutting position",
         "keyboard insertion up": "Move cut insertion up",
         "keyboard insertion down": "Move cut insertion down",
+        "keyboard shortcut legend": "Keyboard shortcuts: Ctrl+Alt+1 Chat",
+        "keyboard toggle status": "Ctrl+Alt+1 toggled Chat",
+        "keyboard history status": "Ctrl+Alt+H requested channel history.",
+        "keyboard insert status": "Ctrl+Alt+Enter inserts selected source",
         "bridge instruction": "Select a chat line with its arrow",
         "bridge blocked status": "Bridge blocked: select a chat line",
         "empty cuts guidance": "No cuts yet. Select a chat line",
@@ -1708,6 +1712,7 @@ def run_app_thelounge_refinement_workbench_proof(
         "removed cuts": "alienhand-workbench__removed-cuts",
         "stale source": "alienhand-workbench__stale-source",
         "removed editing line": "alienhand-workbench__editing-line--removed",
+        "shortcut legend": "alienhand-workbench__shortcuts",
         "directory item": "alienhand-workbench__directory-item",
     }
     missing_bundle_markers = [

@@ -1,0 +1,31 @@
+Subject: Chat Workbench Raw Text Tracking Justification
+Date: 2026-05-14
+Scope: Toggleable raw debug projection tracking for AlienHand refinement state
+
+& [ChatWorkbenchRawTextTrackingSlice] is the raw debug projection tracking affordance
+  + [specification_basis] is AlienHand/docs/irc-chat-refinement.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [user_refinement_basis] is the requested raw text show/hide control with an independent tracking toggle
+  + [ui_contract] is raw JSON debug projection remains visible on demand and can auto-track updates when enabled
+  + [thelounge_commit] is febb33e4
+  + [parent_pointer] is AlienHand/thelounge
+  + [implementation_files] are The Lounge client/components/AlienHandRefinementWorkbench.vue and AlienHand/python/alienhand_ai/payload_http.py
+
+  = implemented: added a Track raw text / Stop tracking raw text button that appears when raw text is visible
+  = implemented: added trackRawText state defaulting to enabled for visible raw debug updates
+  = implemented: added rawTextOutput ref and syncRawTextTracking operation
+  = implemented: auto-scrolls the raw debug projection to its latest state when rawDebugText, raw text visibility, or tracking state changes
+  = implemented: added Ctrl+Alt+T as a keyboard equivalent for raw text tracking
+  = implemented: reports raw tracking state through the existing workbench status pill stream
+  = implemented: added runtime proof markers for the tracking action, stop action, status, and shortcut text
+  = satisfies: user-requested raw text tracking because the raw projection can now be shown independently and tracking can be toggled independently
+  = satisfies: UIInteractionSpecification because tracking is visible, reversible, keyboard reachable, and status-reported
+  = satisfies: DataDrivenDesign because raw tracking remains accidental UI state over the raw projection and does not mutate durable refinement rows
+  = verification: npx eslint client\components\AlienHandRefinementWorkbench.vue --color passed
+  = verification: npx prettier --check client\components\AlienHandRefinementWorkbench.vue passed
+  = verification: yarn build:client passed
+  = verification: python -m unittest tests.test_payload_http tests.test_refinement_storage tests.test_chat_platform passed 45 tests
+  = verification: python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-raw-tracking-proof --timeout 45 returned workbench_runtime_ok true
+  - compatibility: raw debug content remains the same JSON projection shape
+  - never: treat raw debug scroll state as durable source truth
+  - never: force tracking on when the user disables it

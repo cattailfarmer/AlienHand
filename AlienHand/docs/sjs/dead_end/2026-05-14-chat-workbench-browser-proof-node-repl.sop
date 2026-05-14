@@ -1,0 +1,22 @@
+Subject: Chat Workbench Browser Proof Blocker
+Date: 2026-05-14
+Scope: Frontier 7 browser-click or browser-harness proof for AlienHand chat refinement workbench
+
+& [ChatWorkbenchBrowserProofNodeReplBlocker] is the preserved dead-end record for the in-app browser proof attempt
+  + [specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [frontier] is Frontier 7 browser-click or harness proof once local browser automation dependency is usable
+  + [required_tool] is browser-use in-app browser through node_repl
+  + [required_runtime] is Node.js >= 22.22.0
+  + [resolved_runtime] is C:/Program Files/nodejs/node.exe
+  + [resolved_runtime_version] is v22.19.0
+  + [available_newer_runtime] is C:/Program Files/Microsoft Visual Studio/18/Insiders/MSBuild/Microsoft/VisualStudio/NodeJs/node.exe
+  + [available_newer_runtime_version] is v24.12.0
+
+  = attempted: initialized browser-use with backend iab through node_repl
+  = observed: node_repl refused execution before JavaScript ran because the resolved Node runtime is too old
+  = conclusion: the interactive browser proof cannot be completed in this running Codex session through the required browser-use path
+  = recommendation: restart or configure Codex with NODE_REPL_NODE_PATH pointing at a Node runtime >= 22.22.0, preferably the detected v24.12.0 runtime if acceptable for the local environment
+  = fallback_status: non-browser runtime proof remains valid for API, bundle marker, style marker, persistence, and cold-replay checks
+  = next_independent_work: continue non-browser-dependent implementation, specification, and harness hardening while preserving this obstruction
+  - never: treat this as a product failure; it is an automation-environment blocker
+  - never: reroute to unrelated browser-control mechanisms without explicitly recording why the browser-use contract could not operate

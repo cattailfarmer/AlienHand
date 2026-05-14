@@ -44,6 +44,12 @@ from .payload_http import (
 from .refinement_storage import run_refinement_replay_import_proof, run_refinement_storage_proof
 from .runner import ProcessRunConfig, record_process
 from .sop import compile_sop_file, compile_sop_text, write_sop_packets
+from .surface_bridge import (
+    DEFAULT_GODOT_BRIDGE_PORT,
+    DEFAULT_GODOT_SURFACE_ID,
+    run_godot_surface_bridge_live,
+    run_godot_surface_bridge_proof,
+)
 from .telemetry import TelemetryRecorder, summarize_run, write_html_report
 from .thelounge_adapter import run_thelounge_adapter_proof
 
@@ -270,6 +276,19 @@ def main() -> None:
     multi_mouse_live.add_argument("--output", default="runs")
     multi_mouse_live.add_argument("--name", default="multi-mouse-live-observer-proof")
 
+    godot_surface_bridge = sub.add_parser("godot-surface-bridge-proof")
+    godot_surface_bridge.add_argument("--output", default="runs")
+    godot_surface_bridge.add_argument("--name", default="godot-surface-bridge-proof")
+
+    godot_surface_live = sub.add_parser("godot-surface-bridge-live")
+    godot_surface_live.add_argument("--host", default="127.0.0.1")
+    godot_surface_live.add_argument("--port", type=int, default=DEFAULT_GODOT_BRIDGE_PORT)
+    godot_surface_live.add_argument("--surface-id", default=DEFAULT_GODOT_SURFACE_ID)
+    godot_surface_live.add_argument("--duration", type=float, default=30.0)
+    godot_surface_live.add_argument("--max-events", type=int, default=256)
+    godot_surface_live.add_argument("--output", default="runs")
+    godot_surface_live.add_argument("--name", default="godot-surface-bridge-live")
+
     args = parser.parse_args()
     if args.command == "record-process":
         command = _normalize_remainder(args.command_args)
@@ -494,6 +513,19 @@ def main() -> None:
     elif args.command == "multi-mouse-live-observer-proof":
         result = run_multi_mouse_live_observer_proof(
             Path(args.output) / args.name,
+            duration_seconds=args.duration,
+            max_events=args.max_events,
+        )
+        print(json.dumps(result, indent=2))
+    elif args.command == "godot-surface-bridge-proof":
+        result = run_godot_surface_bridge_proof(Path(args.output) / args.name)
+        print(json.dumps(result, indent=2))
+    elif args.command == "godot-surface-bridge-live":
+        result = run_godot_surface_bridge_live(
+            Path(args.output) / args.name,
+            host=args.host,
+            port=args.port,
+            surface_id=args.surface_id,
             duration_seconds=args.duration,
             max_events=args.max_events,
         )

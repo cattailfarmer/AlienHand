@@ -548,6 +548,22 @@ Description: SOP description of the justification step, called "jusitification" 
   + [status] is justified
   + [uncertainty] is this proves target policy routing, virtual pointer state, Raw Input device visibility, and live packet observation from one assigned mouse during the tested window; it does not yet prove simultaneous live packets from both mice, implement the capture driver/interception backend, real input blocking, cursor masking, or injected Windows legacy events
 
+& [JustificationEntry: GodotSurfaceBridgeProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [AlienHandGodotSurfaceBridge], [GodotSurfaceBridgeProof], [TwoPointerHybridInput], and [MultiMousePipelineProof]
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/surface_bridge.py
+  + [implemented_artifact] is AlienHand/python/alienhand_ai/cli.py godot-surface-bridge-proof and godot-surface-bridge-live commands
+  + [implemented_artifact] is AlienHand/python/tests/test_surface_bridge.py
+  + [implemented_artifact] is AlienHand/docs/godot-surface-bridge-handoff.md
+  + [implemented_artifact] is AlienHand/docs/multi-mouse-input.sop [AlienHandGodotSurfaceBridge]
+  + [evidence_anchor] is python -m unittest tests.test_surface_bridge
+  + [evidence_anchor] is python -m alienhand_ai.cli godot-surface-bridge-proof --output runs --name godot-surface-bridge-proof
+  + [evidence_anchor] is python -m alienhand_ai.cli godot-surface-bridge-live --host 127.0.0.1 --port 47992 --duration 1 --max-events 8 --output runs --name godot-surface-bridge-live
+  + [verification_result] is bridge proof returned bridge_ok true, generated 4 AH_SURFACE/1 alienhand.pointer events for pointer_id alienhand:mouse-b, streamed them over localhost TCP JSONL to a proof client, wrote a JSONL proof journal, and returned an integration_handle for Godot to connect to 127.0.0.1:47991
+  + [verification_result] is live bridge smoke returned bridge_live_ok true on 127.0.0.1:47992, saw 2 mouse-class devices, produced the integration_handle, and remained non-invasive; no surface events were published during the 1 second window because no mouse movement occurred
+  + [status] is justified
+  + [uncertainty] is this bridge makes Godot ready to consume AlienHand independent pointer events; it does not modify Godot engine, block Windows mouse input, or provide final capture/interception behavior
+
 ## Future Work Behavior
 
 & [JustificationBehavior] is the required behavior while implementing future work

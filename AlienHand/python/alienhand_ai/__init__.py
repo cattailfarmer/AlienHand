@@ -20,6 +20,7 @@ __all__ = [
     "runner",
     "sop",
     "state_delta",
+    "surface_bridge",
     "telemetry",
     "transformer",
     "vision",

@@ -767,7 +767,12 @@ class WindowsRawMouseObserver:
         self.target = target or TargetIdentity("windows-raw-input", "windows-raw-input")
         self._wndproc: Any | None = None
 
-    def collect(self, duration_seconds: float, max_events: int) -> list[PointerDeltaPacket]:
+    def collect(
+        self,
+        duration_seconds: float,
+        max_events: int,
+        on_packet: Any | None = None,
+    ) -> list[PointerDeltaPacket]:
         if not hasattr(ctypes, "windll"):
             raise RuntimeError("Windows Raw Input is only available through ctypes.windll on Windows")
         if duration_seconds <= 0:
@@ -788,14 +793,16 @@ class WindowsRawMouseObserver:
 
         def wndproc(hwnd: int, message: int, w_param: int, l_param: int) -> int:
             if message == WM_INPUT:
-                packets.extend(
-                    _read_raw_input_mouse_packets(
-                        user32,
-                        int(l_param),
-                        self.target,
-                        _milliseconds(),
-                    )
+                parsed_packets = _read_raw_input_mouse_packets(
+                    user32,
+                    int(l_param),
+                    self.target,
+                    _milliseconds(),
                 )
+                packets.extend(parsed_packets)
+                if on_packet is not None:
+                    for packet in parsed_packets:
+                        on_packet(packet)
                 return 0
             return int(user32.DefWindowProcW(hwnd, message, w_param, l_param))
 

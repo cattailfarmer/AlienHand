@@ -194,3 +194,31 @@ Description: This specification defines the dual-pointer input substrate for Ali
   = must: expose the would-be captured logical device ids
   = must: make simulated capture visibly simulation_only
   - never: treat simulated capture as proof of real input blocking
+
+& [AlienHandGodotSurfaceBridge] is the first bridge from AlienHand dual-pointer input into a Godot AlienHand-aware surface
+  + [implementation] is AlienHand/python/alienhand_ai/surface_bridge.py
+  + [handoff] is AlienHand/docs/godot-surface-bridge-handoff.md
+  + [protocol] is AH_SURFACE/1
+  + [transport] is localhost TCP JSONL
+  + [event_type] is alienhand.pointer
+  + [default_host] is 127.0.0.1
+  + [default_port] is 47991
+  + [default_surface_id] is godot-main-viewport
+
+  = must: publish only source-aware AlienHand surface events
+  = must: include pointer_id, device_id, action, x, y, dx, dy, buttons, wheel_delta, timestamp_ms, source_channel, and target_id
+  = must: keep Godot surface events independent from the OS mouse event stream
+  = must: provide a stable handoff that another Godot-side agent can implement against
+  = must: remain non-invasive until capture/backend work is explicitly available
+  = should: allow Godot to render pointer_id alienhand:mouse-b as a second pointer
+
+& [GodotSurfaceBridgeProof] is the local TCP JSONL proof for the Godot surface bridge
+  + [proof_command] is godot-surface-bridge-proof
+  + [live_command] is godot-surface-bridge-live
+  + [journal] is godot-surface-bridge.jsonl
+
+  = must: generate simulated independent mouse-b surface events
+  = must: start a local TCP JSONL server
+  = must: prove a TCP client receives the same AH_SURFACE/1 events
+  = must: return [bridge_ok] true when the stream and schema are valid
+  = should: expose [integration_handle] containing host, port, protocol, transport, and required fields

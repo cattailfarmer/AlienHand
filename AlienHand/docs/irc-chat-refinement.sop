@@ -526,6 +526,7 @@ Description: SOP specification for the refined conversation layer that reorganiz
   = must: search raw blocks through [ConversationRefinementHTTPV1]
   = must: let a user stage a live IRC chat line as the source for a cut
   = must: let the cuts pane adopt that live IRC line as a refinement block before inserting it
+  = must: expose a user-controlled insertion point for new cuts
   = must: let a user inject a raw block into the cuts pane
   = must: let a user remove an active cut with an x control
   = must: let a user create a chapter from the active channel cuts

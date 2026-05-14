@@ -168,6 +168,20 @@ Description: SOP description of the justification step, called "jusitification" 
   + [status] is justified
   + [uncertainty] is this changes default frame visibility only; the final draggable divider and full layout geometry remain future work
 
+& [JustificationEntry: CutInsertionPointControlProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [ConversationCutAction], [ConversationRefinementWorkbenchLayoutV2], and [TheLoungeRefinementWorkbenchV1]
+  + [implemented_artifact] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue insertionIndex and insertion control
+  + [implemented_artifact] is AlienHand/thelounge/client/css/alienhand-chat.css insertion arrow control styling
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop TheLoungeRefinementWorkbenchV1 insertion point requirement
+  + [evidence_anchor] is npx eslint client/components/AlienHandRefinementWorkbench.vue --color
+  + [evidence_anchor] is npx stylelint --color client/css/alienhand-chat.css
+  + [evidence_anchor] is yarn build:client in AlienHand/thelounge
+  + [evidence_anchor] is git push cattailfarmer alienhand/chat-render-adapter commit 0f0ce2db
+  + [verification_result] is the The Lounge workbench now exposes a draggable insertion-point control in the Cutting pane, raw block injection and selected live chat line insertion both pass the selected insertion position to createAlienHandRefinementCut, insertion position advances after insert, and position clamps when cuts are removed; targeted Vue ESLint, CSS Stylelint, and client bundle build passed
+  + [status] is justified
+  + [uncertainty] is this is the first functional insertion-point control; the final large arrow positioned between Chat and Cutting panes remains future layout work
+
 & [JustificationEntry: ConversationTermFreezeSpecification] is justified
   + [work_type] is protocol
   + [requirement_anchor] is user request to freeze the terms block, cut, chapter, edit, bookmark, sticky, and quote with articulated meaning and use cases

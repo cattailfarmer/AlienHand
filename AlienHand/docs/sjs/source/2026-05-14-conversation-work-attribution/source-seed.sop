@@ -1,0 +1,14 @@
+Subject: Conversation Work Attribution Source Seed
+Date: 2026-05-14
+Source: User-directed refinement during concurrent AlienHand development
+
+& [UserDictatedNeed: ConversationWorkAttribution] is the preserved source request
+  + [context] is multiple Codex conversations are active in the same workspace
+  + [context] is at least two active conversations may touch the AlienHand project
+  + [problem] is a dirty worktree file can be difficult to attribute to a specific conversation after the fact
+  + [example] is AlienHand/python/alienhand_ai/cli.py appearing dirty without clear ownership
+  + [proposal] is assigning a persistent UUID per conversation
+  + [proposal] is using that UUID in the SJS framework to track which conversation is responsible for what work
+
+  = must: preserve this source shape as user provenance
+  = must: route canonical policy through SJS rather than overwriting this source

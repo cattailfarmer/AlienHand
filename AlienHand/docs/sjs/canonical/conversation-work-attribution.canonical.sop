@@ -1,0 +1,77 @@
+Subject: Conversation Work Attribution Canonical SJS Specification
+Date: 2026-05-14
+Description: Signed canonical authority for attributing work to persistent Codex conversation identities during concurrent AlienHand development.
+
+@ [source_seed] AlienHand/docs/sjs/source/2026-05-14-conversation-work-attribution/source-seed.sop
+@ [sjs_protocol] platform/refinement/Specification_Justification_Solution.sop
+@ [spec_governance] platform/refinement/Specification_Governance.sop
+@ [data_driven_design] platform/refinement/Data_Driven_Design.sop
+
+& [CanonicalRecord: ConversationWorkAttribution] is the processed implementation authority
+  + [source_document] is AlienHand/docs/sjs/source/2026-05-14-conversation-work-attribution/source-seed.sop
+  + [canonical_source_specification] is this document
+  + [authority_scope] is conversation identity, work ownership, dirty worktree attribution, SJS justification linkage, and concurrent-agent coordination
+  + [satisfaction_signature] is [SatisfactionSignature: ConversationWorkAttribution]
+
+  = must: assign one persistent [conversation_uuid] for each active Codex conversation that mutates or plans to mutate project work
+  = must: record the [conversation_uuid] in a conversation record before or with the next coherent implementation slice
+  = must: include [conversation_uuid] in future SJS justification records when work is implemented from that conversation
+  = must: classify dirty files as owned, foreign, mixed, unknown, or generated before staging or editing them
+  = must: avoid claiming authorship for uncommitted work unless the conversation record, staged diff, commit, or justification evidence supports that claim
+  = must: preserve uncertainty explicitly when authorship cannot be proven
+  = must: keep source user statements separate from canonical policy records
+
+& [ConversationIdentityContract] is the persistent identity rule
+  + [conversation_uuid] is a UUID assigned to one Codex conversation thread
+  + [conversation_label] is a short human-readable name for the current workstream
+  + [workspace_scope] is the repository or directory set the conversation may touch
+  + [active_scope] is the files, modules, specs, or subsystems presently owned by the conversation
+  + [handoff_note] is a concise summary another conversation can inspect before touching overlapping work
+
+  = must: keep [conversation_uuid] stable across compaction and follow-up turns in the same conversation
+  = must: record new coherent slices in SJS justification with the same [conversation_uuid]
+  = must: update [active_scope] or create a handoff note when the conversation changes subsystem focus
+
+& [DirtyWorktreeAttributionContract] is the concurrent-work safety rule
+  + [owned] means the current conversation has direct evidence it produced the dirty change
+  + [foreign] means another conversation, user process, generated output, or external tool likely produced the dirty change
+  + [mixed] means the file contains both current-conversation and non-current-conversation changes
+  + [unknown] means authorship cannot be determined from available evidence
+  + [generated] means the file is build, proof, runtime, cache, or tool output
+
+  = must: inspect a dirty file before editing or staging it
+  = must: stage only owned hunks or agreed mixed hunks for a coherent commit
+  = must: record unresolved authorship as unknown rather than assuming ownership
+  = must: stop and ask for direction if a foreign or unknown dirty change directly blocks the current implementation
+  = should: use separate commits per coherent conversation-owned slice
+  = should: prefer SJS justification entries over prose-only memory when work may be reviewed later
+
+& [JustificationAugmentationContract] is the SJS linkage rule
+  + [field] is conversation_uuid
+  + [field] is conversation_label
+  + [field] is worktree_attribution
+  + [field] is dirty_file_policy
+
+  = must: include [conversation_uuid] in future implementation justification records
+  = should: include [worktree_attribution] when dirty worktree overlap was observed
+  = should: identify files intentionally not touched because ownership was foreign, mixed, generated, or unknown
+
+& [CurrentConversationBootstrap] is the first assigned conversation identity under this policy
+  + [conversation_uuid] is 7600f77c-9365-4901-ba2a-0250757acb3f
+  + [conversation_label] is codex-stream-worker-and-chat-platform
+  + [workspace_scope] is C:\Project\Codex_Projects\ReasoningFramework\AlienHand
+  + [initial_reason] is this conversation discovered ambiguous dirty worktree attribution around AlienHand/python/alienhand_ai/cli.py
+
+  = must: use this UUID for future SJS justification entries from this conversation unless the user explicitly starts a new conversation identity
+
+& [SatisfactionSignature: ConversationWorkAttribution] is the valid SJS satisfaction signature
+  + [signature_protocol_uuid] is ad10f10f-d506-48ef-a805-f8b0a133766c
+  + [signature_uuid] is 5d5d6fce-d8ff-46ee-85f3-0c6fd8f711fb
+  + [signed_subject] is AlienHand/docs/sjs/canonical/conversation-work-attribution.canonical.sop
+  + [source_specification] is AlienHand/docs/sjs/source/2026-05-14-conversation-work-attribution/source-seed.sop
+  + [canonical_source_specification] is AlienHand/docs/sjs/canonical/conversation-work-attribution.canonical.sop
+  + [processed_stage_set] is source_preserved, delineated, semantically_refined, constraint_checked, justified, solution_seeded, and registry_recorded
+  + [signature_status] is valid
+  + [invalidation_condition] is source_change, missing_conversation_uuid, conflicting_conversation_identity, broken_lineage, or implementation_contradiction
+
+  = must: identify this file as the processed AlienHand conversation work attribution policy

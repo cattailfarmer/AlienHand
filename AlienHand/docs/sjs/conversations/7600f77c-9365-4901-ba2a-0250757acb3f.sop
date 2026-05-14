@@ -1,0 +1,37 @@
+Subject: Codex Conversation Work Record
+Date: 2026-05-14
+Conversation UUID: 7600f77c-9365-4901-ba2a-0250757acb3f
+
+@ [canonical_policy] AlienHand/docs/sjs/canonical/conversation-work-attribution.canonical.sop
+
+& [ConversationRecord: 7600f77c-9365-4901-ba2a-0250757acb3f] is the persistent work identity for this Codex conversation
+  + [conversation_uuid] is 7600f77c-9365-4901-ba2a-0250757acb3f
+  + [conversation_label] is codex-stream-worker-and-chat-platform
+  + [workspace_scope] is C:\Project\Codex_Projects\ReasoningFramework\AlienHand
+  + [current_primary_scope] is AlienHand chat platform, Codex stream worker, The Lounge workbench integration, and SJS implementation justification
+  + [known_parallel_scope] is GodotExtension and Godot surface bridge work may be touched by another active conversation or process
+  + [created_because] is ambiguous dirty worktree attribution was observed for AlienHand/python/alienhand_ai/cli.py
+
+  = must: cite this [conversation_uuid] in future SJS justification records produced by this conversation
+  = must: inspect dirty files before staging or editing them
+  = must: treat AlienHand/python/alienhand_ai/cli.py as [unknown_or_mixed] until its uncommitted Godot proof wiring is either claimed, committed by the responsible conversation, or explicitly assigned
+  = must: leave GodotExtension work alone unless the user explicitly reassigns that scope to this conversation
+
+& [ObservedDirtyAttribution: 2026-05-14-cli-py] is the current evidence snapshot for the CLI dirty file
+  + [file] is AlienHand/python/alienhand_ai/cli.py
+  + [classification] is unknown_or_mixed
+  + [evidence] is git diff shows added Godot, surface bridge, shared memory replay, IDE surface, ANNE, cursor accessibility, proof freshness, and artifact regeneration CLI commands
+  + [evidence] is the diff is not part of commit 00fd5d5 Add history context pack executor artifacts
+  + [evidence] is the current conversation cannot prove authorship from committed SJS records that existed before this attribution policy
+
+  = must: not stage this file in this conversation without explicit ownership decision
+  = should: ask the active Godot conversation whether it owns the CLI diff before merging or overwriting
+
+& [CommittedSlice: 00fd5d5] is an attribution backfill for the immediately previous coherent slice
+  + [commit] is 00fd5d5 Add history context pack executor artifacts
+  + [conversation_uuid] is 7600f77c-9365-4901-ba2a-0250757acb3f
+  + [classification] is owned_by_this_conversation
+  + [implemented] is durable artifact recording, request status artifact projection, history_context_pack executor artifact output, anchored replay, tests, and SJS justification
+  + [justification] is AlienHand/docs/sjs/justification/2026-05-14-codex-stream-history-context-pack-executor.sop
+
+  = note: this is a backfill record because the conversation UUID policy was created after the commit

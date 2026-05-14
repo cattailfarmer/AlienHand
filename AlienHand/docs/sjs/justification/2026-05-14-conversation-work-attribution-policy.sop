@@ -1,0 +1,31 @@
+Subject: Conversation Work Attribution Policy Justification
+Date: 2026-05-14
+Scope: Persistent conversation UUID tracking for concurrent AlienHand work
+
+& [ConversationWorkAttributionPolicyJustification] is the recorded completion slice for the conversation attribution rail
+  + [specification_basis] is AlienHand/docs/sjs/canonical/conversation-work-attribution.canonical.sop
+  + [conversation_uuid] is 7600f77c-9365-4901-ba2a-0250757acb3f
+  + [conversation_label] is codex-stream-worker-and-chat-platform
+  + [implementer] is GPT-5.5 Codex
+  + [model_routing] is high_reasoning because this slice crosses concurrent-agent provenance, dirty worktree safety, SJS governance, and future commit attribution
+  + [implementation_files] are AlienHand/docs/sjs/source/2026-05-14-conversation-work-attribution/source-seed.sop,
+    AlienHand/docs/sjs/canonical/conversation-work-attribution.canonical.sop,
+    AlienHand/docs/sjs/conversations/7600f77c-9365-4901-ba2a-0250757acb3f.sop,
+    AlienHand/docs/sjs/justification/2026-05-14-conversation-work-attribution-policy.sop
+
+  = implemented: preserved the user-dictated need for persistent per-conversation UUIDs as a source seed
+  = implemented: created a signed canonical SJS policy requiring future work justification to carry conversation_uuid
+  = implemented: assigned this conversation UUID 7600f77c-9365-4901-ba2a-0250757acb3f
+  = implemented: added a conversation record identifying current scope, parallel Godot risk, and dirty-file handling rules
+  = implemented: classified AlienHand/python/alienhand_ai/cli.py as unknown_or_mixed until ownership is explicitly resolved
+  = implemented: backfilled commit 00fd5d5 as owned by this conversation through the new conversation record
+
+  = verification: git diff inspection showed AlienHand/python/alienhand_ai/cli.py contains Godot/surface proof wiring not included in commit 00fd5d5
+  = verification: policy files use .sop according to AGENTS.md file extension contract
+
+  = satisfies: [ConversationIdentityContract] by creating a stable UUID record for this conversation
+  = satisfies: [DirtyWorktreeAttributionContract] by preserving uncertainty for cli.py instead of claiming unsupported ownership
+  = satisfies: [JustificationAugmentationContract] by establishing required conversation_uuid linkage for future justifications
+
+  - limitation: pre-policy commits can only be backfilled when evidence is strong enough
+  - limitation: this policy cannot identify authorship of already-dirty files without prior records, commit evidence, or user/agent confirmation

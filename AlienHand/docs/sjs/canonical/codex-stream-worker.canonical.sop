@@ -1,0 +1,104 @@
+Subject: AlienHand Codex Stream Worker Canonical SJS Specification
+Description: Signed canonical authority for the AlienHand Codex stream worker after source preservation and seven-fold steel-man explosion.
+
+@ [source_seed] AlienHand/docs/sjs/source/2026-05-14-codex-stream-worker/source-seed.sop
+@ [source_sha256] B8448044EDF952DA8FCB988D6496B03B25D4322418273AB968D7A240E0C8DFEB
+@ [exploded_specification] AlienHand/docs/sjs/exploded/codex-stream-worker.exploded.sop
+@ [sjs_protocol] platform/refinement/Specification_Justification_Solution.sop
+@ [model_budget_routing] platform/refinement/Model_Budget_Routing.sop
+
+& [CanonicalRecord: AlienHandCodexStreamWorker] is the processed implementation authority
+  + [source_document] is AlienHand/docs/sjs/source/2026-05-14-codex-stream-worker/source-seed.sop
+  + [source_hash] is B8448044EDF952DA8FCB988D6496B03B25D4322418273AB968D7A240E0C8DFEB
+  + [exploded_specification] is AlienHand/docs/sjs/exploded/codex-stream-worker.exploded.sop
+  + [canonical_source_specification] is this document
+  + [authority_scope] is durable reasoning-request queue, Codex worker lifecycle, SOP task routing, model-budget routing, response artifacts, replay policy, and AlienHand runtime integration points
+  + [satisfaction_signature] is [SatisfactionSignature: AlienHandCodexStreamWorker]
+
+  = must: use this file as the current processed authority for Codex stream-worker implementation
+  = must: consult the exploded specification for detailed schema, lifecycle, failure, and frontier rules
+  = must: preserve the source seed unchanged
+  = must: invalidate this canonical record when the source hash changes without reprocessing
+
+& [CanonicalRequirementSet: AlienHandCodexStreamWorker] is the stable requirement set
+  + [requirement] is AlienHand runtime emits durable request events instead of depending on blocking Codex calls
+  + [requirement] is SQLite is the prototype control-plane store for requests, responses, attempts, leases, and artifacts
+  + [requirement] is every request has request_id, app_id, task_type, input_ref, created_at, and replayable evidence
+  + [requirement] is every final response references one request_id and records status, result_ref or error_ref, model route, and artifact or justification references where available
+  + [requirement] is worker execution uses claim leases, heartbeat, retry, poison handling, idempotency, and graceful shutdown
+  + [requirement] is task routing distinguishes SOP compile, route decision, LLM decision, history context pack, spec explosion, justification record, tool handoff, and health check
+  + [requirement] is model selection records Spark-suitable versus high-reasoning decisions under Model_Budget_Routing
+  + [requirement] is response artifacts are written before successful completion status when the response depends on them
+  + [requirement] is failures are durable and replayable rather than console-only
+  + [requirement] is ordinary chat-sourced requests cannot trigger arbitrary shell, filesystem, network, or repo mutations without trusted task authorization
+
+  = must: treat these requirements as implementation blockers for the first prototype
+  = must: preserve implementation deviations in solution or justification records
+
+& [CanonicalImplementationFrontier: AlienHandCodexStreamWorker] is the ordered work frontier
+  + [frontier_1] is create SQLite control-plane schema for requests, responses, attempts, leases, and artifacts
+  + [frontier_2] is add Python service APIs for enqueue, claim, heartbeat, complete, fail, cancel, and status
+  + [frontier_3] is add a worker loop with pluggable fake executor and graceful shutdown
+  + [frontier_4] is add task routing module that records Spark-suitable versus high-reasoning choices
+  + [frontier_5] is add SOP task executor stubs for compile, spec_explosion, justification_record, route_decision, and health_check
+  + [frontier_6] is integrate AlienHand runtime or chat commands with durable request creation
+  + [frontier_7] is add UI/debug visibility for pending/completed/failed worker requests
+  + [frontier_8] is add production authentication, retention, and multi-worker policy after prototype proof
+
+  = must: complete frontier_1 through frontier_3 before relying on live model-backed task execution
+  = must: use fake executor tests to prove queue lifecycle before paid or interactive LLM calls
+  = must: record coherent completed slices as justification evidence
+
+& [Justification: AlienHandCodexStreamWorker] is the evidence bridge for accepting this canonical specification
+  + [claim] is the stream-worker subject is ready for bounded prototype implementation
+  + [support] is preserved source seed, source hash, seven-fold trace, explicit control-plane boundary, request and response contracts, worker lifecycle, model routing contract, failure policy, and implementation frontier
+  + [confidence] is high for prototype architecture, local durability model, worker lifecycle shape, replay posture, and model-budget routing boundary
+  + [confidence] is moderate for production authentication, long-running unattended Codex execution, retention policy, and distributed queue selection because those remain intentionally deferred
+  + [counterargument] is Codex itself may not be the only runtime implementation of the worker; the contract should allow later worker executors without changing AlienHand request and response events
+  + [invalidation_condition] is source_change, failed_queue_lifecycle_proof, unsafe_task_authorization, broken_artifact_ordering, model_route_policy_conflict, or implementation_contradiction
+
+  ! [CodexStreamWorkerSpecAcceptedForPrototype] is accepted
+    @ [support] [CanonicalRequirementSet: AlienHandCodexStreamWorker]
+    @ [support] [CanonicalImplementationFrontier: AlienHandCodexStreamWorker]
+    @ [support] [SatisfactionSignature: AlienHandCodexStreamWorker]
+
+& [SolutionTrackingSeed: AlienHandCodexStreamWorker] is the initial solution tracking state
+  + [implemented] is source seed preservation, exploded specification, canonical record, seven-fold trace, requirement set, and implementation frontier
+  + [not_yet_implemented] is SQLite control-plane schema, service API, worker loop, task routing module, SOP executor stubs, AlienHand integration, debug UI visibility, and production auth or retention policy
+  + [next_valid_work] is [CanonicalImplementationFrontier: AlienHandCodexStreamWorker] frontier_1
+
+  = must: update solution or justification records when frontier items are implemented
+  = must: distinguish implemented specification artifacts from unimplemented runtime behavior
+
+& [RegistryRecord: AlienHandCodexStreamWorker] is the durable identity ledger for this specification family
+  + [registry_uuid] is f3c2f4db-6d63-4d7d-b5d5-34cf0bf8901e
+  + [source_node_uuid] is 7b0e3246-5b23-4a61-889e-928f0c2b1c35
+  + [exploded_node_uuid] is a43d1d62-f710-4b36-97df-0706d050997f
+  + [canonical_node_uuid] is 53aa265f-b0b4-4038-953c-063856e8423b
+  + [frontier_node_uuid] is 67f7cab8-a1f5-42ff-a4c1-5a2db8d07dd5
+  + [justification_node_uuid] is c75a00b4-76a1-4d6e-a148-70fd2f84527a
+  + [solution_node_uuid] is ca35af33-8088-4011-87f7-e1a8bc9b34ce
+  + [signature_uuid] is 8e97a058-905c-4ab7-bda9-f3f1679c45b9
+  + [edge] is source_node_uuid derived_to exploded_node_uuid
+  + [edge] is exploded_node_uuid promoted_to canonical_node_uuid
+  + [edge] is canonical_node_uuid leaves_frontier frontier_node_uuid
+  + [edge] is canonical_node_uuid justified_by justification_node_uuid
+  + [edge] is canonical_node_uuid implemented_as solution_node_uuid
+  + [edge] is exploded_node_uuid signed_by signature_uuid
+
+  = must: preserve this registry record for audit and reroute
+
+& [SatisfactionSignature: AlienHandCodexStreamWorker] is the valid SJS satisfaction signature
+  + [signature_protocol_uuid] is ad10f10f-d506-48ef-a805-f8b0a133766c
+  + [signature_uuid] is 8e97a058-905c-4ab7-bda9-f3f1679c45b9
+  + [signed_subject] is AlienHand/docs/sjs/canonical/codex-stream-worker.canonical.sop
+  + [source_specification] is AlienHand/docs/sjs/source/2026-05-14-codex-stream-worker/source-seed.sop
+  + [exploded_specification] is AlienHand/docs/sjs/exploded/codex-stream-worker.exploded.sop
+  + [canonical_source_specification] is AlienHand/docs/sjs/canonical/codex-stream-worker.canonical.sop
+  + [processed_stage_set] is source_preserved, delineated, exploded, semantically_refined, constraint_checked, pruned, seven_fold_phase_locked, justified, solution_seeded, and registry_recorded
+  + [exhaustion_state] is seven_fold_phase_locked_with_implementation_frontier
+  + [signature_status] is valid
+  + [invalidation_condition] is source_change, failed_quality_gate, missing_trace, broken_lineage, registry_conflict, unsafe_task_authorization, or implementation_contradiction
+
+  = must: identify this file as the processed AlienHand Codex stream worker canonical spec
+  = must: route future source changes through SJS reprocessing before implementation authority changes

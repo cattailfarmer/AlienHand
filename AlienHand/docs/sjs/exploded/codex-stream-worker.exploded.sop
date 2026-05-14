@@ -1,0 +1,213 @@
+Subject: AlienHand Codex Stream Worker Exploded Specification
+Description: Seven-fold steel-manned SJS expansion for a durable stream-watching Codex worker that supports AlienHand runtime reasoning, SOP compilation, and routing without blocking the app runtime.
+
+@ [source_seed] AlienHand/docs/sjs/source/2026-05-14-codex-stream-worker/source-seed.sop
+@ [source_sha256] B8448044EDF952DA8FCB988D6496B03B25D4322418273AB968D7A240E0C8DFEB
+@ [sjs_protocol] platform/refinement/Specification_Justification_Solution.sop
+@ [specification_explosion] platform/refinement/Specification_Explosion.sop
+@ [model_budget_routing] platform/refinement/Model_Budget_Routing.sop
+@ [data_driven_design] platform/refinement/Data_Driven_Design.sop
+
+& [SJSExplosionRecord: AlienHandCodexStreamWorker] is the derived seven-fold expansion record
+  + [source_document] is AlienHand/docs/sjs/source/2026-05-14-codex-stream-worker/source-seed.sop
+  + [source_hash] is B8448044EDF952DA8FCB988D6496B03B25D4322418273AB968D7A240E0C8DFEB
+  + [subject] is a decoupled local control plane where AlienHand emits durable requests and a Codex worker produces durable responses
+  + [resolution] is [ControlPlaneBoundary], [StreamDataModel], [RequestEventContract], [ResponseEventContract], [WorkerLifecycle], [SOPTaskRouting], [FailureAndReplayPolicy], [SevenFoldTrace], [QualityGate], and [ImplementationFrontier]
+
+  = must: preserve the source seed unchanged
+  = must: treat this document as derived authority only after canonical signing
+  = must: keep AlienHand runtime availability independent from any single Codex worker invocation
+  = must: make every decision auditable through request identity, response identity, artifact references, and justification references
+  - never: use live worker memory as the only record of a reasoning request
+
+& [ControlPlaneBoundary: AlienHandCodexStreamWorker] is the bounded system identity
+  + [in_scope] is request emission, durable queue storage, worker leasing, task execution, response recording, artifact references, retry policy, model routing, and SOP compilation support
+  + [in_scope] is integration with AlienHand chat, runtime services, and debug surfaces through explicit request and response events
+  + [out_of_scope] is replacing The Lounge chat delivery, replacing raw chat payload storage, replacing the UI refinement database, and running arbitrary unsandboxed commands from untrusted chat text
+  + [neighbor_system] is AlienHand runtime, refinement storage, payload resolver, IRC chat substrate, SOP platform files, model budget routing policy, and optional future distributed queue
+  + [default_deployment] is one local AlienHand app instance with one local worker process and one local SQLite control-plane database
+
+  = must: keep this subject separate from chat rendering and dual-mouse input work
+  = must: expose explicit integration points instead of reaching through unrelated modules
+  = must: allow later replacement of SQLite with Redis Streams or another queue only through the same event contract
+
+& [ConstraintLedger: AlienHandCodexStreamWorker] is the source-grounded constraint set
+  + [invariant] is AlienHand emits durable requests before relying on worker output
+  + [invariant] is each request has a stable request_id
+  + [invariant] is each response references exactly one request_id
+  + [invariant] is worker output records status, result reference, model route, and justification reference when available
+  + [invariant] is the worker can restart without losing queued, in-progress, completed, or failed records
+  + [invariant] is model routing follows Model_Budget_Routing and marks Spark-suitable work explicitly
+  + [prohibition] is no hidden blocking dependency from app startup to LLM availability
+  + [prohibition] is no arbitrary shell, filesystem, network, or repo mutation from ordinary chat-sourced requests without a trusted task type
+  + [assumption] is first implementation uses SQLite because it is durable, inspectable, and already fits AlienHand's local Python services
+  + [boundary_guard] is this system transports decisions and artifacts; it does not make IRC itself carry rich decision payloads
+  + [quality_constraint] is queue behavior must be testable without a live paid model call
+
+  = must: reapply this ledger before schema, API, worker, and UI decisions
+  = must: preserve unresolved deployment or security choices as uncertainty rather than silently defaulting to production assumptions
+
+& [StreamDataModel: AlienHandCodexStreamWorker] is the conceptual and logical data model
+  + [root_subject] is [ReasoningRequestLifecycle]
+  + [authoritative_store] is SQLite control-plane tables for prototype scope
+  + [artifact_store] is durable file or database payloads referenced by URI-like local artifact IDs
+  + [natural_key] is app_id plus request_id
+  + [surrogate_key] is queue row id, response_id, artifact_id, lease_id, and attempt_id
+  + [essential_state] is request body, task type, status, priority, route hint, claim lease, attempts, response reference, error reference, and timestamps
+  + [essential_logic] is enqueue, claim, heartbeat, complete, fail, retry, cancel, supersede, and replay
+  + [accidental_state] is worker process id, polling interval, UI refresh state, and live console output
+
+  = must: normalize request, response, artifact, attempt, and lease identities enough for replay and debugging
+  = must: retain completed and failed requests until an explicit retention policy removes them
+  = must: make idempotent reprocessing possible by request_id and attempt_id
+
+& [RequestEventContract: AlienHandCodexStreamWorker] is the minimum durable request event
+  + [field] is request_id as UUID or similarly collision-resistant identity
+  + [field] is app_id identifying the AlienHand app instance
+  + [field] is channel_uuid when request came from a channel context
+  + [field] is requester_kind as runtime, user, ai_agent, admin, or system
+  + [field] is requester_id as user id, nick, agent id, or service id
+  + [field] is task_type as sop_compile, route_decision, llm_decision, history_context_pack, spec_explosion, justification_record, tool_handoff, or health_check
+  + [field] is input_ref as inline JSON for small requests or artifact_id for larger payloads
+  + [field] is evidence_refs as source files, payload IDs, message IDs, or prior spec IDs
+  + [field] is model_budget_hint as spark_suitable, high_reasoning, unknown, or explicit_model
+  + [field] is priority as low, normal, high, or blocking_review
+  + [field] is deadline_ms optional for latency-sensitive decisions
+  + [field] is created_at with millisecond precision
+  + [field] is idempotency_key when the caller may retry the same logical request
+
+  = must: reject requests that lack task_type, request_id, app_id, or input_ref
+  = must: store large prompts, context packs, and SOP source material out of row when size harms queue operations
+  = must: preserve enough evidence_refs to replay the decision later
+
+& [ResponseEventContract: AlienHandCodexStreamWorker] is the minimum durable response event
+  + [field] is response_id
+  + [field] is request_id
+  + [field] is status as completed, failed, needs_human, cancelled, superseded, or blocked
+  + [field] is result_ref for durable answer payloads
+  + [field] is result_summary for compact UI display
+  + [field] is model_route containing model family, reason, confidence, and budget classification
+  + [field] is justification_ref when the decision creates or updates durable reasoning trace
+  + [field] is artifact_refs for generated specs, compiled SOP, patches, or logs
+  + [field] is error_ref when status is failed or blocked
+  + [field] is completed_at with millisecond precision
+
+  = must: write response records atomically with final status updates
+  = must: make failure visible as a durable result, not only as worker console output
+  = must: allow AlienHand UI to show result_summary while deeper artifacts remain inspectable
+
+& [WorkerLifecycle: AlienHandCodexStreamWorker] is the local process lifecycle
+  + [state] is idle, polling, claimed, executing, heartbeat, completed, failed, retrying, or draining
+  + [claim_rule] is one worker claims one ready request with a lease_id and lease_expires_at
+  + [heartbeat_rule] is long tasks refresh the lease before expiration
+  + [retry_rule] is expired leases and retryable failures return to ready with attempt_count incremented
+  + [poison_rule] is repeated failure moves the request to blocked or needs_human with error_ref
+  + [shutdown_rule] is graceful shutdown stops claiming new work and finishes or releases current work
+
+  = must: prevent two workers from completing the same attempt as successful
+  = must: make worker restart recovery deterministic
+  = should: support multiple workers later by preserving lease semantics from the first version
+
+& [SOPTaskRouting: AlienHandCodexStreamWorker] is the task interpretation and model routing contract
+  + [sop_compile] consumes SOP source refs and emits compiled or canonicalized SOP artifacts plus diagnostics
+  + [route_decision] consumes app context and emits routing recommendation or action decision
+  + [llm_decision] consumes a bounded prompt or context pack and emits answer payload plus confidence and caveats
+  + [history_context_pack] consumes channel/message refs and emits model-ready context bundles
+  + [spec_explosion] consumes source spec refs and emits source-preserved exploded/canonical spec artifacts
+  + [justification_record] consumes implemented work evidence and emits justification ledger material
+  + [tool_handoff] consumes task material and emits a handoff payload for another Codex session or app worker
+  + [health_check] consumes runtime refs and emits system status
+
+  = must: route spark_suitable bounded implementation, fixture, ledger, schema, and proof work to GPT-5.3-Codex-Spark when available
+  = must: route ambiguous specification, architecture, security, cross-system integration, and unresolved semantic decisions to a higher-reasoning model
+  = must: record why the selected model class was chosen
+  = must: allow requesters to override route only when policy permits the override
+
+& [AlienHandIntegrationSurface: CodexStreamWorker] is the app-facing integration contract
+  + [runtime_api] is enqueue request, fetch request status, fetch response, cancel request, and health check
+  + [chat_api] is request-from-command, request-from-ui-button, response-to-channel-payload, and response-to-debug-view
+  + [sop_api] is compile source, explode source, sign canonical specification, and record justification
+  + [artifact_api] is put artifact, get artifact, list artifacts by request_id, and verify artifact hash
+
+  = must: keep UI commands thin wrappers around durable request creation
+  = must: show pending, completed, failed, and needs_human states in a way the runtime can observe
+  = should: let chat surfaces display response summaries while debug surfaces show raw event and artifact records
+
+& [FailureAndReplayPolicy: AlienHandCodexStreamWorker] is the durability and audit policy
+  + [failure_mode] is worker crash after claim before response
+  + [failure_mode] is model call timeout
+  + [failure_mode] is invalid task type
+  + [failure_mode] is missing artifact
+  + [failure_mode] is request superseded by newer source material
+  + [failure_mode] is prompt or command attempts unauthorized side effect
+  + [failure_mode] is response artifact write succeeds but status update fails
+
+  = must: treat claimed-but-expired requests as retry candidates
+  = must: record nonretryable failures with error_ref and needs_human or blocked status
+  = must: preserve request input and evidence refs for replay even when execution fails
+  = must: write artifacts before marking response completed when response depends on those artifacts
+  = must: support cold replay by rebuilding current request state from durable tables and artifacts
+
+& [SevenFoldTrace: AlienHandCodexStreamWorker] is the required seven-fold steel-man trace
+  + [fold_1] is subject boundary and process separation
+  + [fold_1_gain_delta] is separated AlienHand runtime, stream broker, worker, artifact store, and chat/UI projections
+  + [fold_1_pruned] is blocking in-process LLM calls and mixing this spec into unrelated chat layout or dual-mouse specs
+  + [fold_2] is durable stream and data identity
+  + [fold_2_gain_delta] is explicit request_id, response_id, attempt_id, lease_id, artifact_id, and app/channel scope
+  + [fold_2_pruned] is transient memory queues and console-only result tracking
+  + [fold_3] is request and response schema
+  + [fold_3_gain_delta] is minimum fields, model budget hint, evidence refs, status, result refs, and justification refs
+  + [fold_3_pruned] is free-form prompt blobs without typed task identity or replay evidence
+  + [fold_4] is worker lifecycle and concurrency
+  + [fold_4_gain_delta] is claim leases, heartbeats, retry, poison handling, idempotency, and graceful shutdown
+  + [fold_4_pruned] is single-worker assumptions that would block later scale or recovery
+  + [fold_5] is SOP task routing and model-budget policy
+  + [fold_5_gain_delta] is named task types, Spark-suitable routing, high-reasoning escalation, route recording, and override control
+  + [fold_5_pruned] is model choice by habit, hidden escalation, and treating specification work as mechanical by default
+  + [fold_6] is safety, authority, and failure replay
+  + [fold_6_gain_delta] is trusted task types, no ordinary chat-to-shell path, durable failures, artifact-before-complete ordering, and cold replay
+  + [fold_6_pruned] is arbitrary side effects from untrusted prompts and success claims without artifacts
+  + [fold_7] is implementation frontier and quality gates
+  + [fold_7_gain_delta] is ordered prototype path, testable worker without live model calls, app integration hooks, and future queue replacement boundary
+  + [fold_7_pruned] is further abstract expansion without implementation pressure
+  + [exhaustion_state] is seven_fold_phase_locked_with_implementation_frontier
+
+  = must: preserve this trace as evidence of seven-fold expansion
+  = must: reopen explosion if source changes, implementation reveals a hidden lifecycle contradiction, or security assumptions change
+
+& [QualityGate: AlienHandCodexStreamWorker] is the acceptance gate for implementation readiness
+  + [source_preservation_check] passed because the dictated seed is stored separately
+  + [boundary_check] passed because runtime, stream, worker, artifact, and UI roles are separated
+  + [identity_check] passed because request, response, attempt, lease, and artifact identities are explicit
+  + [schema_check] passed with frontier because exact SQLite DDL remains implementation work
+  + [lifecycle_check] passed because worker states, leases, retries, and shutdown are specified
+  + [routing_check] passed because model-budget routing is explicit
+  + [safety_check] passed with frontier because initial trusted task policy is specified but production auth remains unresolved
+  + [replay_check] passed because cold replay and artifact ordering are required
+  + [verification_check] passed with frontier because tests can be built around fake task executors before live model calls
+
+  = must: block implementation claims that do not prove queue durability, retry behavior, or response artifact ordering
+
+& [ImplementationFrontier: AlienHandCodexStreamWorker] is the ordered build plan
+  + [frontier_1] is create SQLite control-plane schema for requests, responses, attempts, leases, and artifacts
+  + [frontier_2] is add Python service APIs for enqueue, claim, heartbeat, complete, fail, cancel, and status
+  + [frontier_3] is add a worker loop with pluggable fake executor and graceful shutdown
+  + [frontier_4] is add task routing module that records Spark-suitable versus high-reasoning choices
+  + [frontier_5] is add SOP task executor stubs for compile, spec_explosion, justification_record, route_decision, and health_check
+  + [frontier_6] is integrate AlienHand runtime or chat commands with durable request creation
+  + [frontier_7] is add UI/debug visibility for pending/completed/failed worker requests
+  + [frontier_8] is add production authentication, retention, and multi-worker policy after prototype proof
+
+  = must: implement lower-numbered frontier items first unless blocked
+  = must: verify frontier_1 through frontier_3 without live model calls
+  = must: record completed implementation slices in the justification ledger
+
+& [Uncertainty: AlienHandCodexStreamWorker] is the unresolved remainder preserved after explosion
+  + [uncertainty] is whether production queueing remains SQLite or moves to Redis Streams when multi-app traffic grows
+  + [uncertainty] is exact authentication and authorization policy for user, AI agent, admin, and system requesters
+  + [uncertainty] is exact retention period for completed requests and generated artifacts
+  + [uncertainty] is exact bridge from Codex desktop/session execution to a long-running worker in unattended mode
+  + [uncertainty] is whether some SOP compilation can be deterministic local code instead of model-assisted reasoning
+
+  = must: keep these open until implementation pressure or user decision resolves them
+  = must: avoid blocking the prototype on production-only uncertainties

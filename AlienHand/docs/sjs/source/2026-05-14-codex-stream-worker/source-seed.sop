@@ -1,0 +1,25 @@
+Subject: AlienHand Codex Stream Worker Source Seed
+Description: Preserved source seed for a separate Codex worker process that watches AlienHand runtime requests and returns LLM, SOP compilation, and routing decisions.
+
+@ [dictated_on] 2026-05-14
+@ [source_type] user_dictated_build_specification_seed
+@ [sjs_protocol] platform/refinement/Specification_Justification_Solution.sop
+
+& [DictatedSeed: AlienHandCodexStreamWorker] is the preserved source request before SJS expansion
+  + [user_question] is whether there can be a process where the Codex agent watches a stream and responds to requests in another process
+  + [target_runtime] is AlienHand running as an app that requires LLM support for decisions, SOP compilation, model routing, and related reasoning tasks
+  + [initial_architecture] is AlienHand emits request events, a durable stream stores them, and a separate Codex worker consumes requests and writes signed responses
+  + [runtime_boundary] is AlienHand runtime and Codex decisioning should be decoupled so the app does not block on LLM work
+  + [durability_goal] is request and response events should survive restart and support replay or audit
+  + [traceability_goal] is each decision should preserve request identity, source references, model routing, result status, and justification evidence
+  + [recommended_initial_storage] is SQLite queue table or similarly durable local event stream
+  + [recommended_worker_shape] is a long-running worker loop that reads pending events, executes SOP or LLM tasks, writes result artifacts, and marks completion
+  + [model_budget_goal] is route bounded mechanical work to Spark-suitable models and reserve larger reasoning models for ambiguous specification, architecture, or cross-system decisions
+  + [implementation_posture] is build the specification first, then implement once authority and boundaries are stable
+
+  = must: preserve this seed without rewriting it into the derived specification
+  = must: route this seed through seven-fold specification explosion before trusting it as implementation authority
+  = must: keep the Codex worker architecture separate from the existing chat refinement UI specification unless an explicit integration point is named
+  = must: preserve unresolved details as uncertainty rather than inventing hidden guarantees
+  - never: treat live process memory as the source of truth for queued reasoning work
+  - never: make AlienHand app availability depend on a single blocking Codex call

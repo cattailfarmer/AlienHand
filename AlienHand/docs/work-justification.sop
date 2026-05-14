@@ -182,6 +182,20 @@ Description: SOP description of the justification step, called "jusitification" 
   + [status] is justified
   + [uncertainty] is this is the first functional insertion-point control; the final large arrow positioned between Chat and Cutting panes remains future layout work
 
+& [JustificationEntry: RefinementDirectoryTabsProof] is justified
+  + [work_type] is runtime_code
+  + [requirement_anchor] is [ConversationRefinementWorkbenchLayoutV2] and [TheLoungeRefinementWorkbenchV1]
+  + [implemented_artifact] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue Nicks and Chapters directory tabs
+  + [implemented_artifact] is AlienHand/thelounge/client/css/alienhand-chat.css directory tab frame styling
+  + [implemented_artifact] is AlienHand/docs/irc-chat-refinement.sop TheLoungeRefinementWorkbenchV1 directory tab requirement
+  + [evidence_anchor] is npx eslint client/components/AlienHandRefinementWorkbench.vue --color
+  + [evidence_anchor] is npx stylelint --color client/css/alienhand-chat.css
+  + [evidence_anchor] is yarn build:client in AlienHand/thelounge
+  + [evidence_anchor] is git push cattailfarmer alienhand/chat-render-adapter commit 5fe4d3c1
+  + [verification_result] is the The Lounge workbench now includes an embedded directory frame with Nicks and Chapters tabs, Nicks reads the active channel user list, Chapters reads the current refinement chapter list, and the client bundle builds successfully after targeted lint and style checks
+  + [status] is justified
+  + [uncertainty] is this implements the embedded tab frame inside the current workbench; moving or replacing The Lounge's original userlist frame remains future full-layout work
+
 & [JustificationEntry: ConversationTermFreezeSpecification] is justified
   + [work_type] is protocol
   + [requirement_anchor] is user request to freeze the terms block, cut, chapter, edit, bookmark, sticky, and quote with articulated meaning and use cases

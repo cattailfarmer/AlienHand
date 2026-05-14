@@ -522,6 +522,7 @@ Description: SOP specification for the refined conversation layer that reorganiz
 
   = must: appear only for channel names that resolve to a 32-character hexadecimal UUID
   = must: provide a visible Cuts control at the top chat frame
+  = must: provide an embedded Nicks and Chapters directory tab frame
   = must: fetch raw conversation blocks for the current channel
   = must: search raw blocks through [ConversationRefinementHTTPV1]
   = must: let a user stage a live IRC chat line as the source for a cut

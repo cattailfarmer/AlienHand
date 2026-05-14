@@ -1,0 +1,62 @@
+Subject: Chat Workbench Source Reveal Justification
+Description: Justification record for hardening source reveal behavior across active cuts, removed cuts, missing source blocks, and hidden panes.
+
+@ [canonical] AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+@ [exploded] AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+@ [implementation] AlienHand/thelounge client fork commit d893072f
+@ [proof_marker] AlienHand/python/alienhand_ai/payload_http.py
+
+& [JustificationRecord: ChatWorkbenchSourceReveal: 2026-05-14] is the justification for source reveal edge-state hardening
+  + [justification_uuid] is 8a4552f7-16dc-4e45-9496-20c493a4730f
+  + [work_uuid] is 90b49354-b353-4d4f-9c38-d6e417d8562a
+  + [specification_anchor] is [ImplementationFrontier: ChatRefinementV2] frontier_4
+  + [requirement] is make editing-line source reveal robust for active cuts, removed cuts, missing source blocks, and hidden panes
+  + [fork_commit] is d893072f
+  + [solution] is removed cuts are now fetched, shown in a dedicated Cutting details region, and included in raw debug state
+  + [solution] is missing source blocks render as explicit stale-source text instead of raw IDs that look valid
+  + [solution] is reveal status now distinguishes active cut reveal, removed cut reveal, missing source block, hidden Chat pane, and hidden Cutting pane
+  + [solution] is runtime proof markers now assert removed-cut and stale-source UI strings/classes
+  + [data_design_reason] is removed cuts remain derivative evidence and are not erased from the refinement interaction model
+  + [ui_interaction_reason] is source navigation failures become visible recovery information instead of silent scroll misses
+
+  = must: keep removed cuts inspectable without restoring them implicitly
+  = must: keep stale source state visually distinct from valid source text
+  = must: preserve source reveal as navigation, not mutation
+
+& [VerificationResult: ChatWorkbenchSourceReveal: 2026-05-14] is the verification evidence for this slice
+  + [eslint] is npx eslint client/components/AlienHandRefinementWorkbench.vue --color
+  + [eslint_result] is passed
+  + [stylelint] is npx stylelint --color client/css/alienhand-chat.css
+  + [stylelint_result] is passed
+  + [prettier] is yarn prettier --check client/components/AlienHandRefinementWorkbench.vue client/css/alienhand-chat.css
+  + [prettier_result] is passed after formatter normalization
+  + [client_build] is yarn build:client
+  + [client_build_result] is passed
+  + [runtime_command] is python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-source-reveal-proof-v2 --timeout 45
+  + [runtime_result] is workbench_runtime_ok true
+  + [runtime_result] is missing_workbench_bundle_markers empty
+  + [runtime_result] is missing_workbench_style_markers empty
+  + [runtime_root] is AlienHand/python/runs/chat-workbench-source-reveal-proof-v2
+  + [residual_risk] is real click/scroll behavior still needs browser automation or manual review
+
+  = must: keep browser review as a later acceptance gate
+
+& [SolutionRecord: ChatWorkbenchSourceReveal: 2026-05-14] is the completed solution slice
+  + [solution_uuid] is 6544b648-7238-4341-b432-fbef2f26ad24
+  + [changed_file] is AlienHand/thelounge/client/components/AlienHandRefinementWorkbench.vue
+  + [changed_file] is AlienHand/thelounge/client/css/alienhand-chat.css
+  + [changed_file] is AlienHand/python/alienhand_ai/payload_http.py
+  + [changed_file] is AlienHand/docs/sjs/justification/2026-05-14-chat-workbench-source-reveal.sop
+  + [next_frontier] is [ImplementationFrontier: ChatRefinementV2] frontier_5
+  + [next_frontier_label] is add accessible keyboard equivalents for select, insert, remove, reveal source, and toggle frames
+
+  ! [ChatWorkbenchSourceRevealAccepted] is accepted
+    @ [support] [VerificationResult: ChatWorkbenchSourceReveal: 2026-05-14]
+    @ [support] [JustificationRecord: ChatWorkbenchSourceReveal: 2026-05-14]
+
+& [RegistryRecord: ChatWorkbenchSourceReveal: 2026-05-14] is the registry node for this solution slice
+  + [registry_uuid] is 272b97d9-01a9-4cc7-bfee-bbf7b977fb41
+  + [derived_from] is AlienHand/docs/sjs/canonical/irc-chat-refinement.v2.canonical.sop
+  + [implemented_as] is AlienHand/thelounge commit d893072f and AlienHand/python/alienhand_ai/payload_http.py
+  + [justified_by] is this document
+  + [verification_artifact] is AlienHand/python/runs/chat-workbench-source-reveal-proof-v2

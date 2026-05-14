@@ -1240,6 +1240,9 @@ def run_app_thelounge_refinement_workbench_proof(
         "empty cuts guidance": "No cuts yet. Select a chat line",
         "refreshing status": "Refreshing refinement state.",
         "error status": "Latest workbench error is shown above.",
+        "removed cuts detail": "removed cuts",
+        "missing source label": "Missing source block",
+        "missing source reveal status": "Revealed cut; source block is missing",
         "chapter action": "Create chapter",
         "edit action": "Apply edit",
         "toc action": "Add TOC",
@@ -1258,6 +1261,8 @@ def run_app_thelounge_refinement_workbench_proof(
         "bridge rail": "alienhand-workbench__bridge-rail",
         "bridge arrow": "alienhand-workbench__bridge-arrow",
         "blocked status pill": "alienhand-workbench__status-pill--blocked",
+        "removed cuts": "alienhand-workbench__removed-cuts",
+        "stale source": "alienhand-workbench__stale-source",
     }
     missing_bundle_markers = [
         name for name, marker in workbench_bundle_markers.items() if marker not in bundle_js

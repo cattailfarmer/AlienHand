@@ -176,6 +176,11 @@ class PayloadHTTPTests(unittest.TestCase):
                     token="secret",
                 )
                 unauthorized, _, unauthorized_status = fetch_json(f"{server.base_url}/alienhand/refinement/blocks")
+                history_request, _, history_request_status = post_json(
+                    f"{server.base_url}/alienhand/refinement/history-requests",
+                    {"channel_uuid": channel_uuid, "chunk_size": 1, "messages": 1},
+                    token="secret",
+                )
                 cut, _, cut_status = post_json(
                     f"{server.base_url}/alienhand/refinement/cuts",
                     {"source_block_id": blocks[0].block_id},
@@ -365,6 +370,17 @@ class PayloadHTTPTests(unittest.TestCase):
             )
             self.assertEqual(unauthorized_status, 401)
             self.assertEqual(unauthorized["error"], "unauthorized")
+            self.assertEqual(history_request_status, 201)
+            self.assertEqual(history_request["request"]["channel_uuid"], channel_uuid)
+            self.assertEqual(history_request["request"]["messages"], 1)
+            self.assertEqual(history_request["request"]["chunk_size"], 1)
+            self.assertEqual(history_request["chunk_count"], 1)
+            self.assertEqual(history_request["chunk_lengths"], [1])
+            self.assertEqual(history_request["resolved_payloads"], 1)
+            self.assertEqual(history_request["payload_errors"], 0)
+            self.assertEqual(history_request["directive"]["directive_kind"], "history_request")
+            self.assertEqual(history_request["directive"]["visibility"], "raw_only")
+            self.assertEqual(history_request["directive"]["target_id"], channel_uuid)
             self.assertEqual(cut_status, 201)
             self.assertEqual(cut["cut"]["source_block_id"], blocks[0].block_id)
             self.assertEqual(chapter_status, 201)
@@ -434,10 +450,11 @@ class PayloadHTTPTests(unittest.TestCase):
                 [sticky["sticky"]["sticky_id"]],
             )
             self.assertEqual(directives_status, 200)
-            self.assertEqual([row["sequence"] for row in directives["directives"]], list(range(1, 10)))
+            self.assertEqual([row["sequence"] for row in directives["directives"]], list(range(1, 11)))
             self.assertEqual(
                 [row["directive_kind"] for row in directives["directives"]],
                 [
+                    "history_request",
                     "create_cut",
                     "create_chapter",
                     "apply_edit",
@@ -449,9 +466,11 @@ class PayloadHTTPTests(unittest.TestCase):
                     "clear_sticky",
                 ],
             )
-            self.assertEqual(directives["directives"][0]["result_ref"], {"id": cut["cut"]["cut_id"], "type": "cut"})
+            self.assertEqual(directives["directives"][0]["target_id"], channel_uuid)
+            self.assertEqual(directives["directives"][0]["result_ref"]["chunk_count"], 1)
+            self.assertEqual(directives["directives"][1]["result_ref"], {"id": cut["cut"]["cut_id"], "type": "cut"})
             self.assertEqual(directives_after_first_status, 200)
-            self.assertEqual([row["sequence"] for row in directives_after_first["directives"]], list(range(2, 10)))
+            self.assertEqual([row["sequence"] for row in directives_after_first["directives"]], list(range(2, 11)))
             self.assertEqual(limited_directives_status, 200)
             self.assertEqual([row["sequence"] for row in limited_directives["directives"]], [1, 2, 3])
             self.assertEqual(cut_directives_status, 200)
@@ -504,6 +523,8 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(result["imported_blocks"], 1)
             self.assertEqual(result["listed_blocks"], 1)
             self.assertEqual(result["search_hits"], 1)
+            self.assertEqual(result["history_request_chunks"], 1)
+            self.assertEqual(result["history_request_directive_kind"], "history_request")
             self.assertEqual(result["listed_cuts"], 1)
             self.assertEqual(result["listed_chapters"], 1)
             self.assertEqual(result["listed_edits"], 1)
@@ -517,9 +538,9 @@ class PayloadHTTPTests(unittest.TestCase):
             self.assertEqual(result["sticky_target_type"], "bookmark")
             self.assertEqual(result["cleared_sticky_state"], "dismissed")
             self.assertEqual(result["active_stickies_after_clear"], 0)
-            self.assertEqual(result["listed_directives"], 9)
-            self.assertEqual(result["directive_sequences"], list(range(1, 10)))
-            self.assertEqual(result["directives_after_first"], 8)
+            self.assertEqual(result["listed_directives"], 10)
+            self.assertEqual(result["directive_sequences"], list(range(1, 11)))
+            self.assertEqual(result["directives_after_first"], 9)
             self.assertEqual(result["limited_directives"], 3)
             self.assertEqual(result["create_cut_directives"], 1)
             self.assertEqual(result["removed_cut_status"], "removed")

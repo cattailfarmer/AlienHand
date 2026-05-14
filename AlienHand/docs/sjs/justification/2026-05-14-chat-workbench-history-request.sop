@@ -1,0 +1,40 @@
+Subject: Chat Workbench History Request Justification
+Date: 2026-05-14
+Scope: User-triggered channel history replay from the AlienHand refinement workbench
+
+& [ChatWorkbenchHistoryRequestSlice] is the UI-to-replay bridge for channel history requests
+  + [specification_basis] is AlienHand/docs/irc-chat-refinement.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [data_contract] is [ChannelJSONLHistory] plus [conversation_directives]
+  + [ui_contract] is [Load history] as a user-visible command affordance whose result appears in raw/debug state
+  + [thelounge_commit] is 302c2391
+  + [parent_pointer] is AlienHand/thelounge
+  + [implementation_files] are AlienHand/python/alienhand_ai/payload_http.py, The Lounge client/js/helpers/alienhand.ts, and The Lounge client/components/AlienHandRefinementWorkbench.vue
+  + [test_files] are AlienHand/python/tests/test_payload_http.py
+
+  = implemented: added POST /alienhand/refinement/history-requests
+  = implemented: normalized channel UUIDs through the chat platform identity rule before replay
+  = implemented: enforced the existing history command message and chunk maximums for UI-originated history requests
+  = implemented: replayed channel history with RECENT_FIRST_BACKFILL and message-event scope
+  = implemented: returned replay chunks, chunk lengths, resolved payload count, and payload error count to the caller
+  = implemented: recorded each UI history request as a conversation directive with directive_kind history_request
+  = implemented: marked the directive visibility as raw_only so command execution remains out of normal conversation presentation
+  = implemented: added The Lounge helper types and API call for history request responses
+  = implemented: added a Load history button to the workbench runtime controls
+  = implemented: stored returned chunks in the workbench raw debug projection
+  = implemented: surfaced loading, success, and failure status in the existing workbench status pill stream
+  = satisfies: user-requested history by command because the UI now has a safe command affordance backed by replay
+  = satisfies: per-channel history scope because requests are keyed by channel UUID and replay reads that channel's JSONL history
+  = satisfies: raw-history visibility because request execution is preserved in the directive ledger without becoming a visible chat bubble
+  = satisfies: DataDrivenDesign because the replay source of truth remains ChannelJSONLHistory and the UI stores only returned projection chunks
+  = satisfies: UIInteractionSpecification because the command is exposed as an explicit button with visible operation state and recovery feedback
+  = verification: python -m compileall AlienHand\python\alienhand_ai\payload_http.py passed
+  = verification: python -m unittest tests.test_payload_http tests.test_refinement_storage tests.test_chat_platform passed 45 tests
+  = verification: npx eslint client\components\AlienHandRefinementWorkbench.vue client\js\helpers\alienhand.ts --color passed
+  = verification: npx prettier --check client\components\AlienHandRefinementWorkbench.vue client\js\helpers\alienhand.ts passed
+  = verification: yarn build:client passed
+  = verification: python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-history-request-proof-v2 --timeout 45 returned workbench_runtime_ok true
+  - compatibility: !ah history parsing and IRC-published history request support remain in chat_platform.py for later live IRC command capture
+  - compatibility: normal workbench refresh and directive polling continue to operate independently of Load history
+  - never: publish the UI history request as a normal visible IRC chat line
+  - never: use live IRC memory as the replay source of truth

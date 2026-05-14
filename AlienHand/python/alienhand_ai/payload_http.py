@@ -16,15 +16,22 @@ from .refinement_storage import ConversationBlock, ConversationRefinementStore, 
 from .chat_platform import (
     AlienHandChatService,
     ChannelJSONLHistory,
+    DEFAULT_HISTORY_COMMAND_CHUNK_SIZE,
+    DEFAULT_HISTORY_COMMAND_MESSAGES,
     EnvelopeOutbox,
     JsonDict,
+    MAX_HISTORY_COMMAND_CHUNK_SIZE,
+    MAX_HISTORY_COMMAND_MESSAGES,
     PayloadResolver,
     PayloadStore,
+    RECENT_FIRST_BACKFILL,
     commit_message,
     default_ergo_root,
     irc_channel_name,
+    normalize_channel_uuid,
     payload_to_render_model,
     replay_channel,
+    replay_channel_chunks,
 )
 
 
@@ -281,6 +288,63 @@ class PayloadResolverHTTPServer:
 
             def _handle_refinement_post(self) -> bool:
                 parts = _path_parts(urlparse(self.path).path)
+                if parts == (*REFINEMENT_PATH_PREFIX, "history-requests"):
+                    body = self._read_json_body()
+                    if body is None:
+                        return True
+                    channel_uuid = str(body.get("channel_uuid") or "")
+                    if not channel_uuid:
+                        self._send_json({"error": "channel_uuid_required"}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    try:
+                        request = _history_request_from_body(body, channel_uuid)
+                        chunks = replay_channel_chunks(
+                            ChannelJSONLHistory(owner.root),
+                            owner.resolver,
+                            request["channel_uuid"],
+                            chunk_size=int(request["chunk_size"]),
+                            limit=request["messages"],
+                            direction=str(request["direction"]),
+                            event_types=tuple(request["event_types"]),
+                        )
+                    except ValueError as error:
+                        self._send_json({"error": str(error)}, HTTPStatus.BAD_REQUEST)
+                        return True
+                    payloads = [row["payload"] for chunk in chunks for row in chunk["events"]]
+                    result_ref = {
+                        "chunk_count": len(chunks),
+                        "event_count": sum(int(chunk["event_count"]) for chunk in chunks),
+                        "payload_errors": len(
+                            [payload for payload in payloads if payload.get("event_type") == "payload_error"]
+                        ),
+                        "resolved_payloads": len(
+                            [payload for payload in payloads if payload.get("event_type") != "payload_error"]
+                        ),
+                    }
+                    with ConversationRefinementStore(owner.refinement_db_path) as store:
+                        directive = store.record_directive(
+                            channel_uuid=str(request["channel_uuid"]),
+                            directive_kind="history_request",
+                            source=str(body.get("source") or "user"),
+                            visibility="raw_only",
+                            target_type="channel",
+                            target_id=str(request["channel_uuid"]),
+                            payload=request,
+                            result_ref=result_ref,
+                        )
+                    self._send_json(
+                        {
+                            "request": request,
+                            "directive": directive.to_dict(),
+                            "chunks": chunks,
+                            "chunk_count": result_ref["chunk_count"],
+                            "chunk_lengths": [chunk["event_count"] for chunk in chunks],
+                            "payload_errors": result_ref["payload_errors"],
+                            "resolved_payloads": result_ref["resolved_payloads"],
+                        },
+                        HTTPStatus.CREATED,
+                    )
+                    return True
                 if parts == (*REFINEMENT_PATH_PREFIX, "cuts"):
                     body = self._read_json_body()
                     if body is None:
@@ -841,6 +905,11 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
             access_token=access_token,
         )
         unauthorized_response = _http_json(f"{server.base_url}/alienhand/refinement/blocks")
+        history_request_response = _http_post_json(
+            f"{server.base_url}/alienhand/refinement/history-requests",
+            {"channel_uuid": channel_uuid, "chunk_size": 1, "messages": 1},
+            access_token=access_token,
+        )
         cut_response = _http_post_json(
             f"{server.base_url}/alienhand/refinement/cuts",
             {"source_block_id": imported_blocks[0].block_id},
@@ -989,6 +1058,7 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
     limited_directives = directive_limit_response["json"].get("directives", [])
     create_cut_directives = create_cut_directives_response["json"].get("directives", [])
     directive_sequences = [directive.get("sequence") for directive in directives]
+    history_request = history_request_response["json"]
     refinement_http_ok = (
         blocks_response["status"] == 200
         and len(blocks) == 1
@@ -996,6 +1066,10 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         and search_response["status"] == 200
         and [hit.get("block_id") for hit in hits] == [imported_blocks[0].block_id]
         and unauthorized_response["status"] == 401
+        and history_request_response["status"] == 201
+        and history_request.get("chunk_lengths") == [1]
+        and history_request.get("resolved_payloads") == 1
+        and history_request.get("directive", {}).get("visibility") == "raw_only"
         and cut_response["status"] == 201
         and chapter_response["status"] == 201
         and edit_response["status"] == 201
@@ -1032,8 +1106,8 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         and directives_after_first_response["status"] == 200
         and directive_limit_response["status"] == 200
         and create_cut_directives_response["status"] == 200
-        and directive_sequences == list(range(1, 10))
-        and len(directives_after_first) == 8
+        and directive_sequences == list(range(1, 11))
+        and len(directives_after_first) == 9
         and len(limited_directives) == 3
         and [directive.get("target_id") for directive in create_cut_directives] == [cut_id]
     )
@@ -1046,6 +1120,8 @@ def run_refinement_http_api_proof(root: str | Path, *, app_id: int = 1) -> JsonD
         "imported_blocks": len(imported_blocks),
         "listed_blocks": len(blocks),
         "search_hits": len(hits),
+        "history_request_chunks": history_request.get("chunk_count"),
+        "history_request_directive_kind": history_request.get("directive", {}).get("directive_kind"),
         "created_cut_id": cut_id,
         "created_chapter_id": chapter_id,
         "created_edit_id": edit_id,
@@ -1308,6 +1384,11 @@ def run_app_thelounge_refinement_workbench_proof(
             f"{resolver_base_url}/alienhand/refinement/search?q=workbench&channel={channel_uuid}",
             access_token=access_token,
         )
+        history_request_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/history-requests",
+            {"channel_uuid": channel_uuid, "chunk_size": 1, "messages": 1},
+            access_token=access_token,
+        )
         blocks = blocks_response["json"].get("blocks", [])
         block_id = blocks[0].get("block_id") if blocks else ""
         cut_response = _http_post_json(
@@ -1545,6 +1626,7 @@ def run_app_thelounge_refinement_workbench_proof(
     replayed = replay_channel(ChannelJSONLHistory(chat_root), PayloadResolver(PayloadStore(chat_root)), channel_uuid)
     resolved_payloads = [row for row in replayed if row["payload"].get("event_type") != "payload_error"]
     render_row = render_response["json"]
+    history_request = history_request_response["json"]
     search_hits = search_response["json"].get("hits", [])
     live_blocks = live_blocks_response["json"].get("blocks", [])
     cuts = cuts_response["json"].get("cuts", [])
@@ -1570,6 +1652,9 @@ def run_app_thelounge_refinement_workbench_proof(
         "workbench aria label": "AlienHand refinement workbench",
         "chat toggle aria label": "Show or hide Chat frame",
         "chat frame toggle": "Chat",
+        "history action": "Load history",
+        "history loading status": "Loading channel history.",
+        "history loaded status": "Loaded history:",
         "cutting toggle aria label": "Show or hide Cutting frame",
         "cutting frame toggle": "Cutting",
         "editing toggle aria label": "Show or hide Editing frame",
@@ -1639,6 +1724,9 @@ def run_app_thelounge_refinement_workbench_proof(
         and blocks[0].get("message_uuid") == published.envelope.message_uuid
         and search_response["status"] == 200
         and [hit.get("block_id") for hit in search_hits] == [block_id]
+        and history_request_response["status"] == 201
+        and history_request.get("chunk_lengths") == [1]
+        and history_request.get("directive", {}).get("directive_kind") == "history_request"
         and cut_response["status"] == 201
         and chapter_response["status"] == 201
         and chapter_bookmark_response["status"] == 201
@@ -1701,7 +1789,7 @@ def run_app_thelounge_refinement_workbench_proof(
         and len(active_stickies_after_clear) == 3
         and directives_response["status"] == 200
         and create_cut_directives_response["status"] == 200
-        and directive_sequences == list(range(1, 19))
+        and directive_sequences == list(range(1, 20))
         and [directive.get("target_id") for directive in create_cut_directives] == [cut_id, live_cut_id]
     )
     render_fetch_ok = (
@@ -1742,6 +1830,8 @@ def run_app_thelounge_refinement_workbench_proof(
         "listed_blocks": len(blocks),
         "listed_blocks_after_live_source": len(live_blocks),
         "search_hits": len(search_hits),
+        "history_request_chunks": history_request.get("chunk_count"),
+        "history_request_directive_kind": history_request.get("directive", {}).get("directive_kind"),
         "created_cut_id": cut_id,
         "created_live_block_id": live_block_response["json"].get("block", {}).get("block_id"),
         "created_live_cut_id": live_cut_response["json"].get("cut", {}).get("cut_id"),
@@ -1817,6 +1907,39 @@ def _optional_nonnegative_int(value: str | None, name: str) -> int | None:
     if value is None or value == "":
         return None
     return _positive_int_value(value, name, allow_zero=True)
+
+
+def _history_request_from_body(body: JsonDict, channel_uuid: str) -> JsonDict:
+    mode = str(body.get("mode") or ("all_messages" if body.get("all") is True else "last_messages"))
+    if mode not in {"last_messages", "all_messages"}:
+        raise ValueError("history request mode must be last_messages or all_messages")
+
+    chunk_size = _positive_int_value(
+        body.get("chunk_size") or DEFAULT_HISTORY_COMMAND_CHUNK_SIZE,
+        "chunk_size",
+    )
+    if chunk_size > MAX_HISTORY_COMMAND_CHUNK_SIZE:
+        raise ValueError(f"chunk_size must be at most {MAX_HISTORY_COMMAND_CHUNK_SIZE}")
+
+    messages: int | None
+    if mode == "all_messages":
+        messages = None
+    else:
+        messages = _positive_int_value(
+            body.get("messages") or DEFAULT_HISTORY_COMMAND_MESSAGES,
+            "messages",
+        )
+        if messages > MAX_HISTORY_COMMAND_MESSAGES:
+            raise ValueError(f"messages must be at most {MAX_HISTORY_COMMAND_MESSAGES}")
+
+    return {
+        "channel_uuid": normalize_channel_uuid(channel_uuid),
+        "chunk_size": chunk_size,
+        "direction": RECENT_FIRST_BACKFILL,
+        "event_types": ["message"],
+        "messages": messages,
+        "mode": mode,
+    }
 
 
 def _positive_int_value(value: Any, name: str, *, allow_zero: bool = False) -> int:

@@ -1,0 +1,33 @@
+Subject: Codex Stream Worker Frontier 3 Loop
+Date: 2026-05-14
+Scope: Frontier_3 implementation for Codex stream worker runtime execution loop
+
+& [CodexStreamFrontier3WorkerLoop] is the recorded completion slice for frontier_3
+  + [specification_basis] is AlienHand/docs/sjs/canonical/codex-stream-worker.canonical.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/codex-stream-worker.exploded.sop
+  + [frontier_target] is [CanonicalImplementationFrontier: AlienHandCodexStreamWorker] frontier_3
+  + [implementer] is GPT-5.3-Codex-Spark
+  + [implementation_files] are AlienHand/python/alienhand_ai/codex_stream_worker.py
+    and AlienHand/python/tests/test_codex_stream_worker.py
+  + [evidence_artifacts] are 15 passing tests in `python -m unittest AlienHand/python/tests/test_codex_stream_worker.py`
+
+  + [model_budget_routing] is frontier_3 remains Spark-suitable and bounded in current prototype scope
+
+  = implemented: added `CodexStreamWorker` runtime orchestrator for pluggable request execution loops
+  = implemented: added `run_once` to claim a request, heartbeat lease, dispatch executor, and apply completion/failure transition
+  = implemented: added `run` loop with bounded iteration support and poll-sleep control
+  = implemented: added graceful `stop` behavior and context-manager cleanup for owned store lifetimes
+  = implemented: added `close` and context behavior for worker-owned SQLite store ownership tracking
+  = implemented: added test coverage for successful run, retryable failure and immediate requeue, and stop-gated execution
+
+  = verification: python -m unittest AlienHand/python/tests/test_codex_stream_worker.py passed 15 tests
+  = verification: frontier_3 behavior proved without live model dependency through fake executors
+
+  = satisfies: [CanonicalRequirementSet: AlienHandCodexStreamWorker] because frontier_3 requires worker loop execution, executor dispatch, heartbeat-aware claim handling, and graceful stop
+  = satisfies: [ImplementationFrontier: AlienHandCodexStreamWorker] frontier_3
+  = satisfies: [CanonicalImplementationFrontier: AlienHandCodexStreamWorker] frontier_3
+  = satisfies: [WorkerLifecycle: AlienHandCodexStreamWorker] through tested claim-execute-complete/fail loops with retry path
+
+  - compatibility: this slice still uses request lifecycle APIs only and does not add task routing, SOP routing policy enforcement, or UI/API endpoint wiring
+  - compatibility: executor failures are currently hard-coded as retryable to avoid dead-locking when request execution is unstable during prototype
+  - never: treat this as production-grade queue runtime; multi-thread safety, horizontal scaling, and retention cleanup are frontier_4+ and frontier_8 concerns

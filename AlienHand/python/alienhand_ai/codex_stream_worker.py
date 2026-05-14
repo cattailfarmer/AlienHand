@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 import sqlite3
-from typing import Any
+from typing import Any, Callable
 from uuid import uuid4
 
 
@@ -490,6 +491,122 @@ class CodexStreamWorkerStore:
             "lease": _lease_row_to_dict(lease_row) if lease_row else None,
             "responses": [_response_row_to_dict(row) for row in response_rows],
         }
+
+
+class CodexStreamWorker:
+    def __init__(
+        self,
+        *,
+        store: str | Path | CodexStreamWorkerStore,
+        worker_id: str,
+        executor: Callable[[dict[str, Any]], dict[str, Any]],
+        poll_interval_ms: int = 100,
+        lease_ttl_ms: int = 30000,
+    ) -> None:
+        self.store = store if isinstance(store, CodexStreamWorkerStore) else CodexStreamWorkerStore(store)
+        self._owns_store = not isinstance(store, CodexStreamWorkerStore)
+        self.worker_id = worker_id
+        self._executor = executor
+        self.poll_interval_ms = poll_interval_ms
+        self.lease_ttl_ms = lease_ttl_ms
+        self._stop_requested = False
+
+    def close(self) -> None:
+        if self._owns_store:
+            self.store.close()
+
+    def stop(self) -> None:
+        self._stop_requested = True
+
+    def __enter__(self) -> "CodexStreamWorker":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.stop()
+        self.close()
+
+    def run_once(self) -> dict[str, Any] | None:
+        if self._stop_requested:
+            return None
+        claim = self.store.claim_next_request(worker_id=self.worker_id, lease_ttl_ms=self.lease_ttl_ms)
+        if claim is None:
+            return None
+        request = claim["request"]
+        attempt_id = claim["attempt_id"]
+        lease_id = claim["lease_id"]
+        self.store.heartbeat_lease(lease_id=lease_id, lease_ttl_ms=self.lease_ttl_ms)
+        try:
+            result = self._executor(request)
+            if not isinstance(result, dict):
+                raise TypeError("executor must return dict")
+            status = str(result.get("status", "completed")).lower()
+            if status == "completed":
+                self.store.complete_request(
+                    request_id=request["request_id"],
+                    attempt_id=attempt_id,
+                    result_summary=result.get("result_summary"),
+                    result_ref=result.get("result_ref"),
+                    model_route=result.get("model_route"),
+                    justification_ref=result.get("justification_ref"),
+                    artifact_refs=result.get("artifact_refs", []),
+                )
+                return {
+                    "request_id": request["request_id"],
+                    "attempt_id": attempt_id,
+                    "outcome": "completed",
+                }
+            if status in {"failed", "needs_human", "blocked"}:
+                self.store.fail_request(
+                    request_id=request["request_id"],
+                    attempt_id=attempt_id,
+                    error_ref=result.get("error_ref", "executor_reported_error"),
+                    retryable=bool(result.get("retryable", False)),
+                    result_summary=result.get("result_summary"),
+                    status=status,
+                )
+                return {
+                    "request_id": request["request_id"],
+                    "attempt_id": attempt_id,
+                    "outcome": status,
+                }
+            self.store.fail_request(
+                request_id=request["request_id"],
+                attempt_id=attempt_id,
+                error_ref=f"unrecognized worker status: {status}",
+                retryable=False,
+                result_summary="worker execution returned unrecognized status",
+                status="blocked",
+            )
+            return {"request_id": request["request_id"], "attempt_id": attempt_id, "outcome": "blocked"}
+        except Exception as error:
+            self.store.fail_request(
+                request_id=request["request_id"],
+                attempt_id=attempt_id,
+                error_ref=f"worker_exception:{type(error).__name__}:{error}",
+                retryable=True,
+                result_summary="executor exception",
+                status="failed",
+            )
+            return {
+                "request_id": request["request_id"],
+                "attempt_id": attempt_id,
+                "outcome": "failed",
+                "error": str(error),
+            }
+
+    def run(self, *, max_iterations: int | None = None) -> dict[str, int | bool]:
+        iterations = 0
+        processed = 0
+        while not self._stop_requested:
+            result = self.run_once()
+            iterations += 1
+            if result is not None:
+                processed += 1
+            if max_iterations is not None and iterations >= max_iterations:
+                break
+            if result is None:
+                time.sleep(self.poll_interval_ms / 1000)
+        return {"iterations": iterations, "processed": processed, "stopped": self._stop_requested}
 
 
 def utc_timestamp() -> str:

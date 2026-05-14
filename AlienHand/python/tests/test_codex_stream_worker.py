@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT))
 from alienhand_ai.codex_stream_worker import (
     SCHEMA_VERSION,
     CodexStreamWorkerStore,
+    CodexStreamWorker,
     REQUIRED_TABLES,
     run_codex_stream_schema_proof,
     utc_timestamp,
@@ -387,6 +388,116 @@ class CodexStreamWorkerFrontier2Tests(unittest.TestCase):
                 self.assertEqual(len(snapshot["responses"]), 1)
                 self.assertEqual(snapshot["responses"][0]["status"], "completed")
                 self.assertEqual(snapshot["responses"][0]["result_summary"], "done")
+
+
+class CodexStreamWorkerFrontier3Tests(unittest.TestCase):
+    def test_worker_run_once_completes_request_with_fake_executor(self):
+        with tempfile.TemporaryDirectory() as temp:
+            db_path = Path(temp) / "codex_stream.sqlite3"
+            with CodexStreamWorkerStore(db_path) as store:
+                store.enqueue_request(
+                    request_id="request-worker-a1",
+                    app_id=11,
+                    channel_uuid=None,
+                    requester_kind="system",
+                    requester_id="svc-worker",
+                    task_type="health_check",
+                    input_ref="payload://worker-complete",
+                )
+                called_requests: list[str] = []
+
+                def executor(request: dict[str, object]) -> dict[str, object]:
+                    called_requests.append(str(request["request_id"]))
+                    return {
+                        "status": "completed",
+                        "result_summary": "ok",
+                        "result_ref": "result://ok",
+                        "model_route": {"model": "spark"},
+                    }
+
+                with CodexStreamWorker(
+                    store=db_path,
+                    worker_id="worker-1",
+                    executor=executor,
+                    poll_interval_ms=1,
+                ) as worker:
+                    result = worker.run_once()
+                self.assertIsNotNone(result)
+                self.assertEqual(result["request_id"], "request-worker-a1")
+                self.assertEqual(result["outcome"], "completed")
+                self.assertEqual(called_requests, ["request-worker-a1"])
+                status = store.request_status("request-worker-a1")
+                self.assertEqual(status["request"]["status"], "completed")
+
+    def test_worker_retry_and_retryable_failure_is_requeued_then_completed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            db_path = Path(temp) / "codex_stream.sqlite3"
+            with CodexStreamWorkerStore(db_path) as store:
+                store.enqueue_request(
+                    request_id="request-worker-a2",
+                    app_id=11,
+                    channel_uuid=None,
+                    requester_kind="system",
+                    requester_id="svc-worker",
+                    task_type="health_check",
+                    input_ref="payload://worker-retry",
+                )
+                calls = 0
+
+                def executor(request: dict[str, object]) -> dict[str, object]:
+                    nonlocal calls
+                    calls += 1
+                    if calls == 1:
+                        return {
+                            "status": "failed",
+                            "retryable": True,
+                            "error_ref": "err://retry",
+                            "result_summary": "retrying",
+                        }
+                    return {
+                        "status": "completed",
+                        "result_summary": "second-pass-ok",
+                    }
+
+                with CodexStreamWorker(
+                    store=db_path,
+                    worker_id="worker-1",
+                    executor=executor,
+                    poll_interval_ms=1,
+                ) as worker:
+                    summary = worker.run(max_iterations=2)
+                self.assertEqual(summary["processed"], 2)
+                self.assertEqual(summary["iterations"], 2)
+                status = store.request_status("request-worker-a2")
+                self.assertEqual(status["request"]["status"], "completed")
+                self.assertEqual(status["request"]["attempt_count"], 2)
+
+    def test_worker_stop_prevents_new_claims(self):
+        with tempfile.TemporaryDirectory() as temp:
+            db_path = Path(temp) / "codex_stream.sqlite3"
+            with CodexStreamWorkerStore(db_path) as store:
+                store.enqueue_request(
+                    request_id="request-worker-a3",
+                    app_id=11,
+                    channel_uuid=None,
+                    requester_kind="system",
+                    requester_id="svc-worker",
+                    task_type="health_check",
+                    input_ref="payload://worker-stop",
+                )
+
+                def executor(_: dict[str, object]) -> dict[str, object]:
+                    return {"status": "completed"}
+
+                with CodexStreamWorker(
+                    store=store,
+                    worker_id="worker-1",
+                    executor=executor,
+                ) as worker:
+                    worker.stop()
+                    summary = worker.run(max_iterations=3)
+                self.assertEqual(summary["processed"], 0)
+                self.assertEqual(store.request_status("request-worker-a3")["request"]["status"], "ready")
 
 
 if __name__ == "__main__":

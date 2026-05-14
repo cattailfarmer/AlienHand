@@ -88,6 +88,7 @@ class PayloadHTTPTests(unittest.TestCase):
 
             self.assertEqual(status, 204)
             self.assertEqual(headers["Access-Control-Allow-Origin"], "*")
+            self.assertEqual(headers["Access-Control-Allow-Private-Network"], "true")
             self.assertIn("GET", headers["Access-Control-Allow-Methods"])
             self.assertIn("Authorization", headers["Access-Control-Allow-Headers"])
 
@@ -111,9 +112,11 @@ class PayloadHTTPTests(unittest.TestCase):
 
             self.assertEqual(allowed_status, 200)
             self.assertEqual(allowed_headers["Access-Control-Allow-Origin"], "http://127.0.0.1:19000")
+            self.assertEqual(allowed_headers["Access-Control-Allow-Private-Network"], "true")
             self.assertEqual(allowed_headers["Vary"], "Origin")
             self.assertEqual(blocked_status, 200)
             self.assertNotIn("Access-Control-Allow-Origin", blocked_headers)
+            self.assertNotIn("Access-Control-Allow-Private-Network", blocked_headers)
 
     def test_payload_resolver_http_proof_fetches_resolved_and_missing_rows(self):
         with tempfile.TemporaryDirectory() as temp:

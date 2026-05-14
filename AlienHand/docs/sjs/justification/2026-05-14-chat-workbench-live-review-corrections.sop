@@ -1,0 +1,45 @@
+Subject: Chat Workbench Live Review Corrections Justification
+Date: 2026-05-14
+Scope: Live browser review corrections for AlienHand chat, cutting, editing, and resolver fetch behavior
+
+& [ChatWorkbenchLiveReviewCorrectionsSlice] is the implementation slice responding to live workbench review
+  + [specification_basis] is AlienHand/docs/irc-chat-refinement.sop
+  + [processed_specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [review_basis] is user live review of the workbench at http://127.0.0.1:60510 on channel #703be6c5b8ca43cf8a0cc09233f339de
+  + [ui_contract] is normal workbench state should show task-grounded controls while raw/debug/proof state should stay behind explicit debug affordances
+  + [thelounge_commit] is 2be5e3f7
+  + [parent_pointer] is AlienHand/thelounge
+  + [implementation_files] are The Lounge client/components/AlienHandRefinementWorkbench.vue, AlienHand/python/alienhand_ai/payload_http.py, and AlienHand/python/tests/test_payload_http.py
+
+  = observed: browser showed AlienHand refinement API fetch failed for /blocks via http://127.0.0.1:60511
+  = observed: source selection bubble appeared in Chat when the row arrow was clicked, but the user expected successful insertion into Cutting
+  = observed: normal status surface showed proof/debug-oriented text such as No directive ledger events for this channel
+  = observed: Search stored block was too persistence-centric for the user's raw conversation mental model
+  = observed: Chapter title, Chapter summary, and Create chapter belonged in the Chapters directory tab rather than the Cutting frame
+  = observed: Editing should wait for a created or selected chapter before showing focused editorial content
+
+  = implemented: added Access-Control-Allow-Private-Network on allowed resolver CORS responses
+  = implemented: extended resolver proof and tests to assert private-network CORS support and blocked-origin withholding
+  = implemented: renamed the directory search placeholder to Search raw chat blocks
+  = implemented: moved chapter creation controls into the Chapters tab shared with Nicks
+  = implemented: changed selected-source status from Ready to cut to selected-for-insertion wording
+  = implemented: hid empty directive ledger and directive sync status from normal status unless raw text/debug view is open
+  = implemented: made Editing show create/select a chapter until a chapter is selected
+  = implemented: made Editing render only the selected chapter and its source cuts after selection
+  = implemented: selecting or creating a chapter now makes that chapter the active Editing focus
+  = implemented: added runtime bundle markers for raw chat search, chapter-focused Editing, and selected insertion wording
+
+  = satisfies: UIInteractionSpecification because normal controls now match the user's Chat, Cutting, Editing, Nicks, and Chapters mental model
+  = satisfies: DataDrivenDesign because Editing focus is keyed by selectedChapterId and chapter member_cut_ids rather than implicit global cut state
+  = satisfies: SpecificationJustificationSolution because this record maps the observed live-review requirements to concrete implementation and verification evidence
+  = verification: npx eslint client\components\AlienHandRefinementWorkbench.vue --color passed
+  = verification: npx prettier --check client\components\AlienHandRefinementWorkbench.vue passed
+  = verification: python -m unittest tests.test_payload_http.PayloadHTTPTests.test_http_resolver_supports_browser_options_preflight tests.test_payload_http.PayloadHTTPTests.test_http_resolver_restricts_cors_to_allowed_origins passed 2 tests
+  = verification: yarn build:client passed
+  = verification: python -m unittest tests.test_payload_http tests.test_refinement_storage tests.test_chat_platform passed 45 tests
+  = verification: python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-live-review-corrections-proof --timeout 45 returned workbench_runtime_ok true
+  = verification: runtime proof returned payload_resolver_private_network_ok true
+  - compatibility: raw/debug text still exposes directive ledger state when explicitly requested
+  - compatibility: row arrow still selects the source and requests insertion; the bridge arrow remains available for explicit insertion at the current Cutting pointer
+  - never: place chapter creation back into the Cutting frame as a primary control
+  - never: make Editing show all cuts without an explicit chapter selection

@@ -785,6 +785,7 @@ class PayloadResolverHTTPServer:
                 allowed_origin = owner.cors_origin_for(self.headers.get("Origin"))
                 if allowed_origin is not None:
                     self.send_header("Access-Control-Allow-Origin", allowed_origin)
+                    self.send_header("Access-Control-Allow-Private-Network", "true")
                 if owner.allowed_origins:
                     self.send_header("Vary", "Origin")
                 self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
@@ -841,9 +842,14 @@ def run_payload_resolver_http_proof(root: str | Path, *, app_id: int = 1) -> Jso
     render_row = render_response["json"]
     missing_row = missing_response["json"]
     frame_kinds = [frame["kind"] for frame in render_row.get("frames", [])]
+    cors_private_network_ok = (
+        render_response["headers"].get("Access-Control-Allow-Private-Network") == "true"
+        and options_response["headers"].get("Access-Control-Allow-Private-Network") == "true"
+    )
     cors_ok = (
         render_response["headers"].get("Access-Control-Allow-Origin") == "*"
         and options_response["headers"].get("Access-Control-Allow-Origin") == "*"
+        and cors_private_network_ok
     )
 
     return {
@@ -860,6 +866,7 @@ def run_payload_resolver_http_proof(root: str | Path, *, app_id: int = 1) -> Jso
         "missing_status": missing_row.get("status"),
         "missing_reason": missing_row.get("content", {}).get("reason"),
         "unauthorized_status": unauthorized_response["status"],
+        "cors_private_network_ok": cors_private_network_ok,
         "cors_ok": cors_ok,
         "payload_resolver_fetch_ok": render_row.get("status") == "resolved"
         and render_row.get("orientation") == "right"
@@ -1288,12 +1295,16 @@ def run_app_thelounge_runtime_group_proof(
     thelounge_html_has_resolver = resolver_data_attribute in index_html
     thelounge_html_has_resolver_token = resolver_token_attribute in index_html
     resolver_cors_origin_ok = render_response["headers"].get("Access-Control-Allow-Origin") == thelounge_base_url
+    resolver_private_network_ok = (
+        render_response["headers"].get("Access-Control-Allow-Private-Network") == "true"
+    )
     fetch_ok = (
         render_response["status"] == 200
         and render_row.get("status") == "resolved"
         and render_row.get("message_uuid") == published.envelope.message_uuid
         and render_row.get("content", {}).get("text") == text
         and resolver_cors_origin_ok
+        and resolver_private_network_ok
     )
     return {
         "resolver_version": PAYLOAD_RESOLVER_VERSION,
@@ -1315,6 +1326,7 @@ def run_app_thelounge_runtime_group_proof(
         "thelounge_started": thelounge_started,
         "payload_resolver_fetch_ok": fetch_ok,
         "payload_resolver_cors_origin_ok": resolver_cors_origin_ok,
+        "payload_resolver_private_network_ok": resolver_private_network_ok,
         "thelounge_html_has_resolver": thelounge_html_has_resolver,
         "thelounge_html_has_resolver_token": thelounge_html_has_resolver_token,
         "payload_resolver_stopped": service.payload_http_server is None,
@@ -1659,6 +1671,8 @@ def run_app_thelounge_refinement_workbench_proof(
         "cutting frame toggle": "Cutting",
         "editing toggle aria label": "Show or hide Editing frame",
         "editing frame toggle": "Editing",
+        "editing chapter prompt": "Create/select a chapter in the Chapters tab",
+        "editing chapter status": "create/select a chapter",
         "insertion bridge": "Cut insertion bridge",
         "insert aria label": "Insert selected source at current Cutting position",
         "keyboard insertion up": "Move cut insertion up",
@@ -1675,6 +1689,8 @@ def run_app_thelounge_refinement_workbench_proof(
         "bridge instruction": "Select a chat line with its arrow",
         "bridge blocked status": "Bridge blocked: select a chat line",
         "empty cuts guidance": "No cuts yet. Select a chat line",
+        "selected insertion status": "for insertion at",
+        "raw chat search": "Search raw chat blocks",
         "refreshing status": "Refreshing refinement state.",
         "error status": "Latest workbench error is shown above.",
         "directive ledger status": "directive ledger events",
@@ -1816,6 +1832,7 @@ def run_app_thelounge_refinement_workbench_proof(
         and render_row.get("status") == "resolved"
         and render_row.get("message_uuid") == published.envelope.message_uuid
         and render_response["headers"].get("Access-Control-Allow-Origin") == thelounge_base_url
+        and render_response["headers"].get("Access-Control-Allow-Private-Network") == "true"
     )
     workbench_runtime_ok = (
         process_started
@@ -1846,6 +1863,8 @@ def run_app_thelounge_refinement_workbench_proof(
         "render_fetch_ok": render_fetch_ok,
         "payload_resolver_cors_origin_ok": render_response["headers"].get("Access-Control-Allow-Origin")
         == thelounge_base_url,
+        "payload_resolver_private_network_ok": render_response["headers"].get("Access-Control-Allow-Private-Network")
+        == "true",
         "listed_blocks": len(blocks),
         "listed_blocks_after_live_source": len(live_blocks),
         "search_hits": len(search_hits),

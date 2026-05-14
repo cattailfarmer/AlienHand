@@ -1,0 +1,23 @@
+Subject: Chat Workbench Target Proof Justification
+Date: 2026-05-14
+Scope: Non-browser runtime proof hardening for AlienHand chat refinement target controls
+
+& [ChatWorkbenchTargetProofSlice] is the runtime-harness expansion for bookmark, quote, and sticky target semantics
+  + [specification_basis] is AlienHand/docs/sjs/exploded/irc-chat-refinement.v2.exploded.sop
+  + [implementation_file] is AlienHand/python/alienhand_ai/payload_http.py
+  + [proof_command] is python -m alienhand_ai.cli chat-workbench-runtime-proof --output runs --name chat-workbench-runtime-target-proof --timeout 45
+  + [unit_command] is python -m unittest tests.test_payload_http
+  + [browser_frontier_blocker] is AlienHand/docs/sjs/dead_end/2026-05-14-chat-workbench-browser-proof-node-repl.sop
+
+  = implemented: extended run_app_thelounge_refinement_workbench_proof to create and list bookmarks for block, cut, and chapter targets
+  = implemented: extended run_app_thelounge_refinement_workbench_proof to create and list quotes for block, cut, and chapter sources
+  = implemented: extended run_app_thelounge_refinement_workbench_proof to create active stickies for block, cut, chapter, and bookmark targets
+  = implemented: extended run_app_thelounge_refinement_workbench_proof to clear the cut sticky and verify it leaves active channel stickies
+  = satisfies: DataDrivenDesign target validation because proof coverage now follows the modeled target/source sets instead of proving only one happy-path target type
+  = satisfies: UIInteractionSpecification control audit because the non-browser harness now exercises the API operations behind visible bookmark, quote, sticky, and unpin controls
+  = satisfies: SJS continuity because browser proof remains blocked separately while this independent proof path still advances verifiable implementation evidence
+  = verification: python -m unittest tests.test_payload_http passed with 12 tests
+  = verification: chat-workbench-runtime-target-proof returned workbench_runtime_ok true
+  = verification: runtime proof listed 3 bookmarks, 3 quotes, 4 active stickies before clear, and 3 active stickies after clearing the cut sticky
+  - never: count UI bundle markers as proof that persisted target semantics are correct
+  - never: let the browser automation blocker prevent independent API and lifecycle proof progress

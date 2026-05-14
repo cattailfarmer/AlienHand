@@ -1121,6 +1121,31 @@ def run_app_thelounge_refinement_workbench_proof(
             access_token=access_token,
         )
         chapter_id = chapter_response["json"].get("chapter", {}).get("chapter_id")
+        chapter_bookmark_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/bookmarks",
+            {
+                "target_type": "chapter",
+                "target_id": chapter_id,
+                "label": "Runtime chapter bookmark",
+                "note": "Chapter bookmark follows the refined product.",
+            },
+            access_token=access_token,
+        )
+        chapter_quote_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/quotes",
+            {
+                "source_type": "chapter",
+                "source_id": chapter_id,
+                "excerpt": "Runtime workbench proof chapter.",
+                "provenance": {"chapter_id": chapter_id, "cut_ids": [cut_id]},
+            },
+            access_token=access_token,
+        )
+        chapter_sticky_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/stickies",
+            {"target_type": "chapter", "target_id": chapter_id},
+            access_token=access_token,
+        )
         edit_response = _http_post_json(
             f"{resolver_base_url}/alienhand/refinement/edits",
             {
@@ -1168,6 +1193,67 @@ def run_app_thelounge_refinement_workbench_proof(
             {"position": 1, "source_block_id": live_block_response["json"].get("block", {}).get("block_id")},
             access_token=access_token,
         )
+        live_block_id = live_block_response["json"].get("block", {}).get("block_id")
+        live_cut_id = live_cut_response["json"].get("cut", {}).get("cut_id")
+        block_bookmark_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/bookmarks",
+            {
+                "target_type": "block",
+                "target_id": live_block_id,
+                "label": "Runtime source bookmark",
+                "note": "Source bookmark remains rooted in raw conversation.",
+            },
+            access_token=access_token,
+        )
+        block_quote_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/quotes",
+            {
+                "source_type": "block",
+                "source_id": live_block_id,
+                "excerpt": "Runtime live IRC source.",
+                "provenance": {"block_id": live_block_id},
+            },
+            access_token=access_token,
+        )
+        block_sticky_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/stickies",
+            {"target_type": "block", "target_id": live_block_id},
+            access_token=access_token,
+        )
+        cut_bookmark_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/bookmarks",
+            {
+                "target_type": "cut",
+                "target_id": live_cut_id,
+                "label": "Runtime cut bookmark",
+                "note": "Cut bookmark follows the selected excerpt.",
+            },
+            access_token=access_token,
+        )
+        cut_quote_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/quotes",
+            {
+                "source_type": "cut",
+                "source_id": live_cut_id,
+                "excerpt": "Runtime live IRC source cut.",
+                "provenance": {"cut_id": live_cut_id, "source_block_id": live_block_id},
+            },
+            access_token=access_token,
+        )
+        cut_sticky_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/stickies",
+            {"target_type": "cut", "target_id": live_cut_id},
+            access_token=access_token,
+        )
+        bookmark_sticky_response = _http_post_json(
+            f"{resolver_base_url}/alienhand/refinement/stickies",
+            {
+                "target_type": "bookmark",
+                "target_id": block_bookmark_response["json"].get("bookmark", {}).get("bookmark_id"),
+            },
+            access_token=access_token,
+        )
+        cut_sticky_id = cut_sticky_response["json"].get("sticky", {}).get("sticky_id")
         remove_response = _http_delete_json(
             f"{resolver_base_url}/alienhand/refinement/cuts/{cut_id}",
             access_token=access_token,
@@ -1204,6 +1290,34 @@ def run_app_thelounge_refinement_workbench_proof(
             f"{resolver_base_url}/alienhand/refinement/toc?toc_id=main",
             access_token=access_token,
         )
+        bookmarks_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/bookmarks?channel={channel_uuid}",
+            access_token=access_token,
+        )
+        cut_bookmarks_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/bookmarks?channel={channel_uuid}&target_type=cut",
+            access_token=access_token,
+        )
+        quotes_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/quotes?channel={channel_uuid}",
+            access_token=access_token,
+        )
+        cut_quotes_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/quotes?channel={channel_uuid}&source_type=cut",
+            access_token=access_token,
+        )
+        stickies_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/stickies?channel={channel_uuid}&clear_state=active",
+            access_token=access_token,
+        )
+        clear_cut_sticky_response = _http_delete_json(
+            f"{resolver_base_url}/alienhand/refinement/stickies/{cut_sticky_id}",
+            access_token=access_token,
+        )
+        active_stickies_after_clear_response = _http_json(
+            f"{resolver_base_url}/alienhand/refinement/stickies?channel={channel_uuid}&clear_state=active",
+            access_token=access_token,
+        )
         render_response = _http_json(
             service.payload_http_server.render_url(published.envelope.message_uuid),
             access_token=access_token,
@@ -1225,6 +1339,12 @@ def run_app_thelounge_refinement_workbench_proof(
     edits = edits_response["json"].get("edits", [])
     diffs = diffs_response["json"].get("diffs", [])
     toc_entries = toc_list_response["json"].get("entries", [])
+    bookmarks = bookmarks_response["json"].get("bookmarks", [])
+    cut_bookmarks = cut_bookmarks_response["json"].get("bookmarks", [])
+    quotes = quotes_response["json"].get("quotes", [])
+    cut_quotes = cut_quotes_response["json"].get("quotes", [])
+    stickies = stickies_response["json"].get("stickies", [])
+    active_stickies_after_clear = active_stickies_after_clear_response["json"].get("stickies", [])
     index_html = index_response["text"]
     bundle_js = bundle_response["text"]
     style_css = style_response["text"]
@@ -1284,6 +1404,10 @@ def run_app_thelounge_refinement_workbench_proof(
     ]
     workbench_bundle_ok = not missing_bundle_markers
     workbench_style_ok = not missing_style_markers
+    bookmark_target_pairs = {(row.get("target_type"), row.get("target_id")) for row in bookmarks}
+    quote_source_pairs = {(row.get("source_type"), row.get("source_id")) for row in quotes}
+    sticky_target_pairs = {(row.get("target_type"), row.get("target_id")) for row in stickies}
+    active_sticky_ids_after_clear = {row.get("sticky_id") for row in active_stickies_after_clear}
     refinement_api_ok = (
         blocks_response["status"] == 200
         and len(blocks) == 1
@@ -1292,6 +1416,9 @@ def run_app_thelounge_refinement_workbench_proof(
         and [hit.get("block_id") for hit in search_hits] == [block_id]
         and cut_response["status"] == 201
         and chapter_response["status"] == 201
+        and chapter_bookmark_response["status"] == 201
+        and chapter_quote_response["status"] == 201
+        and chapter_sticky_response["status"] == 201
         and edit_response["status"] == 201
         and edit_response["json"].get("edit", {}).get("diff_id") == diff_id
         and toc_response["status"] == 201
@@ -1299,6 +1426,13 @@ def run_app_thelounge_refinement_workbench_proof(
         and live_cut_response["status"] == 201
         and live_cut_response["json"].get("cut", {}).get("source_block_id")
         == live_block_response["json"].get("block", {}).get("block_id")
+        and block_bookmark_response["status"] == 201
+        and block_quote_response["status"] == 201
+        and block_sticky_response["status"] == 201
+        and cut_bookmark_response["status"] == 201
+        and cut_quote_response["status"] == 201
+        and cut_sticky_response["status"] == 201
+        and bookmark_sticky_response["status"] == 201
         and remove_response["status"] == 200
         and remove_response["json"].get("cut", {}).get("status") == "removed"
         and len(live_blocks) == 2
@@ -1313,6 +1447,33 @@ def run_app_thelounge_refinement_workbench_proof(
         and diff_response["json"].get("diff", {}).get("diff_id") == diff_id
         and len(toc_entries) == 1
         and toc_entries[0].get("target_id") == chapter_id
+        and bookmarks_response["status"] == 200
+        and cut_bookmarks_response["status"] == 200
+        and bookmark_target_pairs == {
+            ("block", live_block_id),
+            ("chapter", chapter_id),
+            ("cut", live_cut_id),
+        }
+        and [row.get("target_id") for row in cut_bookmarks] == [live_cut_id]
+        and quotes_response["status"] == 200
+        and cut_quotes_response["status"] == 200
+        and quote_source_pairs == {
+            ("block", live_block_id),
+            ("chapter", chapter_id),
+            ("cut", live_cut_id),
+        }
+        and [row.get("source_id") for row in cut_quotes] == [live_cut_id]
+        and stickies_response["status"] == 200
+        and sticky_target_pairs == {
+            ("block", live_block_id),
+            ("bookmark", block_bookmark_response["json"].get("bookmark", {}).get("bookmark_id")),
+            ("chapter", chapter_id),
+            ("cut", live_cut_id),
+        }
+        and clear_cut_sticky_response["status"] == 200
+        and clear_cut_sticky_response["json"].get("sticky", {}).get("clear_state") == "dismissed"
+        and cut_sticky_id not in active_sticky_ids_after_clear
+        and len(active_stickies_after_clear) == 3
     )
     render_fetch_ok = (
         render_response["status"] == 200
@@ -1355,6 +1516,16 @@ def run_app_thelounge_refinement_workbench_proof(
         "created_chapter_id": chapter_id,
         "created_edit_id": edit_id,
         "created_diff_id": diff_id,
+        "created_block_bookmark_id": block_bookmark_response["json"].get("bookmark", {}).get("bookmark_id"),
+        "created_cut_bookmark_id": cut_bookmark_response["json"].get("bookmark", {}).get("bookmark_id"),
+        "created_chapter_bookmark_id": chapter_bookmark_response["json"].get("bookmark", {}).get("bookmark_id"),
+        "created_block_quote_id": block_quote_response["json"].get("quote", {}).get("quote_id"),
+        "created_cut_quote_id": cut_quote_response["json"].get("quote", {}).get("quote_id"),
+        "created_chapter_quote_id": chapter_quote_response["json"].get("quote", {}).get("quote_id"),
+        "created_block_sticky_id": block_sticky_response["json"].get("sticky", {}).get("sticky_id"),
+        "created_cut_sticky_id": cut_sticky_id,
+        "created_chapter_sticky_id": chapter_sticky_response["json"].get("sticky", {}).get("sticky_id"),
+        "created_bookmark_sticky_id": bookmark_sticky_response["json"].get("sticky", {}).get("sticky_id"),
         "removed_cut_status": remove_response["json"].get("cut", {}).get("status"),
         "listed_cuts": len(cuts),
         "active_cuts_after_remove": len(active_cuts),
@@ -1362,6 +1533,13 @@ def run_app_thelounge_refinement_workbench_proof(
         "listed_edits": len(edits),
         "listed_diffs": len(diffs),
         "listed_toc_entries": len(toc_entries),
+        "listed_bookmarks": len(bookmarks),
+        "listed_cut_bookmarks": len(cut_bookmarks),
+        "listed_quotes": len(quotes),
+        "listed_cut_quotes": len(cut_quotes),
+        "listed_stickies_before_clear": len(stickies),
+        "active_stickies_after_cut_clear": len(active_stickies_after_clear),
+        "cleared_cut_sticky_state": clear_cut_sticky_response["json"].get("sticky", {}).get("clear_state"),
         "workbench_bundle_ok": workbench_bundle_ok,
         "missing_workbench_bundle_markers": missing_bundle_markers,
         "workbench_style_ok": workbench_style_ok,
